@@ -1,2 +1,2 @@
 # BodyForge
-A Gym app used for creating workouts, getting new exercises and tracking progress
+A Gym app used for tracking workouts, progress, sleep and nutrition 
