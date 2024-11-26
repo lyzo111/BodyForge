@@ -53,8 +53,12 @@ kotlin {
         val desktopMain by getting
 
         androidMain.dependencies {
-            implementation(compose.preview)
+            implementation(compose.preview) // Jetpack Compose
             implementation(libs.androidx.activity.compose)
+            implementation("androidx.compose.ui:ui:1.5.1")
+            implementation("androidx.compose.material:material:1.5.1")
+            implementation("androidx.navigation:navigation-compose:2.6.0") // Navigation
+            implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2") // ViewModel
         }
         commonMain.dependencies {
             implementation(compose.runtime)

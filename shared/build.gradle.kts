@@ -38,7 +38,18 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            // put your Multiplatform dependencies here
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.0")
+            implementation("io.ktor:ktor-client-core:2.3.1")
+            implementation("com.squareup.sqldelight:runtime:1.5.5")
+            implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")
+        }
+        androidMain.dependencies {
+            implementation("io.ktor:ktor-client-okhttp:2.3.1")
+            implementation("com.squareup.sqldelight:android-driver:1.5.5")
+        }
+        iosMain.dependencies {
+            implementation("io.ktor:ktor-client-darwin:2.3.1")
+            implementation("com.squareup.sqldelight:native-driver:1.5.5")
         }
     }
 }
