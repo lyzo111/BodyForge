@@ -5,16 +5,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
-import com.bodyforge.di.AppContainer
-import com.bodyforge.data.local.DatabaseDriverFactory
+import com.bodyforge.data.DatabaseFactory
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Initialize DI - Simple approach
-        val databaseDriverFactory = DatabaseDriverFactory(this)
-        AppContainer.init(databaseDriverFactory)
+        // Initialize Database
+        DatabaseFactory.init(this)
 
         setContent {
             App()

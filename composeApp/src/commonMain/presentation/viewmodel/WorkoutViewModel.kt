@@ -21,7 +21,8 @@ data class WorkoutUiState(
 
 class WorkoutViewModel : ViewModel() {
 
-    private val repository = SimpleWorkoutRepository(DatabaseFactory.create())
+    private val workoutRepo = WorkoutRepositoryImpl(DatabaseFactory.create())
+    private val exerciseRepo = ExerciseRepositoryImpl(DatabaseFactory.create())
 
     private val _uiState = MutableStateFlow(WorkoutUiState())
     val uiState: StateFlow<WorkoutUiState> = _uiState.asStateFlow()
