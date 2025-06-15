@@ -1,3 +1,4 @@
+// shared/build.gradle.kts - KOMPLETT ERSETZEN!
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
@@ -26,9 +27,9 @@ kotlin {
         commonMain.dependencies {
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
             implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.0")
+            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
             implementation("app.cash.sqldelight:runtime:2.0.0")
             implementation("app.cash.sqldelight:coroutines-extensions:2.0.0")
-            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
         }
 
         androidMain.dependencies {
