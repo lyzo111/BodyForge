@@ -1,0 +1,131 @@
+-- Exercises Table
+CREATE TABLE Exercise (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    muscle_groups TEXT NOT NULL, -- JSON array as string
+    instructions TEXT NOT NULL DEFAULT '',
+    equipment_needed TEXT NOT NULL DEFAULT '',
+    is_custom INTEGER NOT NULL DEFAULT 0, -- Boolean as Int (0/1)
+    default_rest_time_seconds INTEGER NOT NULL DEFAULT 90
+);
+
+-- Workouts Table
+CREATE TABLE Workout (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    started_at INTEGER NOT NULL, -- Unix timestamp in seconds
+    finished_at INTEGER, -- NULL if active, timestamp if finished
+    notes TEXT NOT NULL DEFAULT ''
+);
+
+-- Workout Sets Table
+CREATE TABLE WorkoutSet (
+    id TEXT NOT NULL PRIMARY KEY,
+    workout_id TEXT NOT NULL,
+    exercise_id TEXT NOT NULL,
+    order_in_workout INTEGER NOT NULL,
+    set_number INTEGER NOT NULL, -- 1, 2, 3...
+    reps INTEGER NOT NULL DEFAULT 0,
+    weight_kg REAL NOT NULL DEFAULT 0.0,
+    rest_time_seconds INTEGER NOT NULL DEFAULT 90,
+    completed INTEGER NOT NULL DEFAULT 0, -- Boolean as Int
+    completed_at INTEGER, -- Unix timestamp when completed
+    notes TEXT NOT NULL DEFAULT '',
+    FOREIGN KEY (workout_id) REFERENCES Workout(id) ON DELETE CASCADE,
+    FOREIGN KEY (exercise_id) REFERENCES Exercise(id) ON DELETE CASCADE
+);
+
+-- Pre-populate with standard exercises
+INSERT INTO Exercise (id, name, muscle_groups, instructions, equipment_needed, default_rest_time_seconds) VALUES
+('bench_press', 'Bench Press', '["Chest", "Triceps"]', 'Lie on bench, press barbell from chest to full arm extension', 'Barbell', 120),
+('squat', 'Squat', '["Quadriceps", "Glutes"]', 'Stand with feet shoulder-width apart, lower until thighs parallel to ground', 'Barbell', 180),
+('deadlift', 'Deadlift', '["Back", "Hamstrings"]', 'Lift barbell from floor to hip level with straight back', 'Barbell', 180),
+('pull_ups', 'Pull-ups', '["Back", "Biceps"]', 'Hang from bar, pull body up until chin over bar', 'Pull-up Bar', 120),
+('overhead_press', 'Overhead Press', '["Shoulders", "Triceps"]', 'Press barbell from shoulder level to overhead', 'Barbell', 120),
+('barbell_row', 'Barbell Row', '["Back", "Biceps"]', 'Bend over, pull barbell to lower chest', 'Barbell', 120),
+('dips', 'Dips', '["Chest", "Triceps"]', 'Lower body between parallel bars, push back up', 'Dip Bar', 90),
+('chin_ups', 'Chin-ups', '["Back", "Biceps"]', 'Hang from bar with palms facing you, pull up', 'Pull-up Bar', 120);
+
+-- QUERIES
+
+-- Get all exercises
+selectAllExercises:
+SELECT * FROM Exercise ORDER BY name;
+
+-- Get exercise by ID
+selectExerciseById:
+SELECT * FROM Exercise WHERE id = ?;
+
+-- Get exercises by muscle group (contains search)
+selectExercisesByMuscleGroup:
+SELECT * FROM Exercise WHERE muscle_groups LIKE '%' || ? || '%';
+
+-- Search exercises by name
+searchExercises:
+SELECT * FROM Exercise WHERE name LIKE '%' || ? || '%';
+
+-- Get custom exercises only
+selectCustomExercises:
+SELECT * FROM Exercise WHERE is_custom = 1;
+
+-- Insert exercise
+insertExercise:
+INSERT INTO Exercise (id, name, muscle_groups, instructions, equipment_needed, is_custom, default_rest_time_seconds)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+-- Delete custom exercise
+deleteCustomExercise:
+DELETE FROM Exercise WHERE id = ? AND is_custom = 1;
+
+-- Insert workout
+insertWorkout:
+INSERT INTO Workout (id, name, started_at, finished_at, notes)
+VALUES (?, ?, ?, ?, ?);
+
+-- Update workout
+updateWorkout:
+UPDATE Workout SET name = ?, started_at = ?, finished_at = ?, notes = ? WHERE id = ?;
+
+-- Get workout by ID
+selectWorkoutById:
+SELECT * FROM Workout WHERE id = ?;
+
+-- Get all workouts
+selectAllWorkouts:
+SELECT * FROM Workout ORDER BY started_at DESC;
+
+-- Get active workout (not finished)
+selectActiveWorkout:
+SELECT * FROM Workout WHERE finished_at IS NULL LIMIT 1;
+
+-- Get workouts by date range
+selectWorkoutsByDateRange:
+SELECT * FROM Workout
+WHERE started_at >= ? AND started_at <= ?
+ORDER BY started_at DESC;
+
+-- Delete workout
+deleteWorkout:
+DELETE FROM Workout WHERE id = ?;
+
+-- Insert workout set
+insertWorkoutSet:
+INSERT INTO WorkoutSet (id, workout_id, exercise_id, order_in_workout, set_number, reps, weight_kg, rest_time_seconds, completed, completed_at, notes)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- Update workout set
+updateWorkoutSet:
+UPDATE WorkoutSet SET reps = ?, weight_kg = ?, rest_time_seconds = ?, completed = ?, completed_at = ?, notes = ?
+WHERE id = ?;
+
+-- Get sets for workout
+selectSetsForWorkout:
+SELECT * FROM WorkoutSet WHERE workout_id = ? ORDER BY order_in_workout, set_number;
+
+-- Get sets for specific exercise in workout
+selectSetsForExerciseInWorkout:
+SELECT * FROM WorkoutSet WHERE workout_id = ? AND exercise_id = ? ORDER BY set_number;
+
+-- Delete sets for workout
+deleteSetsForWorkout:
+DELETE FROM WorkoutSet WHERE workout_id = ?;
