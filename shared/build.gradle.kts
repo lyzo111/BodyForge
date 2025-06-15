@@ -1,28 +1,14 @@
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl
-import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidLibrary)
+    id("app.cash.sqldelight") version "2.0.0"
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.0.0"
 }
 
 kotlin {
-    @OptIn(ExperimentalWasmDsl::class)
-    wasmJs {
-        browser {
-            commonWebpackConfig {
-                devServer = (devServer ?: KotlinWebpackConfig.DevServer()).apply {
-                    static = (static ?: mutableListOf()).apply {
-                        // Serve sources to debug inside browser
-                        add(project.projectDir.path)
-                    }
-                }
-            }
-        }
-    }
-
     androidTarget {
         @OptIn(ExperimentalKotlinGradlePluginApi::class)
         compilerOptions {
@@ -38,24 +24,29 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.0")
-            implementation("io.ktor:ktor-client-core:2.3.1")
-            implementation("com.squareup.sqldelight:runtime:1.5.5")
-            implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
+            implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.0")
+            implementation("app.cash.sqldelight:runtime:2.0.0")
+            implementation("app.cash.sqldelight:coroutines-extensions:2.0.0")
+            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
         }
+
         androidMain.dependencies {
-            implementation("io.ktor:ktor-client-okhttp:2.3.1")
-            implementation("com.squareup.sqldelight:android-driver:1.5.5")
+            implementation("app.cash.sqldelight:android-driver:2.0.0")
         }
+
         iosMain.dependencies {
-            implementation("io.ktor:ktor-client-darwin:2.3.1")
-            implementation("com.squareup.sqldelight:native-driver:1.5.5")
+            implementation("app.cash.sqldelight:native-driver:2.0.0")
+        }
+
+        jvmMain.dependencies {
+            implementation("app.cash.sqldelight:sqlite-driver:2.0.0")
         }
     }
 }
 
 android {
-    namespace = "com.example.shared"
+    namespace = "com.bodyforge.shared"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -63,5 +54,14 @@ android {
     }
     defaultConfig {
         minSdk = libs.versions.android.minSdk.get().toInt()
+    }
+}
+
+sqldelight {
+    databases {
+        create("BodyForgeDatabase") {
+            packageName.set("com.bodyforge.database")
+            srcDirs("src/commonMain/data/local")
+        }
     }
 }
