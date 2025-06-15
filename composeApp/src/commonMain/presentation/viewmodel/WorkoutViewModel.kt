@@ -2,10 +2,10 @@ package com.bodyforge.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.bodyforge.di.AppContainer
+import com.bodyforge.data.DatabaseFactory
+import com.bodyforge.data.repository.SimpleWorkoutRepository
 import com.bodyforge.domain.models.Exercise
 import com.bodyforge.domain.models.Workout
-import com.bodyforge.domain.models.ExerciseInWorkout
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,11 +21,7 @@ data class WorkoutUiState(
 
 class WorkoutViewModel : ViewModel() {
 
-    private val createWorkout = AppContainer.appModule.createWorkout
-    private val updateWorkoutSet = AppContainer.appModule.updateWorkoutSet
-    private val finishWorkout = AppContainer.appModule.finishWorkout
-    private val exerciseRepository = AppContainer.appModule.exerciseRepository
-    private val workoutRepository = AppContainer.appModule.workoutRepository
+    private val repository = SimpleWorkoutRepository(DatabaseFactory.create())
 
     private val _uiState = MutableStateFlow(WorkoutUiState())
     val uiState: StateFlow<WorkoutUiState> = _uiState.asStateFlow()
@@ -39,7 +35,7 @@ class WorkoutViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
             try {
-                val exercises = exerciseRepository.getAllExercises()
+                val exercises = repository.getAllExercises()
                 _uiState.value = _uiState.value.copy(
                     availableExercises = exercises,
                     isLoading = false
@@ -56,7 +52,7 @@ class WorkoutViewModel : ViewModel() {
     private fun loadActiveWorkout() {
         viewModelScope.launch {
             try {
-                val activeWorkout = workoutRepository.getActiveWorkout()
+                val activeWorkout = repository.getActiveWorkout()
                 _uiState.value = _uiState.value.copy(currentWorkout = activeWorkout)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
@@ -86,21 +82,22 @@ class WorkoutViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
             try {
-                val result = createWorkout(workoutName, _uiState.value.selectedExercises)
-                result.fold(
-                    onSuccess = { workout ->
-                        _uiState.value = _uiState.value.copy(
-                            currentWorkout = workout,
-                            selectedExercises = emptyList(),
-                            isLoading = false
-                        )
-                    },
-                    onFailure = { error ->
-                        _uiState.value = _uiState.value.copy(
-                            error = error.message ?: "Failed to start workout",
-                            isLoading = false
-                        )
-                    }
+                val selectedExercises = _uiState.value.selectedExercises
+                if (selectedExercises.isEmpty()) {
+                    _uiState.value = _uiState.value.copy(
+                        error = "Please select at least one exercise",
+                        isLoading = false
+                    )
+                    return@launch
+                }
+
+                val workout = Workout.create(workoutName, selectedExercises)
+                val savedWorkout = repository.saveWorkout(workout)
+
+                _uiState.value = _uiState.value.copy(
+                    currentWorkout = savedWorkout,
+                    selectedExercises = emptyList(),
+                    isLoading = false
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
@@ -116,25 +113,28 @@ class WorkoutViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
-                val result = updateWorkoutSet(
-                    workoutId = currentWorkout.id,
-                    exerciseId = exerciseId,
-                    setId = setId,
-                    reps = reps,
-                    weight = weight,
-                    completed = completed
-                )
+                val exerciseInWorkout = currentWorkout.exercises.find { it.exercise.id == exerciseId }
+                    ?: return@launch
 
-                result.fold(
-                    onSuccess = { updatedWorkout ->
-                        _uiState.value = _uiState.value.copy(currentWorkout = updatedWorkout)
-                    },
-                    onFailure = { error ->
-                        _uiState.value = _uiState.value.copy(
-                            error = error.message ?: "Failed to update set"
-                        )
-                    }
-                )
+                val set = exerciseInWorkout.sets.find { it.id == setId }
+                    ?: return@launch
+
+                val updatedSet = set.copy(
+                    reps = reps ?: set.reps,
+                    weightKg = weight ?: set.weightKg,
+                    completed = completed ?: set.completed
+                ).let {
+                    if (completed == true && !set.completed) it.complete() else it
+                }
+
+                val updatedExercise = exerciseInWorkout.updateSet(setId, updatedSet)
+                val updatedWorkout = currentWorkout.updateExercise(exerciseId, updatedExercise)
+
+                // Save to database
+                repository.updateWorkout(updatedWorkout)
+
+                _uiState.value = _uiState.value.copy(currentWorkout = updatedWorkout)
+
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     error = "Failed to update set: ${e.message}"
@@ -149,20 +149,12 @@ class WorkoutViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
             try {
-                val result = finishWorkout(currentWorkout.id)
-                result.fold(
-                    onSuccess = { finishedWorkout ->
-                        _uiState.value = _uiState.value.copy(
-                            currentWorkout = null,
-                            isLoading = false
-                        )
-                    },
-                    onFailure = { error ->
-                        _uiState.value = _uiState.value.copy(
-                            error = error.message ?: "Failed to finish workout",
-                            isLoading = false
-                        )
-                    }
+                val finishedWorkout = currentWorkout.finish()
+                repository.updateWorkout(finishedWorkout)
+
+                _uiState.value = _uiState.value.copy(
+                    currentWorkout = null,
+                    isLoading = false
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
