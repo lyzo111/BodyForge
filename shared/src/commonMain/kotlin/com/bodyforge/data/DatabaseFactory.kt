@@ -1,4 +1,4 @@
-package data
+package com.bodyforge.data
 
 import com.bodyforge.database.BodyForgeDatabase
 
