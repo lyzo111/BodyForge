@@ -1,8 +1,5 @@
 package com.bodyforge.domain.repository
 
-import com.bodyforge.domain.models.Workout
-import kotlinx.datetime.LocalDate
-
 interface WorkoutRepository {
     suspend fun saveWorkout(workout: Workout): Workout
     suspend fun getWorkout(id: String): Workout?
