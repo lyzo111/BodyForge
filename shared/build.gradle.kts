@@ -16,9 +16,10 @@ kotlin {
         }
     }
 
-    iosX64()
-    iosArm64()
-    iosSimulatorArm64()
+    // iOS Targets entfernt - nur Android für jetzt
+    // iosX64()
+    // iosArm64()
+    // iosSimulatorArm64()
 
     sourceSets {
         commonMain.dependencies {
@@ -33,9 +34,10 @@ kotlin {
             implementation("app.cash.sqldelight:android-driver:2.0.0")
         }
 
-        iosMain.dependencies {
-            implementation("app.cash.sqldelight:native-driver:2.0.0")
-        }
+        // iOS Dependencies entfernt
+        // iosMain.dependencies {
+        //     implementation("app.cash.sqldelight:native-driver:2.0.0")
+        // }
     }
 }
 
