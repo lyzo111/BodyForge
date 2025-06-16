@@ -36,7 +36,7 @@ class WorkoutViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
             try {
-                val exercises = repository.getAllExercises()
+                val exercises = exerciseRepo.getAllExercises()
                 _uiState.value = _uiState.value.copy(
                     availableExercises = exercises,
                     isLoading = false
@@ -53,7 +53,7 @@ class WorkoutViewModel : ViewModel() {
     private fun loadActiveWorkout() {
         viewModelScope.launch {
             try {
-                val activeWorkout = repository.getActiveWorkout()
+                val activeWorkout = workoutRepo.getActiveWorkout()
                 _uiState.value = _uiState.value.copy(currentWorkout = activeWorkout)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
@@ -132,7 +132,7 @@ class WorkoutViewModel : ViewModel() {
                 val updatedWorkout = currentWorkout.updateExercise(exerciseId, updatedExercise)
 
                 // Save to database
-                repository.updateWorkout(updatedWorkout)
+                workoutRepo.updateWorkout(updatedWorkout)
 
                 _uiState.value = _uiState.value.copy(currentWorkout = updatedWorkout)
 
@@ -151,7 +151,7 @@ class WorkoutViewModel : ViewModel() {
             _uiState.value = _uiState.value.copy(isLoading = true)
             try {
                 val finishedWorkout = currentWorkout.finish()
-                repository.updateWorkout(finishedWorkout)
+                workoutRepo.updateWorkout(finishedWorkout)
 
                 _uiState.value = _uiState.value.copy(
                     currentWorkout = null,
