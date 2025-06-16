@@ -7,7 +7,6 @@ import com.bodyforge.domain.models.ExerciseInWorkout
 import com.bodyforge.domain.models.WorkoutSet
 import com.bodyforge.data.DatabaseFactory
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
@@ -20,7 +19,7 @@ import kotlinx.serialization.json.Json
 class WorkoutRepositoryImpl : WorkoutRepository {
 
     private val database = DatabaseFactory.create()
-    private val queries = database.workoutDatabaseQueries
+    private val queries = database.bodyForgeDatabaseQueries
 
     override suspend fun saveWorkout(workout: Workout): Workout = withContext(Dispatchers.IO) {
         // Save workout

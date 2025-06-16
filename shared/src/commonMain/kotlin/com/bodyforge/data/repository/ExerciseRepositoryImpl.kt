@@ -12,7 +12,7 @@ import kotlinx.serialization.encodeToString
 class ExerciseRepositoryImpl : ExerciseRepository {
 
     private val database = DatabaseFactory.create()
-    private val queries = database.workoutDatabaseQueries
+    private val queries = database.bodyForgeDatabaseQueries
 
     override suspend fun getAllExercises(): List<Exercise> = withContext(Dispatchers.IO) {
         queries.selectAllExercises().executeAsList().map { entity ->
