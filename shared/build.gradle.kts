@@ -55,7 +55,7 @@ sqldelight {
     databases {
         create("BodyForgeDatabase") {
             packageName.set("com.bodyforge.database")
-            srcDirs("src/commonMain/data/local")
+            srcDirs("src/commonMain/sqldelight")
         }
     }
 }

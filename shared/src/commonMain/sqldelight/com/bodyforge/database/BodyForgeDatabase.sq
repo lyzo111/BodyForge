@@ -1,3 +1,5 @@
+-- BodyForge Complete Database Schema
+
 -- Exercises Table
 CREATE TABLE Exercise (
     id TEXT NOT NULL PRIMARY KEY,
@@ -35,6 +37,31 @@ CREATE TABLE WorkoutSet (
     FOREIGN KEY (exercise_id) REFERENCES Exercise(id) ON DELETE CASCADE
 );
 
+-- Nutrition Log Table
+CREATE TABLE NutritionLog (
+    id TEXT NOT NULL PRIMARY KEY,
+    date INTEGER NOT NULL, -- Unix timestamp (date only)
+    food_name TEXT NOT NULL,
+    calories_per_100g REAL NOT NULL,
+    protein_per_100g REAL NOT NULL DEFAULT 0.0,
+    carbs_per_100g REAL NOT NULL DEFAULT 0.0,
+    fat_per_100g REAL NOT NULL DEFAULT 0.0,
+    amount_grams REAL NOT NULL,
+    meal_type TEXT NOT NULL DEFAULT 'other', -- breakfast, lunch, dinner, snack, other
+    created_at INTEGER NOT NULL -- Unix timestamp when logged
+);
+
+-- Sleep Log Table
+CREATE TABLE SleepLog (
+    id TEXT NOT NULL PRIMARY KEY,
+    date INTEGER NOT NULL, -- Unix timestamp (date only)
+    bedtime INTEGER NOT NULL, -- Unix timestamp
+    wake_time INTEGER NOT NULL, -- Unix timestamp
+    sleep_quality INTEGER NOT NULL DEFAULT 5, -- 1-10 scale
+    notes TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL -- Unix timestamp when logged
+);
+
 -- Pre-populate with standard exercises
 INSERT INTO Exercise (id, name, muscle_groups, instructions, equipment_needed, default_rest_time_seconds) VALUES
 ('bench_press', 'Bench Press', '["Chest", "Triceps"]', 'Lie on bench, press barbell from chest to full arm extension', 'Barbell', 120),
@@ -46,7 +73,7 @@ INSERT INTO Exercise (id, name, muscle_groups, instructions, equipment_needed, d
 ('dips', 'Dips', '["Chest", "Triceps"]', 'Lower body between parallel bars, push back up', 'Dip Bar', 90),
 ('chin_ups', 'Chin-ups', '["Back", "Biceps"]', 'Hang from bar with palms facing you, pull up', 'Pull-up Bar', 120);
 
--- QUERIES
+-- WORKOUT QUERIES --
 
 -- Get all exercises
 selectAllExercises:
@@ -129,3 +156,58 @@ SELECT * FROM WorkoutSet WHERE workout_id = ? AND exercise_id = ? ORDER BY set_n
 -- Delete sets for workout
 deleteSetsForWorkout:
 DELETE FROM WorkoutSet WHERE workout_id = ?;
+
+-- NUTRITION QUERIES --
+
+-- Insert nutrition log entry
+insertNutritionLog:
+INSERT INTO NutritionLog (id, date, food_name, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g, amount_grams, meal_type, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- Get nutrition logs by date
+selectNutritionLogsByDate:
+SELECT * FROM NutritionLog WHERE date = ? ORDER BY created_at;
+
+-- Get nutrition logs by date range
+selectNutritionLogsByDateRange:
+SELECT * FROM NutritionLog WHERE date >= ? AND date <= ? ORDER BY date DESC, created_at;
+
+-- Delete nutrition log
+deleteNutritionLog:
+DELETE FROM NutritionLog WHERE id = ?;
+
+-- Get daily nutrition summary (FIXED: CamelCase aliases)
+selectDailyNutritionSummary:
+SELECT
+    date,
+    SUM(calories_per_100g * amount_grams / 100.0) AS totalCalories,
+    SUM(protein_per_100g * amount_grams / 100.0) AS totalProtein,
+    SUM(carbs_per_100g * amount_grams / 100.0) AS totalCarbs,
+    SUM(fat_per_100g * amount_grams / 100.0) AS totalFat
+FROM NutritionLog
+WHERE date >= ? AND date <= ?
+GROUP BY date
+ORDER BY date DESC;
+
+-- SLEEP QUERIES --
+
+-- Insert sleep log entry
+insertSleepLog:
+INSERT INTO SleepLog (id, date, bedtime, wake_time, sleep_quality, notes, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+-- Get sleep logs by date range
+selectSleepLogsByDateRange:
+SELECT * FROM SleepLog WHERE date >= ? AND date <= ? ORDER BY date DESC;
+
+-- Get sleep log by date
+selectSleepLogByDate:
+SELECT * FROM SleepLog WHERE date = ?;
+
+-- Update sleep log
+updateSleepLog:
+UPDATE SleepLog SET bedtime = ?, wake_time = ?, sleep_quality = ?, notes = ? WHERE id = ?;
+
+-- Delete sleep log
+deleteSleepLog:
+DELETE FROM SleepLog WHERE id = ?;
