@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bodyforge.presentation.viewmodel.WorkoutViewModel
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -66,6 +68,31 @@ fun App() {
                     onTabSelected = { viewModel.setActiveTab(it) },
                     hasActiveWorkout = uiState.currentWorkout != null
                 )
+
+                // Loading indicator
+                if (uiState.isLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                color = AccentOrange,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "Loading...",
+                                color = TextSecondary,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                }
 
                 // Error handling
                 uiState.error?.let { error ->
@@ -462,7 +489,7 @@ private fun ActiveWorkoutContent(
             }
         }
     } else {
-        // Active workout screen - this would be implemented with the actual workout UI
+        // Active workout screen
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -515,7 +542,7 @@ private fun WorkoutHeaderCard(
                         color = Color.White
                     )
                     Text(
-                        text = "Started: ${SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(workout.startedAt.toEpochMilliseconds()))}",
+                        text = "Started: ${workout.startedAt.toLocalDateTime(TimeZone.currentSystemDefault()).time}",
                         fontSize = 12.sp,
                         color = Color.White.copy(alpha = 0.8f)
                     )
