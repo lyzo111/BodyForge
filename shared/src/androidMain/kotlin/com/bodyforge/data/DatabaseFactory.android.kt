@@ -1,4 +1,4 @@
-package data
+package com.bodyforge.data
 
 import android.content.Context
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver

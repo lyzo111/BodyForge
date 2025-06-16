@@ -1,8 +1,8 @@
-package data.repository
+package com.bodyforge.data.repository
 
-import domain.repository.ExerciseRepository
-import domain.models.Exercise
-import data.DatabaseFactory
+import com.bodyforge.domain.repository.ExerciseRepository
+import com.bodyforge.domain.models.Exercise
+import com.bodyforge.data.DatabaseFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext

@@ -1,6 +1,6 @@
-package domain.repository
+package com.bodyforge.domain.repository
 
-import domain.models.Exercise
+import com.bodyforge.domain.models.Exercise
 
 interface ExerciseRepository {
     suspend fun getAllExercises(): List<Exercise>

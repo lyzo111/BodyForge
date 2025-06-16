@@ -1,6 +1,6 @@
-package domain.repository
+package com.bodyforge.domain.repository
 
-import domain.models.Workout
+import com.bodyforge.domain.models.Workout
 import kotlinx.datetime.LocalDate
 
 interface WorkoutRepository {
