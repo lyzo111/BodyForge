@@ -17,10 +17,12 @@ kotlin {
         }
     }
 
-    jvm("desktop")
+    // Desktop entfernt für jetzt
+    // jvm("desktop")
 
     sourceSets {
-        val desktopMain by getting
+        // Desktop entfernt
+        // val desktopMain by getting
 
         androidMain.dependencies {
             implementation(compose.preview)
@@ -39,11 +41,13 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
             implementation(projects.shared)
             implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
+            implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.0")
         }
 
-        desktopMain.dependencies {
-            implementation(compose.desktop.currentOs)
-        }
+        // Desktop entfernt
+        // desktopMain.dependencies {
+        //     implementation(compose.desktop.currentOs)
+        // }
     }
 }
 
@@ -89,14 +93,14 @@ android {
     }
 }
 
-compose.desktop {
-    application {
-        mainClass = "MainKt"
-
-        nativeDistributions {
-            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "com.example.bodyforge"
-            packageVersion = "1.0.0"
-        }
-    }
-}
+// Desktop Build Config entfernt
+// compose.desktop {
+//     application {
+//         mainClass = "MainKt"
+//         nativeDistributions {
+//             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+//             packageName = "com.example.bodyforge"
+//             packageVersion = "1.0.0"
+//         }
+//     }
+// }
