@@ -1,4 +1,3 @@
-// shared/build.gradle.kts - KOMPLETT ERSETZEN!
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
@@ -13,15 +12,13 @@ kotlin {
     androidTarget {
         @OptIn(ExperimentalKotlinGradlePluginApi::class)
         compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_11)
+            jvmTarget.set(JvmTarget.JVM_21)
         }
     }
 
     iosX64()
     iosArm64()
     iosSimulatorArm64()
-
-    jvm()
 
     sourceSets {
         commonMain.dependencies {
@@ -39,10 +36,6 @@ kotlin {
         iosMain.dependencies {
             implementation("app.cash.sqldelight:native-driver:2.0.0")
         }
-
-        jvmMain.dependencies {
-            implementation("app.cash.sqldelight:sqlite-driver:2.0.0")
-        }
     }
 }
 
@@ -50,8 +43,8 @@ android {
     namespace = "com.bodyforge.shared"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
     defaultConfig {
         minSdk = libs.versions.android.minSdk.get().toInt()
