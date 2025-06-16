@@ -1,5 +1,8 @@
 package com.bodyforge.domain.models
 
+import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
+
 data class WorkoutSet(
     val id: String,
     val reps: Int,
