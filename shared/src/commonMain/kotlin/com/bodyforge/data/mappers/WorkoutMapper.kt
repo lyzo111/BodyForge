@@ -12,7 +12,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 
-object `WorkoutMapper.kt` {
+object WorkoutMapper {
 
     // Exercise Mappings
     fun ExerciseEntity.toDomain(): Exercise {
