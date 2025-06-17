@@ -455,6 +455,154 @@ private fun ExerciseCard(
     }
 }
 
+// Add this new Composable function in App.kt, right after WorkoutHeaderCard
+
+@Composable
+private fun BodyweightInputCard(
+    bodyweight: Double,
+    onBodyweightChange: (Double) -> Unit
+) {
+    Card(
+        backgroundColor = Color(0xFF0F766E), // Teal color to differentiate
+        elevation = 4.dp,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "💪",
+                    fontSize = 20.sp
+                )
+                Text(
+                    text = "Your Bodyweight:",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White
+                )
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Decrease button
+                IconButton(
+                    onClick = {
+                        if (bodyweight > 30.0) {
+                            val newWeight = (bodyweight - 0.5).coerceAtLeast(30.0)
+                            onBodyweightChange(String.format("%.3f", newWeight).toDouble())
+                        }
+                    }
+                ) {
+                    Text(
+                        text = "−",
+                        fontSize = 20.sp,
+                        color = if (bodyweight > 30.0) Color.White else Color.White.copy(alpha = 0.5f)
+                    )
+                }
+
+                // Bodyweight display/input - NOW WITH DECIMAL SUPPORT
+                var textValue by remember { mutableStateOf(formatWeight(bodyweight)) }
+                var isEditing by remember { mutableStateOf(false) }
+
+                if (isEditing) {
+                    TextField(
+                        value = textValue,
+                        onValueChange = { newText ->
+                            // Allow digits, one decimal point, max 3 decimal places
+                            val filtered = newText.filter { it.isDigit() || it == '.' }
+                            if (filtered.count { it == '.' } <= 1) {
+                                val parts = filtered.split('.')
+                                textValue = if (parts.size == 2 && parts[1].length > 3) {
+                                    "${parts[0]}.${parts[1].take(3)}"
+                                } else {
+                                    filtered.take(7) // Max 999.999
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .width(90.dp)
+                            .height(40.dp),
+                        textStyle = TextStyle(
+                            fontSize = 16.sp,
+                            color = Color.White,
+                            textAlign = TextAlign.Center,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        singleLine = true,
+                        colors = TextFieldDefaults.textFieldColors(
+                            backgroundColor = Color.Transparent,
+                            focusedIndicatorColor = Color.White,
+                            unfocusedIndicatorColor = Color.White.copy(alpha = 0.7f),
+                            cursorColor = Color.White
+                        ),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Decimal,
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                val newValue = textValue.toDoubleOrNull()?.coerceIn(30.0, 999.0) ?: bodyweight
+                                val formatted = String.format("%.3f", newValue).toDouble()
+                                onBodyweightChange(formatted)
+                                isEditing = false
+                            }
+                        )
+                    )
+                } else {
+                    Text(
+                        text = "${formatWeight(bodyweight)} kg",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier
+                            .clickable {
+                                isEditing = true
+                                textValue = formatWeight(bodyweight)
+                            }
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                // Increase button
+                IconButton(
+                    onClick = {
+                        if (bodyweight < 999.0) {
+                            val newWeight = (bodyweight + 0.5).coerceAtMost(999.0)
+                            onBodyweightChange(String.format("%.3f", newWeight).toDouble())
+                        }
+                    }
+                ) {
+                    Text(
+                        text = "+",
+                        fontSize = 20.sp,
+                        color = if (bodyweight < 999.0) Color.White else Color.White.copy(alpha = 0.5f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+// Helper function to format weight display (remove unnecessary decimals)
+private fun formatWeight(weight: Double): String {
+    return if (weight % 1.0 == 0.0) {
+        weight.toInt().toString()
+    } else {
+        String.format("%.3f", weight).trimEnd('0').trimEnd('.')
+    }
+}
+
+// Update ActiveWorkoutContent function - add this check and card
 @Composable
 private fun ActiveWorkoutContent(
     uiState: com.bodyforge.presentation.viewmodel.WorkoutUiState,
@@ -463,7 +611,7 @@ private fun ActiveWorkoutContent(
     val currentWorkout = uiState.currentWorkout
 
     if (currentWorkout == null) {
-        // No active workout screen
+        // No active workout screen - keep existing code...
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -499,6 +647,9 @@ private fun ActiveWorkoutContent(
             }
         }
     } else {
+        // Check if workout contains bodyweight exercises
+        val hasBodyweightExercises = currentWorkout.exercises.any { it.exercise.isBodyweight }
+
         // Active workout screen
         LazyColumn(
             modifier = Modifier
@@ -506,6 +657,16 @@ private fun ActiveWorkoutContent(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Add bodyweight input if needed
+            if (hasBodyweightExercises) {
+                item {
+                    BodyweightInputCard(
+                        bodyweight = uiState.bodyweight,
+                        onBodyweightChange = { viewModel.updateBodyweight(it) }
+                    )
+                }
+            }
+
             item {
                 WorkoutHeaderCard(
                     workout = currentWorkout,
@@ -731,7 +892,7 @@ private fun SetValueControl(
     step: Double = 1.0,
     onDecrease: () -> Unit,
     onIncrease: () -> Unit,
-    onValueChange: ((Double) -> Unit)? = null  // NEW: Direct input callback
+    onValueChange: ((Double) -> Unit)? = null
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
@@ -755,18 +916,31 @@ private fun SetValueControl(
 
             // Value display/input
             if (onValueChange != null && label.contains("Weight", ignoreCase = true)) {
-                // Editable TextField for weight
-                var textValue by remember { mutableStateOf(value.toString().replace(".0", "")) }
+                // Editable TextField for weight - NOW WITH 4-DIGIT SUPPORT
+                var textValue by remember { mutableStateOf(formatWeight(value.toDouble())) }
                 var isEditing by remember { mutableStateOf(false) }
 
                 if (isEditing) {
                     TextField(
                         value = textValue,
                         onValueChange = { newText ->
-                            textValue = newText.filter { it.isDigit() || it == '.' }
+                            // Allow digits, one decimal point, max 3 decimal places, max 4 digits before decimal
+                            val filtered = newText.filter { it.isDigit() || it == '.' }
+                            if (filtered.count { it == '.' } <= 1) {
+                                val parts = filtered.split('.')
+                                textValue = when {
+                                    parts.size == 2 && parts[1].length > 3 -> {
+                                        "${parts[0].take(4)}.${parts[1].take(3)}"
+                                    }
+                                    parts[0].length > 4 -> {
+                                        parts[0].take(4) + if (parts.size == 2) ".${parts[1]}" else ""
+                                    }
+                                    else -> filtered.take(8) // Max 9999.999
+                                }
+                            }
                         },
                         modifier = Modifier
-                            .width(60.dp)
+                            .width(70.dp)
                             .height(40.dp),
                         textStyle = TextStyle(
                             fontSize = 14.sp,
@@ -781,13 +955,14 @@ private fun SetValueControl(
                             cursorColor = AccentOrange
                         ),
                         keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
+                            keyboardType = KeyboardType.Decimal,
                             imeAction = ImeAction.Done
                         ),
                         keyboardActions = KeyboardActions(
                             onDone = {
-                                val newValue = textValue.toDoubleOrNull() ?: 0.0
-                                onValueChange(newValue)
+                                val newValue = textValue.toDoubleOrNull()?.coerceIn(0.0, 9999.0) ?: value.toDouble()
+                                val formatted = String.format("%.3f", newValue).toDouble()
+                                onValueChange(formatted)
                                 isEditing = false
                             }
                         )
@@ -795,18 +970,14 @@ private fun SetValueControl(
                 } else {
                     // Display value - clickable to edit
                     Text(
-                        text = "${if (value is Double && value % 1.0 == 0.0) value.toInt() else value}$suffix",
+                        text = "${formatWeight(value.toDouble())}$suffix",
                         fontSize = 14.sp,
                         color = TextPrimary,
                         modifier = Modifier
-                            .width(40.dp)
+                            .width(50.dp)
                             .clickable {
                                 isEditing = true
-                                textValue = if (value is Double && value % 1.0 == 0.0) {
-                                    value.toInt().toString()
-                                } else {
-                                    value.toString()
-                                }
+                                textValue = formatWeight(value.toDouble())
                             }
                             .padding(vertical = 8.dp),
                         textAlign = TextAlign.Center
