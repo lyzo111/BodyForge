@@ -311,26 +311,27 @@ private fun BodyweightInputCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Controls row - RESPONSIVE
+            // Controls row - FIXED: Flatter buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                // Decrease button
-                Button(
-                    onClick = {
-                        if (bodyweight > 30.0) {
-                            val newWeight = (bodyweight - 0.5).coerceAtLeast(30.0)
-                            onBodyweightChange(formatToThreeDecimals(newWeight))
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        backgroundColor = if (bodyweight > 30.0) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f)
-                    ),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.size(48.dp),
-                    contentPadding = PaddingValues(0.dp)
+                // FIXED: Flatter decrease button
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(
+                            color = if (bodyweight > 30.0) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .clickable {
+                            if (bodyweight > 30.0) {
+                                val newWeight = (bodyweight - 0.5).coerceAtLeast(30.0)
+                                onBodyweightChange(formatToThreeDecimals(newWeight))
+                            }
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "−",
@@ -340,7 +341,7 @@ private fun BodyweightInputCard(
                     )
                 }
 
-                // Weight display - RESPONSIVE
+                // Weight display - FIXED: Input validation
                 var textValue by remember(bodyweight) { mutableStateOf(formatWeight(bodyweight)) }
                 var isEditing by remember { mutableStateOf(false) }
 
@@ -376,7 +377,9 @@ private fun BodyweightInputCard(
                         keyboardActions = KeyboardActions(
                             onDone = {
                                 try {
-                                    val newValue = textValue.toDoubleOrNull()?.coerceIn(30.0, 999.0) ?: bodyweight
+                                    // FIXED: Use sanitized input
+                                    val sanitized = sanitizeNumberInput(textValue)
+                                    val newValue = sanitized.toDoubleOrNull()?.coerceIn(30.0, 999.0) ?: bodyweight
                                     onBodyweightChange(formatToThreeDecimals(newValue))
                                     isEditing = false
                                 } catch (e: Exception) {
@@ -409,20 +412,21 @@ private fun BodyweightInputCard(
                     }
                 }
 
-                // Increase button
-                Button(
-                    onClick = {
-                        if (bodyweight < 999.0) {
-                            val newWeight = (bodyweight + 0.5).coerceAtMost(999.0)
-                            onBodyweightChange(formatToThreeDecimals(newWeight))
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        backgroundColor = if (bodyweight < 999.0) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f)
-                    ),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.size(48.dp),
-                    contentPadding = PaddingValues(0.dp)
+                // FIXED: Flatter increase button
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(
+                            color = if (bodyweight < 999.0) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .clickable {
+                            if (bodyweight < 999.0) {
+                                val newWeight = (bodyweight + 0.5).coerceAtMost(999.0)
+                                onBodyweightChange(formatToThreeDecimals(newWeight))
+                            }
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "+",
@@ -929,7 +933,7 @@ private fun SetRow(
     }
 }
 
-// NEW: Responsive Value Control for Reps
+// Responsive Value Control for Reps
 @Composable
 private fun ResponsiveValueControl(
     label: String,
@@ -956,15 +960,23 @@ private fun ResponsiveValueControl(
             horizontalArrangement = Arrangement.SpaceEvenly,
             modifier = Modifier.fillMaxWidth()
         ) {
-            // Decrease button
-            Button(
-                onClick = onDecrease,
-                colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange.copy(alpha = 0.2f)),
-                shape = RoundedCornerShape(6.dp),
-                modifier = Modifier.size(32.dp),
-                contentPadding = PaddingValues(0.dp)
+            // FIXED: Flatter decrease button (no double borders)
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(
+                        color = AccentOrange.copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(6.dp)
+                    )
+                    .clickable { onDecrease() },
+                contentAlignment = Alignment.Center
             ) {
-                Text("-", color = AccentOrange, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    text = "−",
+                    color = AccentOrange,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
 
             // Value display
@@ -983,15 +995,23 @@ private fun ResponsiveValueControl(
                 )
             }
 
-            // Increase button
-            Button(
-                onClick = onIncrease,
-                colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange.copy(alpha = 0.2f)),
-                shape = RoundedCornerShape(6.dp),
-                modifier = Modifier.size(32.dp),
-                contentPadding = PaddingValues(0.dp)
+            // FIXED: Flatter increase button
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(
+                        color = AccentOrange.copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(6.dp)
+                    )
+                    .clickable { onIncrease() },
+                contentAlignment = Alignment.Center
             ) {
-                Text("+", color = AccentOrange, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    text = "+",
+                    color = AccentOrange,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
@@ -1025,18 +1045,26 @@ private fun ResponsiveWeightControl(
             horizontalArrangement = Arrangement.SpaceEvenly,
             modifier = Modifier.fillMaxWidth()
         ) {
-            // Decrease button
-            Button(
-                onClick = onDecrease,
-                colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange.copy(alpha = 0.2f)),
-                shape = RoundedCornerShape(6.dp),
-                modifier = Modifier.size(32.dp),
-                contentPadding = PaddingValues(0.dp)
+            // FIXED: Flatter decrease button
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(
+                        color = AccentOrange.copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(6.dp)
+                    )
+                    .clickable { onDecrease() },
+                contentAlignment = Alignment.Center
             ) {
-                Text("-", color = AccentOrange, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    text = "−",
+                    color = AccentOrange,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
 
-            // Weight input/display
+            // Weight input/display with FIXED input validation
             var textValue by remember(value) { mutableStateOf(formatWeight(value)) }
             var isEditing by remember { mutableStateOf(false) }
 
@@ -1044,6 +1072,7 @@ private fun ResponsiveWeightControl(
                 TextField(
                     value = textValue,
                     onValueChange = { newText ->
+                        // IMPROVED: Filter and handle leading zeros
                         val filtered = newText.filter { it.isDigit() || it == '.' }
                         if (filtered.count { it == '.' } <= 1 && filtered.length <= 8) {
                             textValue = filtered
@@ -1070,7 +1099,9 @@ private fun ResponsiveWeightControl(
                     keyboardActions = KeyboardActions(
                         onDone = {
                             try {
-                                val newValue = textValue.toDoubleOrNull()?.coerceIn(0.0, 9999.0) ?: value
+                                // FIXED: Sanitize input to remove leading zeros
+                                val sanitized = sanitizeNumberInput(textValue)
+                                val newValue = sanitized.toDoubleOrNull()?.coerceIn(0.0, 9999.0) ?: value
                                 onValueChange(formatToThreeDecimals(newValue))
                                 isEditing = false
                             } catch (e: Exception) {
@@ -1102,18 +1133,42 @@ private fun ResponsiveWeightControl(
                 }
             }
 
-            // Increase button
-            Button(
-                onClick = onIncrease,
-                colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange.copy(alpha = 0.2f)),
-                shape = RoundedCornerShape(6.dp),
-                modifier = Modifier.size(32.dp),
-                contentPadding = PaddingValues(0.dp)
+            // FIXED: Flatter increase button
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(
+                        color = AccentOrange.copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(6.dp)
+                    )
+                    .clickable { onIncrease() },
+                contentAlignment = Alignment.Center
             ) {
-                Text("+", color = AccentOrange, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    text = "+",
+                    color = AccentOrange,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
+}
+
+// NEW: Helper function to sanitize number input (remove leading zeros)
+private fun sanitizeNumberInput(input: String): String {
+    if (input.isEmpty() || input == "0" || input == "0.") return input
+
+    // Handle decimal numbers
+    if (input.contains('.')) {
+        val parts = input.split('.')
+        val wholePart = parts[0].trimStart('0').ifEmpty { "0" }
+        val decimalPart = if (parts.size > 1) parts[1] else ""
+        return if (decimalPart.isEmpty()) wholePart else "$wholePart.$decimalPart"
+    }
+
+    // Handle whole numbers - remove leading zeros
+    return input.trimStart('0').ifEmpty { "0" }
 }
 
 @Composable
