@@ -23,6 +23,7 @@ object WorkoutMapper {
             instructions = instructions,
             equipmentNeeded = equipment_needed,
             isCustom = is_custom == 1L,
+            isBodyweight = is_bodyweight == 1L,  // NEW: Map bodyweight flag
             defaultRestTimeSeconds = default_rest_time_seconds.toInt()
         )
     }
@@ -35,6 +36,7 @@ object WorkoutMapper {
             instructions = instructions,
             equipment_needed = equipmentNeeded,
             is_custom = if (isCustom) 1L else 0L,
+            is_bodyweight = if (isBodyweight) 1L else 0L,  // NEW: Map bodyweight flag
             default_rest_time_seconds = defaultRestTimeSeconds.toLong()
         )
     }
