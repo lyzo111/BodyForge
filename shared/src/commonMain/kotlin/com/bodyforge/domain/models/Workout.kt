@@ -23,13 +23,18 @@ data class Workout(
     val completedSets: Int get() = exercises.sumOf { it.completedSets }
     val totalVolume: Double get() = exercises.sumOf { it.totalVolume }
 
+    val performedSets: Int get() = exercises.sumOf { it.performedSets }
+    val totalVolumePerformed: Double get() = exercises.sumOf { it.totalVolumePerformed }
+
     val startDate get() = startedAt.toLocalDateTime(TimeZone.currentSystemDefault()).date
 
     companion object {
         fun create(name: String, exercises: List<Exercise>): Workout {
+            val workoutId = "workout_${Clock.System.now().epochSeconds}"
+
             val exercisesInWorkout = exercises.mapIndexed { index, exercise ->
                 val defaultSets = (1..3).map { setNumber ->
-                    WorkoutSet.createEmpty(exercise.id, setNumber, exercise.defaultRestTimeSeconds)
+                    WorkoutSet.createEmpty(exercise.id, setNumber, exercise.defaultRestTimeSeconds, workoutId)  // Pass workout ID
                 }
                 ExerciseInWorkout(
                     exercise = exercise,
@@ -39,7 +44,7 @@ data class Workout(
             }
 
             return Workout(
-                id = "workout_${Clock.System.now().epochSeconds}",
+                id = workoutId,
                 name = name.ifBlank { generateWorkoutName(exercises) },
                 startedAt = Clock.System.now(),
                 exercises = exercisesInWorkout

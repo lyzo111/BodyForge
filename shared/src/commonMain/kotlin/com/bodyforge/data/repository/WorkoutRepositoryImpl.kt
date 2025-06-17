@@ -14,6 +14,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.plus
 import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.Clock
 import kotlinx.serialization.json.Json
 
 class WorkoutRepositoryImpl : WorkoutRepository {
@@ -21,7 +22,26 @@ class WorkoutRepositoryImpl : WorkoutRepository {
     private val database = DatabaseFactory.create()
     private val queries = database.bodyForgeDatabaseQueries
 
+    // Initialize: Clean up any orphaned "active" workouts from previous sessions
+    init {
+        cleanupOrphanedActiveWorkouts()
+    }
+
+    private fun cleanupOrphanedActiveWorkouts() {
+        try {
+            // Mark any unfinished workouts as finished (from previous app sessions)
+            // This prevents random workouts from appearing as "active"
+            queries.updateOrphanedWorkouts(Clock.System.now().epochSeconds)
+        } catch (e: Exception) {
+            // Log error but don't crash the app
+            println("Warning: Could not cleanup orphaned workouts: ${e.message}")
+        }
+    }
+
     override suspend fun saveWorkout(workout: Workout): Workout = withContext(Dispatchers.IO) {
+        // First, finish any existing active workouts (only one active at a time)
+        finishAllActiveWorkouts()
+
         // Save workout
         queries.insertWorkout(
             id = workout.id,
@@ -53,6 +73,14 @@ class WorkoutRepositoryImpl : WorkoutRepository {
         workout
     }
 
+    private fun finishAllActiveWorkouts() {
+        try {
+            queries.finishAllActiveWorkouts(Clock.System.now().epochSeconds)
+        } catch (e: Exception) {
+            println("Warning: Could not finish active workouts: ${e.message}")
+        }
+    }
+
     override suspend fun getWorkout(id: String): Workout? = withContext(Dispatchers.IO) {
         val workoutEntity = queries.selectWorkoutById(id).executeAsOneOrNull()
             ?: return@withContext null
@@ -74,6 +102,7 @@ class WorkoutRepositoryImpl : WorkoutRepository {
                 instructions = exerciseEntity.instructions,
                 equipmentNeeded = exerciseEntity.equipment_needed,
                 isCustom = exerciseEntity.is_custom == 1L,
+                isBodyweight = exerciseEntity.is_bodyweight == 1L,  // FIXED: Added here too
                 defaultRestTimeSeconds = exerciseEntity.default_rest_time_seconds.toInt()
             )
 
@@ -108,6 +137,13 @@ class WorkoutRepositoryImpl : WorkoutRepository {
 
     override suspend fun getAllWorkouts(): List<Workout> = withContext(Dispatchers.IO) {
         queries.selectAllWorkouts().executeAsList().mapNotNull { workoutEntity ->
+            getWorkout(workoutEntity.id)
+        }
+    }
+
+    // NEW: Get only completed workouts for history
+    override suspend fun getCompletedWorkouts(): List<Workout> = withContext(Dispatchers.IO) {
+        queries.selectCompletedWorkouts().executeAsList().mapNotNull { workoutEntity ->
             getWorkout(workoutEntity.id)
         }
     }

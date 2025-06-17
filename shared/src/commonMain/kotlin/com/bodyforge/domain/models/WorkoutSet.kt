@@ -13,9 +13,16 @@ data class WorkoutSet(
     val notes: String = ""
 ) {
     companion object {
-        fun createEmpty(exerciseId: String, setNumber: Int, defaultRestTime: Int): WorkoutSet {
+        fun createEmpty(exerciseId: String, setNumber: Int, defaultRestTime: Int, workoutId: String? = null): WorkoutSet {
+            val timestamp = Clock.System.now().epochSeconds
+            val uniqueId = if (workoutId != null) {
+                "${workoutId}_${exerciseId}_set_${setNumber}"  // Include workout ID for uniqueness
+            } else {
+                "${exerciseId}_set_${setNumber}_${timestamp}"  // Fallback with timestamp
+            }
+
             return WorkoutSet(
-                id = "${exerciseId}_set_$setNumber",
+                id = uniqueId,
                 reps = 0,
                 weightKg = 0.0,
                 restTimeSeconds = defaultRestTime

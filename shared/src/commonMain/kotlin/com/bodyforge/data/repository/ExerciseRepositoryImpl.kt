@@ -4,7 +4,6 @@ import com.bodyforge.domain.repository.ExerciseRepository
 import com.bodyforge.domain.models.Exercise
 import com.bodyforge.data.DatabaseFactory
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
@@ -23,6 +22,7 @@ class ExerciseRepositoryImpl : ExerciseRepository {
                 instructions = entity.instructions,
                 equipmentNeeded = entity.equipment_needed,
                 isCustom = entity.is_custom == 1L,
+                isBodyweight = entity.is_bodyweight == 1L,  // FIXED: Added everywhere
                 defaultRestTimeSeconds = entity.default_rest_time_seconds.toInt()
             )
         }
@@ -37,6 +37,7 @@ class ExerciseRepositoryImpl : ExerciseRepository {
                 instructions = entity.instructions,
                 equipmentNeeded = entity.equipment_needed,
                 isCustom = entity.is_custom == 1L,
+                isBodyweight = entity.is_bodyweight == 1L,  // FIXED: Added everywhere
                 defaultRestTimeSeconds = entity.default_rest_time_seconds.toInt()
             )
         }
@@ -51,6 +52,7 @@ class ExerciseRepositoryImpl : ExerciseRepository {
                 instructions = entity.instructions,
                 equipmentNeeded = entity.equipment_needed,
                 isCustom = entity.is_custom == 1L,
+                isBodyweight = entity.is_bodyweight == 1L,  // FIXED: Added everywhere
                 defaultRestTimeSeconds = entity.default_rest_time_seconds.toInt()
             )
         }
@@ -65,6 +67,7 @@ class ExerciseRepositoryImpl : ExerciseRepository {
                 instructions = entity.instructions,
                 equipmentNeeded = entity.equipment_needed,
                 isCustom = entity.is_custom == 1L,
+                isBodyweight = entity.is_bodyweight == 1L,  // FIXED: Added everywhere
                 defaultRestTimeSeconds = entity.default_rest_time_seconds.toInt()
             )
         }
@@ -79,6 +82,7 @@ class ExerciseRepositoryImpl : ExerciseRepository {
             instructions = customExercise.instructions,
             equipment_needed = customExercise.equipmentNeeded,
             is_custom = 1L,
+            is_bodyweight = if (customExercise.isBodyweight) 1L else 0L,  // FIXED: Added
             default_rest_time_seconds = customExercise.defaultRestTimeSeconds.toLong()
         )
         customExercise
@@ -102,6 +106,7 @@ class ExerciseRepositoryImpl : ExerciseRepository {
                 instructions = entity.instructions,
                 equipmentNeeded = entity.equipment_needed,
                 isCustom = entity.is_custom == 1L,
+                isBodyweight = entity.is_bodyweight == 1L,  // FIXED: Added everywhere
                 defaultRestTimeSeconds = entity.default_rest_time_seconds.toInt()
             )
         }
