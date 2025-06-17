@@ -207,7 +207,7 @@ ORDER BY date DESC;
 
 insertSleepLog:
 INSERT INTO SleepLog (id, date, bedtime, wake_time, sleep_quality, notes, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?);
 
 selectSleepLogsByDateRange:
 SELECT * FROM SleepLog WHERE date >= ? AND date <= ? ORDER BY date DESC;
