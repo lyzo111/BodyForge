@@ -34,10 +34,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.style.TextOverflow
 
 // Modern Color Palette
 private val DarkBackground = Color(0xFF0F172A)
@@ -278,7 +275,7 @@ private fun ErrorCard(
     }
 }
 
-// FIXED: Bodyweight Input with proper focus management
+// FIXED: Responsive Bodyweight Input
 @Composable
 private fun BodyweightInputCard(
     bodyweight: Double,
@@ -290,12 +287,12 @@ private fun BodyweightInputCard(
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+        Column(
+            modifier = Modifier.padding(16.dp)
         ) {
+            // Header row
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -307,162 +304,135 @@ private fun BodyweightInputCard(
                     text = "Your Bodyweight:",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
-                    color = Color.White
+                    color = Color.White,
+                    modifier = Modifier.weight(1f)
                 )
             }
 
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Controls row - RESPONSIVE
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 // Decrease button
-                IconButton(
+                Button(
                     onClick = {
                         if (bodyweight > 30.0) {
                             val newWeight = (bodyweight - 0.5).coerceAtLeast(30.0)
                             onBodyweightChange(formatToThreeDecimals(newWeight))
                         }
-                    }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        backgroundColor = if (bodyweight > 30.0) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f)
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.size(48.dp),
+                    contentPadding = PaddingValues(0.dp)
                 ) {
                     Text(
                         text = "−",
-                        fontSize = 20.sp,
-                        color = if (bodyweight > 30.0) Color.White else Color.White.copy(alpha = 0.5f)
+                        fontSize = 24.sp,
+                        color = if (bodyweight > 30.0) Color.White else Color.White.copy(alpha = 0.5f),
+                        fontWeight = FontWeight.Bold
                     )
                 }
 
-                // FIXED: Improved input handling
-                SafeNumberInput(
-                    value = bodyweight,
-                    onValueChange = onBodyweightChange,
-                    minValue = 30.0,
-                    maxValue = 999.0,
-                    modifier = Modifier.width(90.dp),
-                    textColor = Color.White,
-                    backgroundColor = Color.Transparent,
-                    suffix = " kg"
-                )
+                // Weight display - RESPONSIVE
+                var textValue by remember(bodyweight) { mutableStateOf(formatWeight(bodyweight)) }
+                var isEditing by remember { mutableStateOf(false) }
+
+                if (isEditing) {
+                    TextField(
+                        value = textValue,
+                        onValueChange = { newText ->
+                            val filtered = newText.filter { it.isDigit() || it == '.' }
+                            if (filtered.count { it == '.' } <= 1 && filtered.length <= 7) {
+                                textValue = filtered
+                            }
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 16.dp),
+                        textStyle = TextStyle(
+                            fontSize = 18.sp,
+                            color = Color.White,
+                            textAlign = TextAlign.Center,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        singleLine = true,
+                        colors = TextFieldDefaults.textFieldColors(
+                            backgroundColor = Color.White.copy(alpha = 0.1f),
+                            focusedIndicatorColor = Color.White,
+                            unfocusedIndicatorColor = Color.White.copy(alpha = 0.7f),
+                            cursorColor = Color.White
+                        ),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Decimal,
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                try {
+                                    val newValue = textValue.toDoubleOrNull()?.coerceIn(30.0, 999.0) ?: bodyweight
+                                    onBodyweightChange(formatToThreeDecimals(newValue))
+                                    isEditing = false
+                                } catch (e: Exception) {
+                                    textValue = formatWeight(bodyweight)
+                                    isEditing = false
+                                }
+                            }
+                        )
+                    )
+                } else {
+                    Card(
+                        backgroundColor = Color.White.copy(alpha = 0.1f),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 16.dp)
+                            .clickable {
+                                isEditing = true
+                                textValue = formatWeight(bodyweight)
+                            }
+                    ) {
+                        Text(
+                            text = "${formatWeight(bodyweight)} kg",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
 
                 // Increase button
-                IconButton(
+                Button(
                     onClick = {
                         if (bodyweight < 999.0) {
                             val newWeight = (bodyweight + 0.5).coerceAtMost(999.0)
                             onBodyweightChange(formatToThreeDecimals(newWeight))
                         }
-                    }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        backgroundColor = if (bodyweight < 999.0) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f)
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.size(48.dp),
+                    contentPadding = PaddingValues(0.dp)
                 ) {
                     Text(
                         text = "+",
-                        fontSize = 20.sp,
-                        color = if (bodyweight < 999.0) Color.White else Color.White.copy(alpha = 0.5f)
+                        fontSize = 24.sp,
+                        color = if (bodyweight < 999.0) Color.White else Color.White.copy(alpha = 0.5f),
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
         }
-    }
-}
-
-// FIXED: Safe number input component with proper focus handling
-@Composable
-private fun SafeNumberInput(
-    value: Double,
-    onValueChange: (Double) -> Unit,
-    minValue: Double,
-    maxValue: Double,
-    modifier: Modifier = Modifier,
-    textColor: Color = TextPrimary,
-    backgroundColor: Color = SurfaceColor,
-    suffix: String = ""
-) {
-    var textValue by remember(value) { mutableStateOf(formatWeight(value)) }
-    var isEditing by remember { mutableStateOf(false) }
-    val focusRequester = remember { FocusRequester() }
-    val focusManager = LocalFocusManager.current
-
-    // Function to commit the value safely
-    fun commitValue() {
-        try {
-            val newValue = textValue.toDoubleOrNull()?.coerceIn(minValue, maxValue) ?: value
-            val formatted = formatToThreeDecimals(newValue)
-            onValueChange(formatted)
-            textValue = formatWeight(formatted)
-            isEditing = false
-            focusManager.clearFocus()
-        } catch (e: Exception) {
-            // Fallback: reset to original value
-            textValue = formatWeight(value)
-            isEditing = false
-            focusManager.clearFocus()
-        }
-    }
-
-    if (isEditing) {
-        TextField(
-            value = textValue,
-            onValueChange = { newText ->
-                // Filter and validate input
-                val filtered = newText.filter { it.isDigit() || it == '.' }
-                if (filtered.count { it == '.' } <= 1) {
-                    val parts = filtered.split('.')
-                    textValue = if (parts.size == 2 && parts[1].length > 3) {
-                        "${parts[0].take(4)}.${parts[1].take(3)}"
-                    } else {
-                        filtered.take(8) // Max length
-                    }
-                }
-            },
-            modifier = modifier
-                .height(40.dp)
-                .focusRequester(focusRequester)
-                .onFocusChanged { focusState ->
-                    if (!focusState.isFocused && isEditing) {
-                        // Focus lost - commit value
-                        commitValue()
-                    }
-                },
-            textStyle = TextStyle(
-                fontSize = 16.sp,
-                color = textColor,
-                textAlign = TextAlign.Center,
-                fontWeight = FontWeight.Bold
-            ),
-            singleLine = true,
-            colors = TextFieldDefaults.textFieldColors(
-                backgroundColor = backgroundColor,
-                focusedIndicatorColor = textColor,
-                unfocusedIndicatorColor = textColor.copy(alpha = 0.7f),
-                cursorColor = textColor
-            ),
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Decimal,
-                imeAction = ImeAction.Done
-            ),
-            keyboardActions = KeyboardActions(
-                onDone = { commitValue() }
-            )
-        )
-
-        // Auto-focus when editing starts
-        LaunchedEffect(isEditing) {
-            if (isEditing) {
-                focusRequester.requestFocus()
-            }
-        }
-    } else {
-        Text(
-            text = "${formatWeight(value)}$suffix",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            color = textColor,
-            modifier = modifier
-                .clickable {
-                    isEditing = true
-                    textValue = formatWeight(value)
-                }
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            textAlign = TextAlign.Center
-        )
     }
 }
 
@@ -516,6 +486,7 @@ private fun CreateWorkoutContent(
     }
 }
 
+// FIXED: Responsive Start Workout Button
 @Composable
 private fun SelectedExercisesCard(
     selectedExercises: List<com.bodyforge.domain.models.Exercise>,
@@ -532,18 +503,21 @@ private fun SelectedExercisesCard(
         Column(
             modifier = Modifier.padding(20.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // Header with responsive button
+            Column(
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
                     text = "Selected Exercises (${selectedExercises.size})",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = Color.White,
+                    modifier = Modifier.fillMaxWidth()
                 )
 
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // FIXED: Full-width button to prevent text wrapping
                 Button(
                     onClick = onStartWorkout,
                     enabled = !isLoading,
@@ -551,7 +525,10 @@ private fun SelectedExercisesCard(
                         backgroundColor = AccentOrange,
                         contentColor = Color.White
                     ),
-                    shape = RoundedCornerShape(25.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
                     elevation = ButtonDefaults.elevation(4.dp)
                 ) {
                     Row(
@@ -561,7 +538,8 @@ private fun SelectedExercisesCard(
                         Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color.White)
                         Text(
                             text = if (isLoading) "Starting..." else "Start Workout",
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
                         )
                     }
                 }
@@ -808,7 +786,9 @@ private fun ActiveExerciseCard(
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
 
                 // Add/Remove Set Controls
@@ -863,6 +843,7 @@ private fun ActiveExerciseCard(
     }
 }
 
+// COMPLETELY REWRITTEN: Responsive SetRow
 @Composable
 private fun SetRow(
     setNumber: Int,
@@ -877,116 +858,259 @@ private fun SetRow(
             .fillMaxWidth()
             .padding(vertical = 2.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        Column(
+            modifier = Modifier.padding(12.dp)
         ) {
-            Text(
-                text = "Set $setNumber",
-                fontSize = 12.sp,
-                color = TextSecondary,
-                modifier = Modifier.width(50.dp)
-            )
-
-            // Reps controls
-            SetValueControl(
-                label = "Reps",
-                value = set.reps,
-                onDecrease = { if (set.reps > 0) onUpdateSet(set.id, set.reps - 1, null, null) },
-                onIncrease = { onUpdateSet(set.id, set.reps + 1, null, null) }
-            )
-
-            // Weight controls - label depends on exercise type
-            SetValueControl(
-                label = if (exercise.isBodyweight) "BW+kg" else "Weight",
-                value = set.weightKg,
-                suffix = "kg",
-                step = 2.5,
-                onDecrease = { if (set.weightKg > 0) onUpdateSet(set.id, null, (set.weightKg - 2.5).coerceAtLeast(0.0), null) },
-                onIncrease = { onUpdateSet(set.id, null, set.weightKg + 2.5, null) },
-                onValueChange = { newWeight -> onUpdateSet(set.id, null, newWeight, null) }
-            )
-
-            // Complete button
-            Button(
-                onClick = { onUpdateSet(set.id, null, null, !set.completed) },
-                colors = ButtonDefaults.buttonColors(
-                    backgroundColor = if (set.completed) AccentGreen else SurfaceColor
-                ),
-                shape = RoundedCornerShape(20.dp),
-                modifier = Modifier.size(width = 80.dp, height = 36.dp)
+            // Set header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (set.completed) "✓" else "○",
-                    color = Color.White,
-                    fontSize = 14.sp
+                    text = "Set $setNumber",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = TextSecondary
+                )
+
+                // Complete button
+                Button(
+                    onClick = { onUpdateSet(set.id, null, null, !set.completed) },
+                    colors = ButtonDefaults.buttonColors(
+                        backgroundColor = if (set.completed) AccentGreen else SurfaceColor.copy(alpha = 0.7f)
+                    ),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.size(width = 80.dp, height = 32.dp),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Text(
+                        text = if (set.completed) "✓" else "○",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Controls row - RESPONSIVE
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Reps control
+                ResponsiveValueControl(
+                    label = "Reps",
+                    value = set.reps,
+                    onDecrease = { if (set.reps > 0) onUpdateSet(set.id, set.reps - 1, null, null) },
+                    onIncrease = { onUpdateSet(set.id, set.reps + 1, null, null) },
+                    modifier = Modifier.weight(1f)
+                )
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                // Weight control
+                ResponsiveWeightControl(
+                    label = if (exercise.isBodyweight) "BW+kg" else "Weight",
+                    value = set.weightKg,
+                    onDecrease = {
+                        if (set.weightKg > 0)
+                            onUpdateSet(set.id, null, (set.weightKg - 2.5).coerceAtLeast(0.0), null)
+                    },
+                    onIncrease = { onUpdateSet(set.id, null, set.weightKg + 2.5, null) },
+                    onValueChange = { newWeight -> onUpdateSet(set.id, null, newWeight, null) },
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
     }
 }
 
-// FIXED: SetValueControl with proper focus management
+// NEW: Responsive Value Control for Reps
 @Composable
-private fun SetValueControl(
+private fun ResponsiveValueControl(
     label: String,
-    value: Number,
-    suffix: String = "",
-    step: Double = 1.0,
+    value: Int,
     onDecrease: () -> Unit,
     onIncrease: () -> Unit,
-    onValueChange: ((Double) -> Unit)? = null
+    modifier: Modifier = Modifier
 ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+    ) {
         Text(
             text = label,
-            fontSize = 10.sp,
-            color = TextSecondary
+            fontSize = 12.sp,
+            color = TextSecondary,
+            fontWeight = FontWeight.Medium
         )
+
+        Spacer(modifier = Modifier.height(4.dp))
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            modifier = Modifier.fillMaxWidth()
         ) {
             // Decrease button
-            TextButton(
+            Button(
                 onClick = onDecrease,
-                modifier = Modifier.size(28.dp),
+                colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange.copy(alpha = 0.2f)),
+                shape = RoundedCornerShape(6.dp),
+                modifier = Modifier.size(32.dp),
                 contentPadding = PaddingValues(0.dp)
             ) {
-                Text("-", color = AccentOrange, fontSize = 16.sp)
+                Text("-", color = AccentOrange, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
 
-            // Value display/input
-            if (onValueChange != null && label.contains("Weight", ignoreCase = true)) {
-                // FIXED: Use SafeNumberInput for weight
-                SafeNumberInput(
-                    value = value.toDouble(),
-                    onValueChange = onValueChange,
-                    minValue = 0.0,
-                    maxValue = 9999.0,
-                    modifier = Modifier.width(60.dp),
-                    suffix = suffix
-                )
-            } else {
-                // Read-only display for reps
+            // Value display
+            Card(
+                backgroundColor = SurfaceColor.copy(alpha = 0.7f),
+                shape = RoundedCornerShape(6.dp),
+                modifier = Modifier.weight(1f)
+            ) {
                 Text(
-                    text = "${if (value is Double && value % 1.0 == 0.0) value.toInt() else value}$suffix",
-                    fontSize = 14.sp,
+                    text = value.toString(),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
                     color = TextPrimary,
-                    modifier = Modifier.width(40.dp),
+                    modifier = Modifier.padding(vertical = 8.dp),
                     textAlign = TextAlign.Center
                 )
             }
 
             // Increase button
-            TextButton(
+            Button(
                 onClick = onIncrease,
-                modifier = Modifier.size(28.dp),
+                colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange.copy(alpha = 0.2f)),
+                shape = RoundedCornerShape(6.dp),
+                modifier = Modifier.size(32.dp),
                 contentPadding = PaddingValues(0.dp)
             ) {
-                Text("+", color = AccentOrange, fontSize = 16.sp)
+                Text("+", color = AccentOrange, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+// NEW: Responsive Weight Control with Input
+@Composable
+private fun ResponsiveWeightControl(
+    label: String,
+    value: Double,
+    onDecrease: () -> Unit,
+    onIncrease: () -> Unit,
+    onValueChange: (Double) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+    ) {
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            color = TextSecondary,
+            fontWeight = FontWeight.Medium
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            // Decrease button
+            Button(
+                onClick = onDecrease,
+                colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange.copy(alpha = 0.2f)),
+                shape = RoundedCornerShape(6.dp),
+                modifier = Modifier.size(32.dp),
+                contentPadding = PaddingValues(0.dp)
+            ) {
+                Text("-", color = AccentOrange, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+
+            // Weight input/display
+            var textValue by remember(value) { mutableStateOf(formatWeight(value)) }
+            var isEditing by remember { mutableStateOf(false) }
+
+            if (isEditing) {
+                TextField(
+                    value = textValue,
+                    onValueChange = { newText ->
+                        val filtered = newText.filter { it.isDigit() || it == '.' }
+                        if (filtered.count { it == '.' } <= 1 && filtered.length <= 8) {
+                            textValue = filtered
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    textStyle = TextStyle(
+                        fontSize = 14.sp,
+                        color = TextPrimary,
+                        textAlign = TextAlign.Center,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    singleLine = true,
+                    colors = TextFieldDefaults.textFieldColors(
+                        backgroundColor = SurfaceColor.copy(alpha = 0.7f),
+                        focusedIndicatorColor = AccentOrange,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        cursorColor = AccentOrange
+                    ),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            try {
+                                val newValue = textValue.toDoubleOrNull()?.coerceIn(0.0, 9999.0) ?: value
+                                onValueChange(formatToThreeDecimals(newValue))
+                                isEditing = false
+                            } catch (e: Exception) {
+                                textValue = formatWeight(value)
+                                isEditing = false
+                            }
+                        }
+                    )
+                )
+            } else {
+                Card(
+                    backgroundColor = SurfaceColor.copy(alpha = 0.7f),
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable {
+                            isEditing = true
+                            textValue = formatWeight(value)
+                        }
+                ) {
+                    Text(
+                        text = "${formatWeight(value)}kg",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary,
+                        modifier = Modifier.padding(vertical = 8.dp),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
+            // Increase button
+            Button(
+                onClick = onIncrease,
+                colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange.copy(alpha = 0.2f)),
+                shape = RoundedCornerShape(6.dp),
+                modifier = Modifier.size(32.dp),
+                contentPadding = PaddingValues(0.dp)
+            ) {
+                Text("+", color = AccentOrange, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
