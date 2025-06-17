@@ -14,12 +14,9 @@ data class WorkoutSet(
 ) {
     companion object {
         fun createEmpty(exerciseId: String, setNumber: Int, defaultRestTime: Int, workoutId: String? = null): WorkoutSet {
+            // FIXED: Always use timestamp to ensure unique IDs
             val timestamp = Clock.System.now().epochSeconds
-            val uniqueId = if (workoutId != null) {
-                "${workoutId}_${exerciseId}_set_${setNumber}"  // Include workout ID for uniqueness
-            } else {
-                "${exerciseId}_set_${setNumber}_${timestamp}"  // Fallback with timestamp
-            }
+            val uniqueId = "set_${timestamp}_${exerciseId}_${setNumber}_${(0..9999).random()}"
 
             return WorkoutSet(
                 id = uniqueId,
