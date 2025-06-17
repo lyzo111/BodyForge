@@ -8,6 +8,7 @@ CREATE TABLE Exercise (
     instructions TEXT NOT NULL DEFAULT '',
     equipment_needed TEXT NOT NULL DEFAULT '',
     is_custom INTEGER NOT NULL DEFAULT 0, -- Boolean as Int (0/1)
+    is_bodyweight INTEGER NOT NULL DEFAULT 0, -- Boolean as Int (0/1)
     default_rest_time_seconds INTEGER NOT NULL DEFAULT 90
 );
 
@@ -63,120 +64,113 @@ CREATE TABLE SleepLog (
 );
 
 -- Pre-populate with standard exercises
-INSERT INTO Exercise (id, name, muscle_groups, instructions, equipment_needed, default_rest_time_seconds) VALUES
-('bench_press', 'Bench Press', '["Chest", "Triceps"]', 'Lie on bench, press barbell from chest to full arm extension', 'Barbell', 120),
-('squat', 'Squat', '["Quadriceps", "Glutes"]', 'Stand with feet shoulder-width apart, lower until thighs parallel to ground', 'Barbell', 180),
-('deadlift', 'Deadlift', '["Back", "Hamstrings"]', 'Lift barbell from floor to hip level with straight back', 'Barbell', 180),
-('pull_ups', 'Pull-ups', '["Back", "Biceps"]', 'Hang from bar, pull body up until chin over bar', 'Pull-up Bar', 120),
-('overhead_press', 'Overhead Press', '["Shoulders", "Triceps"]', 'Press barbell from shoulder level to overhead', 'Barbell', 120),
-('barbell_row', 'Barbell Row', '["Back", "Biceps"]', 'Bend over, pull barbell to lower chest', 'Barbell', 120),
-('dips', 'Dips', '["Chest", "Triceps"]', 'Lower body between parallel bars, push back up', 'Dip Bar', 90),
-('chin_ups', 'Chin-ups', '["Back", "Biceps"]', 'Hang from bar with palms facing you, pull up', 'Pull-up Bar', 120);
+INSERT INTO Exercise (id, name, muscle_groups, instructions, equipment_needed, is_bodyweight, default_rest_time_seconds) VALUES
+('bench_press', 'Bench Press', '["Chest", "Triceps"]', 'Lie on bench, press barbell from chest to full arm extension', 'Barbell', 0, 120),
+('squat', 'Squat', '["Quadriceps", "Glutes"]', 'Stand with feet shoulder-width apart, lower until thighs parallel to ground', 'Barbell', 0, 180),
+('deadlift', 'Deadlift', '["Back", "Hamstrings"]', 'Lift barbell from floor to hip level with straight back', 'Barbell', 0, 180),
+('pull_ups', 'Pull-ups', '["Back", "Biceps"]', 'Hang from bar, pull body up until chin over bar', 'Pull-up Bar', 1, 120),
+('overhead_press', 'Overhead Press', '["Shoulders", "Triceps"]', 'Press barbell from shoulder level to overhead', 'Barbell', 0, 120),
+('barbell_row', 'Barbell Row', '["Back", "Biceps"]', 'Bend over, pull barbell to lower chest', 'Barbell', 0, 120),
+('dips', 'Dips', '["Chest", "Triceps"]', 'Lower body between parallel bars, push back up', 'Dip Bar', 1, 90),
+('chin_ups', 'Chin-ups', '["Back", "Biceps"]', 'Hang from bar with palms facing you, pull up', 'Pull-up Bar', 1, 120);
 
--- WORKOUT QUERIES --
+-- EXERCISE QUERIES
 
--- Get all exercises
 selectAllExercises:
 SELECT * FROM Exercise ORDER BY name;
 
--- Get exercise by ID
 selectExerciseById:
 SELECT * FROM Exercise WHERE id = ?;
 
--- Get exercises by muscle group (contains search)
 selectExercisesByMuscleGroup:
 SELECT * FROM Exercise WHERE muscle_groups LIKE '%' || ? || '%';
 
--- Search exercises by name
 searchExercises:
 SELECT * FROM Exercise WHERE name LIKE '%' || ? || '%';
 
--- Get custom exercises only
 selectCustomExercises:
 SELECT * FROM Exercise WHERE is_custom = 1;
 
--- Insert exercise
 insertExercise:
-INSERT INTO Exercise (id, name, muscle_groups, instructions, equipment_needed, is_custom, default_rest_time_seconds)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+INSERT INTO Exercise (id, name, muscle_groups, instructions, equipment_needed, is_custom, is_bodyweight, default_rest_time_seconds)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
--- Delete custom exercise
 deleteCustomExercise:
 DELETE FROM Exercise WHERE id = ? AND is_custom = 1;
 
--- Insert workout
+-- WORKOUT QUERIES
+
 insertWorkout:
 INSERT INTO Workout (id, name, started_at, finished_at, notes)
 VALUES (?, ?, ?, ?, ?);
 
--- Update workout
 updateWorkout:
 UPDATE Workout SET name = ?, started_at = ?, finished_at = ?, notes = ? WHERE id = ?;
 
--- Get workout by ID
 selectWorkoutById:
-SELECT * FROM Workout WHERE id = ?;
+SELECT id, name, started_at, finished_at, notes FROM Workout WHERE id = ?;
 
--- Get all workouts
 selectAllWorkouts:
-SELECT * FROM Workout ORDER BY started_at DESC;
+SELECT id, name, started_at, finished_at, notes FROM Workout ORDER BY started_at DESC;
 
--- Get active workout (not finished)
+selectCompletedWorkouts:
+SELECT id, name, started_at, finished_at, notes FROM Workout
+WHERE finished_at IS NOT NULL
+ORDER BY started_at DESC;
+
 selectActiveWorkout:
-SELECT * FROM Workout WHERE finished_at IS NULL LIMIT 1;
+SELECT id, name, started_at, finished_at, notes FROM Workout
+WHERE finished_at IS NULL
+LIMIT 1;
 
--- Get workouts by date range
+finishAllActiveWorkouts:
+UPDATE Workout SET finished_at = ? WHERE finished_at IS NULL;
+
+updateOrphanedWorkouts:
+UPDATE Workout SET finished_at = ? WHERE finished_at IS NULL;
+
 selectWorkoutsByDateRange:
 SELECT * FROM Workout
 WHERE started_at >= ? AND started_at <= ?
 ORDER BY started_at DESC;
 
--- Delete workout
 deleteWorkout:
 DELETE FROM Workout WHERE id = ?;
 
--- Insert workout set
+-- WORKOUT SET QUERIES
+
 insertWorkoutSet:
 INSERT INTO WorkoutSet (id, workout_id, exercise_id, order_in_workout, set_number, reps, weight_kg, rest_time_seconds, completed, completed_at, notes)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
--- Update workout set
 updateWorkoutSet:
 UPDATE WorkoutSet SET reps = ?, weight_kg = ?, rest_time_seconds = ?, completed = ?, completed_at = ?, notes = ?
 WHERE id = ?;
 
--- Get sets for workout
 selectSetsForWorkout:
 SELECT * FROM WorkoutSet WHERE workout_id = ? ORDER BY order_in_workout, set_number;
 
--- Get sets for specific exercise in workout
 selectSetsForExerciseInWorkout:
 SELECT * FROM WorkoutSet WHERE workout_id = ? AND exercise_id = ? ORDER BY set_number;
 
--- Delete sets for workout
 deleteSetsForWorkout:
 DELETE FROM WorkoutSet WHERE workout_id = ?;
 
--- NUTRITION QUERIES --
+-- NUTRITION QUERIES
 
--- Insert nutrition log entry
 insertNutritionLog:
 INSERT INTO NutritionLog (id, date, food_name, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g, amount_grams, meal_type, created_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
--- Get nutrition logs by date
 selectNutritionLogsByDate:
 SELECT * FROM NutritionLog WHERE date = ? ORDER BY created_at;
 
--- Get nutrition logs by date range
 selectNutritionLogsByDateRange:
 SELECT * FROM NutritionLog WHERE date >= ? AND date <= ? ORDER BY date DESC, created_at;
 
--- Delete nutrition log
 deleteNutritionLog:
 DELETE FROM NutritionLog WHERE id = ?;
 
--- Get daily nutrition summary (FIXED: CamelCase aliases)
 selectDailyNutritionSummary:
 SELECT
     date,
@@ -189,25 +183,20 @@ WHERE date >= ? AND date <= ?
 GROUP BY date
 ORDER BY date DESC;
 
--- SLEEP QUERIES --
+-- SLEEP QUERIES
 
--- Insert sleep log entry
 insertSleepLog:
 INSERT INTO SleepLog (id, date, bedtime, wake_time, sleep_quality, notes, created_at)
 VALUES (?, ?, ?, ?, ?, ?, ?);
 
--- Get sleep logs by date range
 selectSleepLogsByDateRange:
 SELECT * FROM SleepLog WHERE date >= ? AND date <= ? ORDER BY date DESC;
 
--- Get sleep log by date
 selectSleepLogByDate:
 SELECT * FROM SleepLog WHERE date = ?;
 
--- Update sleep log
 updateSleepLog:
 UPDATE SleepLog SET bedtime = ?, wake_time = ?, sleep_quality = ?, notes = ? WHERE id = ?;
 
--- Delete sleep log
 deleteSleepLog:
 DELETE FROM SleepLog WHERE id = ?;
