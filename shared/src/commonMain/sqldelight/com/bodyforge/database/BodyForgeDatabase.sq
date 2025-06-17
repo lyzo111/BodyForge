@@ -63,36 +63,36 @@ CREATE TABLE SleepLog (
     created_at INTEGER NOT NULL -- Unix timestamp when logged
 );
 
--- Pre-populate with standard exercises - EXTENDED VERSION
-INSERT INTO Exercise (id, name, muscle_groups, instructions, equipment_needed, is_bodyweight, default_rest_time_seconds) VALUES
+-- Pre-populate with standard exercises
+INSERT INTO Exercise (id, name, muscle_groups, instructions, equipment_needed, is_custom, is_bodyweight, default_rest_time_seconds) VALUES
 -- Compound Movements
-('bench_press', 'Bench Press', '["Chest", "Triceps"]', 'Lie on bench, press barbell from chest to full arm extension', 'Barbell', 0, 120),
-('squat', 'Squat', '["Quadriceps", "Glutes"]', 'Stand with feet shoulder-width apart, lower until thighs parallel to ground', 'Barbell', 0, 180),
-('deadlift', 'Deadlift', '["Back", "Hamstrings"]', 'Lift barbell from floor to hip level with straight back', 'Barbell', 0, 180),
-('overhead_press', 'Overhead Press', '["Shoulders", "Triceps"]', 'Press barbell from shoulder level to overhead', 'Barbell', 0, 120),
-('barbell_row', 'Barbell Row', '["Back", "Biceps"]', 'Bend over, pull barbell to lower chest', 'Barbell', 0, 120),
+('bench_press', 'Bench Press', '["Chest", "Triceps"]', 'Lie on bench, press barbell from chest to full arm extension', 'Barbell', 0, 0, 120),
+('squat', 'Squat', '["Quadriceps", "Glutes"]', 'Stand with feet shoulder-width apart, lower until thighs parallel to ground', 'Barbell', 0, 0, 180),
+('deadlift', 'Deadlift', '["Back", "Hamstrings"]', 'Lift barbell from floor to hip level with straight back', 'Barbell', 0, 0, 180),
+('overhead_press', 'Overhead Press', '["Shoulders", "Triceps"]', 'Press barbell from shoulder level to overhead', 'Barbell', 0, 0, 120),
+('barbell_row', 'Barbell Row', '["Back", "Biceps"]', 'Bend over, pull barbell to lower chest', 'Barbell', 0, 0, 120),
 
 -- Bodyweight Exercises
-('pull_ups', 'Pull-ups', '["Back", "Biceps"]', 'Hang from bar, pull body up until chin over bar', 'Pull-up Bar', 1, 120),
-('chin_ups', 'Chin-ups', '["Back", "Biceps"]', 'Hang from bar with palms facing you, pull up', 'Pull-up Bar', 1, 120),
-('dips', 'Dips', '["Chest", "Triceps"]', 'Lower body between parallel bars, push back up', 'Dip Bar', 1, 90),
-('push_ups', 'Push-ups', '["Chest", "Triceps"]', 'Lower body to ground, push back up', 'None', 1, 60),
+('pull_ups', 'Pull-ups', '["Back", "Biceps"]', 'Hang from bar, pull body up until chin over bar', 'Pull-up Bar', 0, 1, 120),
+('chin_ups', 'Chin-ups', '["Back", "Biceps"]', 'Hang from bar with palms facing you, pull up', 'Pull-up Bar', 0, 1, 120),
+('dips', 'Dips', '["Chest", "Triceps"]', 'Lower body between parallel bars, push back up', 'Dip Bar', 0, 1, 90),
+('push_ups', 'Push-ups', '["Chest", "Triceps"]', 'Lower body to ground, push back up', 'None', 0, 1, 60),
 
--- Isolation Exercises - NEW ADDITIONS
-('lateral_raises', 'Lateral Raises', '["Shoulders"]', 'Raise dumbbells to shoulder height from sides', 'Dumbbells', 0, 60),
-('cable_chest_fly', 'Cable Chest Fly', '["Chest"]', 'Pull cables from high position across chest', 'Cable Machine', 0, 60),
-('leg_extension', 'Leg Extension', '["Quadriceps"]', 'Extend legs from seated position against resistance', 'Leg Extension Machine', 0, 60),
-('leg_curl', 'Leg Curl', '["Hamstrings"]', 'Curl legs towards glutes against resistance', 'Leg Curl Machine', 0, 60),
+-- Isolation Exercises
+('lateral_raises', 'Lateral Raises', '["Shoulders"]', 'Raise dumbbells to shoulder height from sides', 'Dumbbells', 0, 0, 60),
+('cable_chest_fly', 'Cable Chest Fly', '["Chest"]', 'Pull cables from high position across chest', 'Cable Machine', 0, 0, 60),
+('leg_extension', 'Leg Extension', '["Quadriceps"]', 'Extend legs from seated position against resistance', 'Leg Extension Machine', 0, 0, 60),
+('leg_curl', 'Leg Curl', '["Hamstrings"]', 'Curl legs towards glutes against resistance', 'Leg Curl Machine', 0, 0, 60),
 
 -- Additional Popular Exercises
-('incline_bench_press', 'Incline Bench Press', '["Chest", "Triceps"]', 'Press barbell on inclined bench', 'Barbell', 0, 120),
-('decline_bench_press', 'Decline Bench Press', '["Chest", "Triceps"]', 'Press barbell on declined bench', 'Barbell', 0, 120),
-('dumbbell_press', 'Dumbbell Press', '["Chest", "Triceps"]', 'Press dumbbells from chest', 'Dumbbells', 0, 90),
-('shoulder_shrugs', 'Shoulder Shrugs', '["Traps"]', 'Lift shoulders up and back down with weight', 'Dumbbells', 0, 60),
-('bicep_curls', 'Bicep Curls', '["Biceps"]', 'Curl dumbbells up to shoulders', 'Dumbbells', 0, 60),
-('tricep_pushdowns', 'Tricep Pushdowns', '["Triceps"]', 'Push cable down with triceps', 'Cable Machine', 0, 60),
-('calf_raises', 'Calf Raises', '["Calves"]', 'Raise up onto toes', 'None', 1, 45),
-('planks', 'Planks', '["Core"]', 'Hold body straight in plank position', 'None', 1, 30);
+('incline_bench_press', 'Incline Bench Press', '["Chest", "Triceps"]', 'Press barbell on inclined bench', 'Barbell', 0, 0, 120),
+('decline_bench_press', 'Decline Bench Press', '["Chest", "Triceps"]', 'Press barbell on declined bench', 'Barbell', 0, 0, 120),
+('dumbbell_press', 'Dumbbell Press', '["Chest", "Triceps"]', 'Press dumbbells from chest', 'Dumbbells', 0, 0, 90),
+('shoulder_shrugs', 'Shoulder Shrugs', '["Traps"]', 'Lift shoulders up and back down with weight', 'Dumbbells', 0, 0, 60),
+('bicep_curls', 'Bicep Curls', '["Biceps"]', 'Curl dumbbells up to shoulders', 'Dumbbells', 0, 0, 60),
+('tricep_pushdowns', 'Tricep Pushdowns', '["Triceps"]', 'Push cable down with triceps', 'Cable Machine', 0, 0, 60),
+('calf_raises', 'Calf Raises', '["Calves"]', 'Raise up onto toes', 'None', 0, 1, 45),
+('planks', 'Planks', '["Core"]', 'Hold body straight in plank position', 'None', 0, 1, 30);
 
 -- EXERCISE QUERIES
 
@@ -207,7 +207,7 @@ ORDER BY date DESC;
 
 insertSleepLog:
 INSERT INTO SleepLog (id, date, bedtime, wake_time, sleep_quality, notes, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 selectSleepLogsByDateRange:
 SELECT * FROM SleepLog WHERE date >= ? AND date <= ? ORDER BY date DESC;
