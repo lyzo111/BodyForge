@@ -15,9 +15,11 @@ data class WorkoutUiState(
     val availableExercises: List<Exercise> = emptyList(),
     val selectedExercises: List<Exercise> = emptyList(),
     val currentWorkout: Workout? = null,
+    val completedWorkouts: List<Workout> = emptyList(),
+    val bodyweight: Double = 75.0,  // Default bodyweight
     val isLoading: Boolean = false,
     val error: String? = null,
-    val activeTab: String = "create" // create, active, history
+    val activeTab: String = "create"
 )
 
 class WorkoutViewModel : ViewModel() {
@@ -31,6 +33,7 @@ class WorkoutViewModel : ViewModel() {
     init {
         loadExercises()
         loadActiveWorkout()
+        loadCompletedWorkouts()
     }
 
     private fun loadExercises() {
@@ -67,8 +70,27 @@ class WorkoutViewModel : ViewModel() {
         }
     }
 
+    private fun loadCompletedWorkouts() {
+        viewModelScope.launch {
+            try {
+                val completedWorkouts = workoutRepo.getCompletedWorkouts()
+                _uiState.value = _uiState.value.copy(
+                    completedWorkouts = completedWorkouts
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = "Failed to load workout history: ${e.message}"
+                )
+            }
+        }
+    }
+
     fun setActiveTab(tab: String) {
         _uiState.value = _uiState.value.copy(activeTab = tab)
+
+        if (tab == "history") {
+            loadCompletedWorkouts()
+        }
     }
 
     fun addExerciseToSelection(exercise: Exercise) {
@@ -140,7 +162,6 @@ class WorkoutViewModel : ViewModel() {
                 val updatedExercise = exerciseInWorkout.updateSet(setId, updatedSet)
                 val updatedWorkout = currentWorkout.updateExercise(exerciseId, updatedExercise)
 
-                // Save to database
                 workoutRepo.updateWorkout(updatedWorkout)
 
                 _uiState.value = _uiState.value.copy(currentWorkout = updatedWorkout)
@@ -162,6 +183,8 @@ class WorkoutViewModel : ViewModel() {
                 val finishedWorkout = currentWorkout.finish()
                 workoutRepo.updateWorkout(finishedWorkout)
 
+                loadCompletedWorkouts()
+
                 _uiState.value = _uiState.value.copy(
                     currentWorkout = null,
                     activeTab = "create",
@@ -174,6 +197,76 @@ class WorkoutViewModel : ViewModel() {
                 )
             }
         }
+    }
+
+    fun deleteWorkout(workoutId: String) {
+        viewModelScope.launch {
+            try {
+                val success = workoutRepo.deleteWorkout(workoutId)
+                if (success) {
+                    loadCompletedWorkouts()
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        error = "Failed to delete workout"
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = "Failed to delete workout: ${e.message}"
+                )
+            }
+        }
+    }
+
+    fun addSetToExercise(exerciseId: String) {
+        val currentWorkout = _uiState.value.currentWorkout ?: return
+
+        viewModelScope.launch {
+            try {
+                val exerciseInWorkout = currentWorkout.exercises.find { it.exercise.id == exerciseId }
+                    ?: return@launch
+
+                val updatedExercise = exerciseInWorkout.addSet()
+                val updatedWorkout = currentWorkout.updateExercise(exerciseId, updatedExercise)
+
+                workoutRepo.updateWorkout(updatedWorkout)
+
+                _uiState.value = _uiState.value.copy(currentWorkout = updatedWorkout)
+
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = "Failed to add set: ${e.message}"
+                )
+            }
+        }
+    }
+
+    fun removeSetFromExercise(exerciseId: String, setId: String) {
+        val currentWorkout = _uiState.value.currentWorkout ?: return
+
+        viewModelScope.launch {
+            try {
+                val exerciseInWorkout = currentWorkout.exercises.find { it.exercise.id == exerciseId }
+                    ?: return@launch
+
+                val updatedSets = exerciseInWorkout.sets.filter { it.id != setId }
+                val updatedExercise = exerciseInWorkout.copy(sets = updatedSets)
+                val updatedWorkout = currentWorkout.updateExercise(exerciseId, updatedExercise)
+
+                workoutRepo.updateWorkout(updatedWorkout)
+
+                _uiState.value = _uiState.value.copy(currentWorkout = updatedWorkout)
+
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = "Failed to remove set: ${e.message}"
+                )
+            }
+        }
+    }
+
+    fun updateBodyweight(newBodyweight: Double) {
+        _uiState.value = _uiState.value.copy(bodyweight = newBodyweight)
     }
 
     fun clearError() {
