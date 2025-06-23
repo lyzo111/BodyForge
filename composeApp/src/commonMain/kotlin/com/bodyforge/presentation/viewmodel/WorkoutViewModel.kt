@@ -10,13 +10,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
 
 data class WorkoutUiState(
     val availableExercises: List<Exercise> = emptyList(),
     val selectedExercises: List<Exercise> = emptyList(),
     val currentWorkout: Workout? = null,
     val completedWorkouts: List<Workout> = emptyList(),
-    val bodyweight: Double = 75.0,  // Default bodyweight
+    val bodyweight: Double = 75.0,
     val isLoading: Boolean = false,
     val error: String? = null,
     val activeTab: String = "create"
@@ -271,5 +272,56 @@ class WorkoutViewModel : ViewModel() {
 
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
+    }
+
+    // Create Custom Exercise
+    fun createCustomExercise(
+        name: String,
+        muscleGroups: List<String>,
+        equipment: String,
+        isBodyweight: Boolean
+    ) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            try {
+                val customExercise = Exercise(
+                    id = "custom_${Clock.System.now().epochSeconds}_${name.replace(" ", "_").lowercase()}",
+                    name = name,
+                    muscleGroups = muscleGroups,
+                    instructions = "", // User can add later
+                    equipmentNeeded = equipment,
+                    isCustom = true,
+                    isBodyweight = isBodyweight,
+                    defaultRestTimeSeconds = if (isBodyweight) 90 else 120
+                )
+
+                exerciseRepo.saveCustomExercise(customExercise)
+                loadExercises() // Reload to show new exercise
+
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = null
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = "Failed to create exercise: ${e.message}",
+                    isLoading = false
+                )
+            }
+        }
+    }
+
+    // Update existing workout (for history editing)
+    fun updateWorkout(workout: Workout) {
+        viewModelScope.launch {
+            try {
+                workoutRepo.updateWorkout(workout)
+                loadCompletedWorkouts() // Reload history to show changes
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = "Failed to update workout: ${e.message}"
+                )
+            }
+        }
     }
 }
