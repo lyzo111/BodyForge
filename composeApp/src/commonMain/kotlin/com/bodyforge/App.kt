@@ -1034,25 +1034,16 @@ private fun ResponsiveWeightControl(
             modifier = Modifier.fillMaxWidth()
         ) {
             // Decrease button
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .background(
-                        color = AccentOrange.copy(alpha = 0.2f),
-                        shape = RoundedCornerShape(6.dp)
-                    )
-                    .clickable { onDecrease() },
-                contentAlignment = Alignment.Center
+            TextButton(
+                onClick = onDecrease,
+                colors = ButtonDefaults.textButtonColors(contentColor = AccentOrange),
+                modifier = Modifier.size(32.dp),
+                contentPadding = PaddingValues(0.dp)
             ) {
-                Text(
-                    text = "−",
-                    color = AccentOrange,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Text("−", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
 
-            // Weight input/display with BW+Xkg formatting
+            // Weight display - consistent height, no double borders
             var textValue by remember(value) { mutableStateOf(formatWeight(value)) }
             var isEditing by remember { mutableStateOf(false) }
 
@@ -1065,7 +1056,9 @@ private fun ResponsiveWeightControl(
                             textValue = filtered
                         }
                     },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(40.dp), // Consistent height
                     textStyle = TextStyle(
                         fontSize = 14.sp,
                         color = TextPrimary,
@@ -1093,49 +1086,43 @@ private fun ResponsiveWeightControl(
                     )
                 )
             } else {
-                Card(
-                    backgroundColor = SurfaceColor.copy(alpha = 0.7f),
-                    shape = RoundedCornerShape(6.dp),
+                // Single border, consistent height for BW+Xkg display
+                Text(
+                    text = formatWeightDisplay(
+                        weight = value,
+                        isBodyweight = isBodyweight,
+                        bodyweight = bodyweight,
+                        mode = WeightDisplayMode.COMPACT
+                    ),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary,
                     modifier = Modifier
                         .weight(1f)
+                        .height(40.dp) // FIXED: Consistent height prevents jumping
                         .clickable {
                             isEditing = true
                             textValue = formatWeight(value)
                         }
-                ) {
-                    Text(
-                        text = formatWeightDisplay(
-                            weight = value,
-                            isBodyweight = isBodyweight,
-                            bodyweight = bodyweight,
-                            mode = WeightDisplayMode.COMPACT
-                        ),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary,
-                        modifier = Modifier.padding(vertical = 8.dp),
-                        textAlign = TextAlign.Center
-                    )
-                }
+                        .background(
+                            color = SurfaceColor.copy(alpha = 0.7f),
+                            shape = RoundedCornerShape(6.dp)
+                        )
+                        .wrapContentHeight(align = Alignment.CenterVertically), // FIXED: Center vertically
+                    textAlign = TextAlign.Center,
+                    maxLines = 1, // FIXED: Force single line
+                    overflow = TextOverflow.Ellipsis
+                )
             }
 
             // Increase button
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .background(
-                        color = AccentOrange.copy(alpha = 0.2f),
-                        shape = RoundedCornerShape(6.dp)
-                    )
-                    .clickable { onIncrease() },
-                contentAlignment = Alignment.Center
+            TextButton(
+                onClick = onIncrease,
+                colors = ButtonDefaults.textButtonColors(contentColor = AccentOrange),
+                modifier = Modifier.size(32.dp),
+                contentPadding = PaddingValues(0.dp)
             ) {
-                Text(
-                    text = "+",
-                    color = AccentOrange,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Text("+", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
