@@ -317,20 +317,19 @@ private fun BodyweightInputCard(
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 // Decrease button
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(
-                            color = if (bodyweight > 30.0) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f),
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .clickable {
-                            if (bodyweight > 30.0) {
-                                val newWeight = (bodyweight - 0.5).coerceAtLeast(30.0)
-                                onBodyweightChange(formatToThreeDecimals(newWeight))
-                            }
-                        },
-                    contentAlignment = Alignment.Center
+                Button(
+                    onClick = {
+                        if (bodyweight > 30.0) {
+                            val newWeight = (bodyweight - 0.5).coerceAtLeast(30.0)
+                            onBodyweightChange(newWeight)
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        backgroundColor = if (bodyweight > 30.0) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f)
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.size(48.dp),
+                    contentPadding = PaddingValues(0.dp)
                 ) {
                     Text(
                         text = "−",
@@ -340,86 +339,32 @@ private fun BodyweightInputCard(
                     )
                 }
 
-                // Bodyweight input with robust parsing
-                var textValue by remember(bodyweight) { mutableStateOf(formatWeight(bodyweight)) }
-                var isEditing by remember { mutableStateOf(false) }
-
-                if (isEditing) {
-                    TextField(
-                        value = textValue,
-                        onValueChange = { newText ->
-                            val filtered = newText.filter { it.isDigit() || it == '.' }
-                            if (filtered.count { it == '.' } <= 1 && filtered.length <= 7) {
-                                textValue = filtered
-                            }
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 16.dp),
-                        textStyle = TextStyle(
-                            fontSize = 18.sp,
-                            color = Color.White,
-                            textAlign = TextAlign.Center,
-                            fontWeight = FontWeight.Bold
-                        ),
-                        singleLine = true,
-                        colors = TextFieldDefaults.textFieldColors(
-                            backgroundColor = Color.White.copy(alpha = 0.1f),
-                            focusedIndicatorColor = Color.White,
-                            unfocusedIndicatorColor = Color.White.copy(alpha = 0.7f),
-                            cursorColor = Color.White
-                        ),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Decimal,
-                            imeAction = ImeAction.Done
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onDone = {
-                                val newValue = parseWeightInput(textValue).coerceIn(30.0, 999.0)
-                                onBodyweightChange(formatToThreeDecimals(newValue))
-                                textValue = formatWeight(newValue)
-                                isEditing = false
-                            }
-                        )
-                    )
-                } else {
-                    Card(
-                        backgroundColor = Color.White.copy(alpha = 0.1f),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 16.dp)
-                            .clickable {
-                                isEditing = true
-                                textValue = formatWeight(bodyweight)
-                            }
-                    ) {
-                        Text(
-                            text = "${formatWeight(bodyweight)} kg",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            modifier = Modifier.padding(vertical = 12.dp),
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
+                // Bodyweight input
+                Text(
+                    text = "${formatWeight(bodyweight)} kg",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 16.dp),
+                    textAlign = TextAlign.Center
+                )
 
                 // Increase button
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(
-                            color = if (bodyweight < 999.0) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f),
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .clickable {
-                            if (bodyweight < 999.0) {
-                                val newWeight = (bodyweight + 0.5).coerceAtMost(999.0)
-                                onBodyweightChange(formatToThreeDecimals(newWeight))
-                            }
-                        },
-                    contentAlignment = Alignment.Center
+                Button(
+                    onClick = {
+                        if (bodyweight < 999.0) {
+                            val newWeight = (bodyweight + 0.5).coerceAtMost(999.0)
+                            onBodyweightChange(newWeight)
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        backgroundColor = if (bodyweight < 999.0) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f)
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.size(48.dp),
+                    contentPadding = PaddingValues(0.dp)
                 ) {
                     Text(
                         text = "+",
@@ -432,6 +377,7 @@ private fun BodyweightInputCard(
         }
     }
 }
+
 
 @Composable
 private fun CreateWorkoutContent(
