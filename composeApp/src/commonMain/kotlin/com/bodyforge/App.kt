@@ -823,41 +823,53 @@ private fun SetRow(
                 Button(
                     onClick = { onUpdateSet(set.id, null, null, !set.completed) },
                     colors = ButtonDefaults.buttonColors(
-                        backgroundColor = if (set.completed) AccentGreen else SurfaceColor.copy(alpha = 0.7f)
+                        backgroundColor = if (set.completed) AccentGreen else Color(0xFF475569) // Better neutral color
                     ),
                     shape = RoundedCornerShape(20.dp),
                     modifier = Modifier.size(width = 80.dp, height = 32.dp),
                     contentPadding = PaddingValues(0.dp)
                 ) {
-                    Text(
-                        text = if (set.completed) "✓" else "○",
-                        color = Color.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    if (set.completed) {
+                        // Checkmark
+                        Text(
+                            text = "✓",
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    } else {
+                        // Clear "DONE" text instead of confusing circle
+                        Text(
+                            text = "DONE",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Controls row - RESPONSIVE
+            // Controls row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Reps control
+                // Editable reps control
                 ResponsiveValueControl(
                     label = "Reps",
                     value = set.reps,
                     onDecrease = { if (set.reps > 0) onUpdateSet(set.id, set.reps - 1, null, null) },
                     onIncrease = { onUpdateSet(set.id, set.reps + 1, null, null) },
+                    onValueChange = { newReps -> onUpdateSet(set.id, newReps, null, null) }, // NEW: Direct editing
                     modifier = Modifier.weight(1f)
                 )
 
                 Spacer(modifier = Modifier.width(16.dp))
 
-                // Weight control with BW+Xkg support
+                // Weight control with fixed layout
                 ResponsiveWeightControl(
                     label = if (exercise.isBodyweight) "BW+kg" else "Weight",
                     value = set.weightKg,
