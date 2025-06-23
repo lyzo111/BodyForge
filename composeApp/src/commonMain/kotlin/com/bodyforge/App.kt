@@ -28,8 +28,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.TextField
-import androidx.compose.material.TextFieldDefaults
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -39,11 +38,11 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.FilterChip
 import androidx.compose.material.Switch
 import androidx.compose.material.SwitchDefaults
 import androidx.compose.material.AlertDialog
 import androidx.compose.ui.draw.scale
+import androidx.compose.foundation.layout.wrapContentHeight
 
 // Modern Color Palette
 private val DarkBackground = Color(0xFF0F172A)
@@ -76,17 +75,14 @@ fun App() {
                 .background(DarkBackground)
         ) {
             Column {
-                // Header with gradient
                 HeaderSection()
 
-                // Navigation Tabs
                 NavigationTabs(
                     activeTab = uiState.activeTab,
                     onTabSelected = { viewModel.setActiveTab(it) },
                     hasActiveWorkout = uiState.currentWorkout != null
                 )
 
-                // Loading indicator
                 if (uiState.isLoading) {
                     Box(
                         modifier = Modifier
@@ -111,7 +107,6 @@ fun App() {
                     }
                 }
 
-                // Error handling
                 uiState.error?.let { error ->
                     ErrorCard(
                         error = error,
@@ -119,7 +114,6 @@ fun App() {
                     )
                 }
 
-                // Content based on active tab
                 when (uiState.activeTab) {
                     "create" -> CreateWorkoutContent(
                         uiState = uiState,
@@ -291,14 +285,13 @@ private fun BodyweightInputCard(
 ) {
     Card(
         backgroundColor = Color(0xFF0F766E),
-        elevation = 4.dp,
+        elevation = 0.dp, // Removed double border
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            // Header row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -319,13 +312,11 @@ private fun BodyweightInputCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Controls row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                // Decrease button
                 Button(
                     onClick = {
                         if (bodyweight > 30.0) {
@@ -338,7 +329,8 @@ private fun BodyweightInputCard(
                     ),
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.size(48.dp),
-                    contentPadding = PaddingValues(0.dp)
+                    contentPadding = PaddingValues(0.dp),
+                    elevation = ButtonDefaults.elevation(0.dp) // Removed double border
                 ) {
                     Text(
                         text = "−",
@@ -348,19 +340,68 @@ private fun BodyweightInputCard(
                     )
                 }
 
-                // Bodyweight input
-                Text(
-                    text = "${formatWeight(bodyweight)} kg",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 16.dp),
-                    textAlign = TextAlign.Center
-                )
+                // Editable bodyweight input with leading zero removal
+                var textValue by remember(bodyweight) { mutableStateOf(formatWeight(bodyweight)) }
+                var isEditing by remember { mutableStateOf(false) }
 
-                // Increase button
+                if (isEditing) {
+                    BasicTextField(
+                        value = textValue,
+                        onValueChange = { newText ->
+                            val filtered = newText.filter { it.isDigit() || it == '.' }
+                            if (filtered.count { it == '.' } <= 1 && filtered.length <= 8) {
+                                textValue = filtered
+                            }
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 8.dp)
+                            .background(
+                                color = Color.White.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(12.dp),
+                        textStyle = TextStyle(
+                            fontSize = 18.sp,
+                            color = Color.White,
+                            textAlign = TextAlign.Center,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Decimal,
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                val newValue = parseWeightInput(textValue).coerceIn(30.0, 999.0)
+                                onBodyweightChange(newValue)
+                                textValue = formatWeight(newValue)
+                                isEditing = false
+                            }
+                        )
+                    )
+                } else {
+                    Text(
+                        text = "${formatWeight(bodyweight)} kg",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable {
+                                isEditing = true
+                                textValue = formatWeight(bodyweight)
+                            }
+                            .background(
+                                color = Color.White.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(vertical = 12.dp, horizontal = 16.dp),
+                        textAlign = TextAlign.Center
+                    )
+                }
+
                 Button(
                     onClick = {
                         if (bodyweight < 999.0) {
@@ -373,7 +414,8 @@ private fun BodyweightInputCard(
                     ),
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.size(48.dp),
-                    contentPadding = PaddingValues(0.dp)
+                    contentPadding = PaddingValues(0.dp),
+                    elevation = ButtonDefaults.elevation(0.dp) // Removed double border
                 ) {
                     Text(
                         text = "+",
@@ -386,7 +428,6 @@ private fun BodyweightInputCard(
         }
     }
 }
-
 
 @Composable
 private fun CreateWorkoutContent(
@@ -401,13 +442,12 @@ private fun CreateWorkoutContent(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Selected Exercises Section
+        // Sticky Selected Exercises Card (only when exercises are selected)
         if (uiState.selectedExercises.isNotEmpty()) {
             item {
-                SelectedExercisesCard(
+                StickySelectedExercisesCard(
                     selectedExercises = uiState.selectedExercises,
                     isLoading = uiState.isLoading,
-                    onRemoveExercise = { viewModel.removeExerciseFromSelection(it) },
                     onStartWorkout = { viewModel.startWorkout() }
                 )
             }
@@ -428,12 +468,12 @@ private fun CreateWorkoutContent(
                     modifier = Modifier.weight(1f)
                 )
 
-                // NEW: Create Exercise Button
                 Button(
                     onClick = { showCreateExerciseDialog = true },
                     colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen),
                     shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.height(36.dp)
+                    modifier = Modifier.height(36.dp),
+                    elevation = ButtonDefaults.elevation(0.dp) // Removed double border
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -466,7 +506,6 @@ private fun CreateWorkoutContent(
         }
     }
 
-    // Create Exercise Dialog
     CreateExerciseDialog(
         showDialog = showCreateExerciseDialog,
         onDismiss = { showCreateExerciseDialog = false },
@@ -476,95 +515,62 @@ private fun CreateWorkoutContent(
     )
 }
 
-
 @Composable
-private fun SelectedExercisesCard(
+private fun StickySelectedExercisesCard(
     selectedExercises: List<com.bodyforge.domain.models.Exercise>,
     isLoading: Boolean,
-    onRemoveExercise: (com.bodyforge.domain.models.Exercise) -> Unit,
     onStartWorkout: () -> Unit
 ) {
     Card(
         backgroundColor = SelectedGreen,
-        elevation = 6.dp,
-        shape = RoundedCornerShape(16.dp),
+        elevation = 2.dp, // Reduced elevation to avoid double border
+        shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(
-            modifier = Modifier.padding(20.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Header with responsive button
-            Column(
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Selected Exercises (${selectedExercises.size})",
-                    fontSize = 18.sp,
+                    text = "${selectedExercises.size} Exercises Selected",
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    modifier = Modifier.fillMaxWidth()
+                    color = Color.White
                 )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Full-width button to prevent text wrapping
-                Button(
-                    onClick = onStartWorkout,
-                    enabled = !isLoading,
-                    colors = ButtonDefaults.buttonColors(
-                        backgroundColor = AccentOrange,
-                        contentColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    elevation = ButtonDefaults.elevation(4.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color.White)
-                        Text(
-                            text = if (isLoading) "Starting..." else "Start Workout",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
-                    }
-                }
+                Text(
+                    text = selectedExercises.take(2).joinToString(", ") { it.name } +
+                            if (selectedExercises.size > 2) "..." else "",
+                    fontSize = 12.sp,
+                    color = Color.White.copy(alpha = 0.8f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            selectedExercises.forEach { exercise ->
+            Button(
+                onClick = onStartWorkout,
+                enabled = !isLoading,
+                colors = ButtonDefaults.buttonColors(
+                    backgroundColor = AccentOrange,
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(25.dp),
+                elevation = ButtonDefaults.elevation(0.dp) // Removed double border
+            ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = exercise.name,
-                            color = Color.White,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = exercise.muscleGroups.joinToString(", "),
-                            color = Color.White.copy(alpha = 0.7f),
-                            fontSize = 12.sp
-                        )
-                    }
-
-                    IconButton(onClick = { onRemoveExercise(exercise) }) {
-                        Icon(
-                            Icons.Filled.Delete,
-                            contentDescription = "Remove",
-                            tint = AccentRed
-                        )
-                    }
+                    Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color.White)
+                    Text(
+                        text = if (isLoading) "Starting..." else "Start",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
                 }
             }
         }
@@ -579,7 +585,7 @@ private fun ExerciseCard(
 ) {
     Card(
         backgroundColor = if (isSelected) SelectedGreen else CardBackground,
-        elevation = if (isSelected) 6.dp else 2.dp,
+        elevation = if (isSelected) 2.dp else 1.dp, // Reduced elevation
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -623,7 +629,6 @@ private fun ActiveWorkoutContent(
     val currentWorkout = uiState.currentWorkout
 
     if (currentWorkout == null) {
-        // No active workout screen
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -652,24 +657,22 @@ private fun ActiveWorkoutContent(
                 Button(
                     onClick = { viewModel.setActiveTab("create") },
                     colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange),
-                    shape = RoundedCornerShape(25.dp)
+                    shape = RoundedCornerShape(25.dp),
+                    elevation = ButtonDefaults.elevation(0.dp) // Removed double border
                 ) {
                     Text("Create Workout", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             }
         }
     } else {
-        // Check if workout contains bodyweight exercises
         val hasBodyweightExercises = currentWorkout.exercises.any { it.exercise.isBodyweight }
 
-        // Active workout screen
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Add bodyweight input if needed
             if (hasBodyweightExercises) {
                 item {
                     BodyweightInputCard(
@@ -712,7 +715,7 @@ private fun WorkoutHeaderCard(
 ) {
     Card(
         backgroundColor = Color(0xFF1E40AF),
-        elevation = 6.dp,
+        elevation = 2.dp, // Reduced elevation
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -741,7 +744,8 @@ private fun WorkoutHeaderCard(
                 Button(
                     onClick = onFinishWorkout,
                     colors = ButtonDefaults.buttonColors(backgroundColor = AccentRed),
-                    shape = RoundedCornerShape(25.dp)
+                    shape = RoundedCornerShape(25.dp),
+                    elevation = ButtonDefaults.elevation(0.dp) // Removed double border
                 ) {
                     Text("🏁 Finish", color = Color.White, fontWeight = FontWeight.Bold)
                 }
@@ -760,14 +764,13 @@ private fun ActiveExerciseCard(
 ) {
     Card(
         backgroundColor = CardBackground,
-        elevation = 4.dp,
+        elevation = 2.dp, // Reduced elevation
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            // Exercise header with set controls
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -783,12 +786,10 @@ private fun ActiveExerciseCard(
                     overflow = TextOverflow.Ellipsis
                 )
 
-                // Add/Remove Set Controls
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Remove set button
                     IconButton(
                         onClick = {
                             if (exerciseInWorkout.sets.isNotEmpty()) {
@@ -810,7 +811,6 @@ private fun ActiveExerciseCard(
                         color = TextSecondary
                     )
 
-                    // Add set button
                     IconButton(onClick = onAddSet) {
                         Text(
                             text = "+",
@@ -849,12 +849,12 @@ private fun SetRow(
         shape = RoundedCornerShape(8.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp)
+            .padding(vertical = 2.dp),
+        elevation = 0.dp // Removed double border
     ) {
         Column(
             modifier = Modifier.padding(12.dp)
         ) {
-            // Set header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -867,18 +867,17 @@ private fun SetRow(
                     color = TextSecondary
                 )
 
-                // Complete button
                 Button(
                     onClick = { onUpdateSet(set.id, null, null, !set.completed) },
                     colors = ButtonDefaults.buttonColors(
-                        backgroundColor = if (set.completed) AccentGreen else Color(0xFF475569) // Better neutral color
+                        backgroundColor = if (set.completed) AccentGreen else Color(0xFF475569)
                     ),
                     shape = RoundedCornerShape(20.dp),
                     modifier = Modifier.size(width = 80.dp, height = 32.dp),
-                    contentPadding = PaddingValues(0.dp)
+                    contentPadding = PaddingValues(0.dp),
+                    elevation = ButtonDefaults.elevation(0.dp) // Removed double border
                 ) {
                     if (set.completed) {
-                        // Checkmark
                         Text(
                             text = "✓",
                             color = Color.White,
@@ -886,7 +885,6 @@ private fun SetRow(
                             fontWeight = FontWeight.Bold
                         )
                     } else {
-                        // Clear "DONE" text instead of confusing circle
                         Text(
                             text = "DONE",
                             color = Color.White.copy(alpha = 0.7f),
@@ -899,27 +897,24 @@ private fun SetRow(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Controls row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Editable reps control
                 ResponsiveValueControl(
                     label = "Reps",
                     value = set.reps,
                     onDecrease = { if (set.reps > 0) onUpdateSet(set.id, set.reps - 1, null, null) },
                     onIncrease = { onUpdateSet(set.id, set.reps + 1, null, null) },
-                    onValueChange = { newReps -> onUpdateSet(set.id, newReps, null, null) }, // Direct editing
+                    onValueChange = { newReps -> onUpdateSet(set.id, newReps, null, null) },
                     modifier = Modifier.weight(1f)
                 )
 
                 Spacer(modifier = Modifier.width(16.dp))
 
-                // Weight control with fixed layout
                 ResponsiveWeightControl(
-                    label = if (exercise.isBodyweight) "BW+kg" else "Weight",
+                    label = if (exercise.isBodyweight) "BW+kg" else "Weight (kg)",
                     value = set.weightKg,
                     onDecrease = {
                         if (set.weightKg > 0)
@@ -936,14 +931,13 @@ private fun SetRow(
     }
 }
 
-// Editable Reps Control
 @Composable
 private fun ResponsiveValueControl(
     label: String,
     value: Int,
     onDecrease: () -> Unit,
     onIncrease: () -> Unit,
-    onValueChange: ((Int) -> Unit)? = null, // Direct value change for reps
+    onValueChange: ((Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -964,7 +958,6 @@ private fun ResponsiveValueControl(
             horizontalArrangement = Arrangement.SpaceEvenly,
             modifier = Modifier.fillMaxWidth()
         ) {
-            // Decrease button - FLAT design
             TextButton(
                 onClick = onDecrease,
                 colors = ButtonDefaults.textButtonColors(contentColor = AccentOrange),
@@ -974,21 +967,26 @@ private fun ResponsiveValueControl(
                 Text("−", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
 
-            // Editable reps value
             if (onValueChange != null) {
                 var textValue by remember(value) { mutableStateOf(value.toString()) }
                 var isEditing by remember { mutableStateOf(false) }
 
                 if (isEditing) {
-                    TextField(
+                    BasicTextField(
                         value = textValue,
                         onValueChange = { newText ->
                             val filtered = newText.filter { it.isDigit() }
-                            if (filtered.length <= 3) { // Max 999 reps
+                            if (filtered.length <= 3) {
                                 textValue = filtered
                             }
                         },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(
+                                color = SurfaceColor.copy(alpha = 0.7f),
+                                shape = RoundedCornerShape(6.dp)
+                            )
+                            .padding(8.dp),
                         textStyle = TextStyle(
                             fontSize = 16.sp,
                             color = TextPrimary,
@@ -996,19 +994,13 @@ private fun ResponsiveValueControl(
                             fontWeight = FontWeight.Bold
                         ),
                         singleLine = true,
-                        colors = TextFieldDefaults.textFieldColors(
-                            backgroundColor = SurfaceColor.copy(alpha = 0.7f),
-                            focusedIndicatorColor = AccentOrange,
-                            unfocusedIndicatorColor = Color.Transparent,
-                            cursorColor = AccentOrange
-                        ),
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Number,
                             imeAction = ImeAction.Done
                         ),
                         keyboardActions = KeyboardActions(
                             onDone = {
-                                val newValue = textValue.toIntOrNull()?.coerceIn(0, 999) ?: value
+                                val newValue = parseNumberInput(textValue).coerceIn(0, 999)
                                 onValueChange(newValue)
                                 textValue = newValue.toString()
                                 isEditing = false
@@ -1016,7 +1008,6 @@ private fun ResponsiveValueControl(
                         )
                     )
                 } else {
-                    // Single border, clickable for editing
                     Text(
                         text = value.toString(),
                         fontSize = 16.sp,
@@ -1034,7 +1025,6 @@ private fun ResponsiveValueControl(
                     )
                 }
             } else {
-                // Read-only version (fallback)
                 Text(
                     text = value.toString(),
                     fontSize = 16.sp,
@@ -1051,7 +1041,6 @@ private fun ResponsiveValueControl(
                 )
             }
 
-            // Increase button - FLAT design
             TextButton(
                 onClick = onIncrease,
                 colors = ButtonDefaults.textButtonColors(contentColor = AccentOrange),
@@ -1093,7 +1082,6 @@ private fun ResponsiveWeightControl(
             horizontalArrangement = Arrangement.SpaceEvenly,
             modifier = Modifier.fillMaxWidth()
         ) {
-            // Decrease button
             TextButton(
                 onClick = onDecrease,
                 colors = ButtonDefaults.textButtonColors(contentColor = AccentOrange),
@@ -1103,12 +1091,11 @@ private fun ResponsiveWeightControl(
                 Text("−", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
 
-            // Weight display - consistent height, no double borders
             var textValue by remember(value) { mutableStateOf(formatWeight(value)) }
             var isEditing by remember { mutableStateOf(false) }
 
             if (isEditing) {
-                TextField(
+                BasicTextField(
                     value = textValue,
                     onValueChange = { newText ->
                         val filtered = newText.filter { it.isDigit() || it == '.' }
@@ -1118,7 +1105,12 @@ private fun ResponsiveWeightControl(
                     },
                     modifier = Modifier
                         .weight(1f)
-                        .height(40.dp), // Consistent height
+                        .height(40.dp)
+                        .background(
+                            color = SurfaceColor.copy(alpha = 0.7f),
+                            shape = RoundedCornerShape(6.dp)
+                        )
+                        .padding(8.dp),
                     textStyle = TextStyle(
                         fontSize = 14.sp,
                         color = TextPrimary,
@@ -1126,12 +1118,6 @@ private fun ResponsiveWeightControl(
                         fontWeight = FontWeight.Bold
                     ),
                     singleLine = true,
-                    colors = TextFieldDefaults.textFieldColors(
-                        backgroundColor = SurfaceColor.copy(alpha = 0.7f),
-                        focusedIndicatorColor = AccentOrange,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        cursorColor = AccentOrange
-                    ),
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Decimal,
                         imeAction = ImeAction.Done
@@ -1146,20 +1132,19 @@ private fun ResponsiveWeightControl(
                     )
                 )
             } else {
-                // Single border, consistent height for BW+Xkg display
                 Text(
                     text = formatWeightDisplay(
                         weight = value,
                         isBodyweight = isBodyweight,
                         bodyweight = bodyweight,
-                        mode = WeightDisplayMode.COMPACT
+                        mode = WeightDisplayMode.COMPACT_WITH_UNIT
                     ),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary,
                     modifier = Modifier
                         .weight(1f)
-                        .height(40.dp) // Consistent height prevents jumping
+                        .height(40.dp)
                         .clickable {
                             isEditing = true
                             textValue = formatWeight(value)
@@ -1168,14 +1153,13 @@ private fun ResponsiveWeightControl(
                             color = SurfaceColor.copy(alpha = 0.7f),
                             shape = RoundedCornerShape(6.dp)
                         )
-                        .wrapContentHeight(align = Alignment.CenterVertically), // FIXED: Center vertically
+                        .wrapContentHeight(align = Alignment.CenterVertically),
                     textAlign = TextAlign.Center,
-                    maxLines = 1, // FIXED: Force single line
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
 
-            // Increase button
             TextButton(
                 onClick = onIncrease,
                 colors = ButtonDefaults.textButtonColors(contentColor = AccentOrange),
@@ -1219,15 +1203,14 @@ private fun HistoryContent(
             items(uiState.completedWorkouts) { workout ->
                 HistoryWorkoutCard(
                     workout = workout,
-                    bodyweight = uiState.bodyweight, // NEW: Pass bodyweight for BW+Xkg display
+                    bodyweight = uiState.bodyweight,
                     onDelete = { viewModel.deleteWorkout(workout.id) },
-                    onEdit = { editingWorkout = workout } // NEW: Edit functionality
+                    onEdit = { editingWorkout = workout }
                 )
             }
         }
     }
 
-    // Edit Workout Dialog
     EditWorkoutDialog(
         workout = editingWorkout,
         bodyweight = uiState.bodyweight,
@@ -1243,7 +1226,7 @@ private fun HistoryContent(
 private fun EmptyHistoryCard() {
     Card(
         backgroundColor = CardBackground,
-        elevation = 2.dp,
+        elevation = 1.dp, // Reduced elevation
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -1275,20 +1258,19 @@ private fun EmptyHistoryCard() {
 @Composable
 private fun HistoryWorkoutCard(
     workout: com.bodyforge.domain.models.Workout,
-    bodyweight: Double, // NEW: For BW+Xkg calculations
+    bodyweight: Double,
     onDelete: () -> Unit,
-    onEdit: () -> Unit // NEW: Edit callback
+    onEdit: () -> Unit
 ) {
     Card(
         backgroundColor = CardBackground,
-        elevation = 4.dp,
+        elevation = 2.dp, // Reduced elevation
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            // Header with Name, Edit and Delete buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1313,10 +1295,9 @@ private fun HistoryWorkoutCard(
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // NEW: Edit button
                     IconButton(onClick = onEdit) {
                         Icon(
-                            Icons.Filled.Edit, // You might need to import this
+                            Icons.Filled.Edit,
                             contentDescription = "Edit workout",
                             tint = AccentOrange
                         )
@@ -1334,7 +1315,6 @@ private fun HistoryWorkoutCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Stats
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
@@ -1355,7 +1335,6 @@ private fun HistoryWorkoutCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // UPDATED: Exercises with BW+Xkg display
             Text(
                 text = "Exercises:",
                 fontSize = 14.sp,
@@ -1373,7 +1352,6 @@ private fun HistoryWorkoutCard(
                         color = TextSecondary
                     )
 
-                    // NEW: Show sets with BW+Xkg display in history
                     exerciseInWorkout.sets.filter { it.completed }.forEachIndexed { index, set ->
                         Text(
                             text = "  Set ${index + 1}: ${set.reps} × ${
@@ -1381,7 +1359,7 @@ private fun HistoryWorkoutCard(
                                     weight = set.weightKg,
                                     isBodyweight = exerciseInWorkout.exercise.isBodyweight,
                                     bodyweight = bodyweight,
-                                    mode = WeightDisplayMode.DETAILED // Shows "BW+10kg (85kg)"
+                                    mode = WeightDisplayMode.DETAILED
                                 )
                             }",
                             fontSize = 11.sp,
@@ -1417,7 +1395,6 @@ private fun WorkoutStat(
     }
 }
 
-// Custom Exercise Creation Dialog
 @Composable
 private fun CreateExerciseDialog(
     showDialog: Boolean,
@@ -1450,7 +1427,6 @@ private fun CreateExerciseDialog(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.heightIn(max = 400.dp)
             ) {
-                // Exercise Name
                 item {
                     Column {
                         Text(
@@ -1459,22 +1435,35 @@ private fun CreateExerciseDialog(
                             fontWeight = FontWeight.Medium,
                             color = TextPrimary
                         )
-                        TextField(
+                        BasicTextField(
                             value = exerciseName,
                             onValueChange = { exerciseName = it },
-                            placeholder = { Text("e.g., Cable Lateral Raises") },
-                            singleLine = true,
-                            colors = TextFieldDefaults.textFieldColors(
-                                backgroundColor = SurfaceColor,
-                                focusedIndicatorColor = AccentOrange,
-                                cursorColor = AccentOrange
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    color = SurfaceColor,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .padding(12.dp),
+                            textStyle = TextStyle(
+                                fontSize = 16.sp,
+                                color = TextPrimary
                             ),
-                            modifier = Modifier.fillMaxWidth()
+                            singleLine = true,
+                            decorationBox = { innerTextField ->
+                                if (exerciseName.isEmpty()) {
+                                    Text(
+                                        text = "e.g., Cable Lateral Raises",
+                                        color = TextSecondary,
+                                        fontSize = 16.sp
+                                    )
+                                }
+                                innerTextField()
+                            }
                         )
                     }
                 }
 
-                // Muscle Groups Selection with stable buttons
                 item {
                     Column {
                         Text(
@@ -1484,7 +1473,6 @@ private fun CreateExerciseDialog(
                             color = TextPrimary
                         )
 
-                        // Using stable Button components instead of experimental FilterChip
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(2),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1509,7 +1497,8 @@ private fun CreateExerciseDialog(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(32.dp),
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                    elevation = ButtonDefaults.elevation(0.dp) // Removed double border
                                 ) {
                                     Text(
                                         text = muscle,
@@ -1522,7 +1511,6 @@ private fun CreateExerciseDialog(
                     }
                 }
 
-                // Equipment
                 item {
                     Column {
                         Text(
@@ -1531,22 +1519,35 @@ private fun CreateExerciseDialog(
                             fontWeight = FontWeight.Medium,
                             color = TextPrimary
                         )
-                        TextField(
+                        BasicTextField(
                             value = equipment,
                             onValueChange = { equipment = it },
-                            placeholder = { Text("e.g., Dumbbells, Cable Machine") },
-                            singleLine = true,
-                            colors = TextFieldDefaults.textFieldColors(
-                                backgroundColor = SurfaceColor,
-                                focusedIndicatorColor = AccentOrange,
-                                cursorColor = AccentOrange
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    color = SurfaceColor,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .padding(12.dp),
+                            textStyle = TextStyle(
+                                fontSize = 16.sp,
+                                color = TextPrimary
                             ),
-                            modifier = Modifier.fillMaxWidth()
+                            singleLine = true,
+                            decorationBox = { innerTextField ->
+                                if (equipment.isEmpty()) {
+                                    Text(
+                                        text = "e.g., Dumbbells, Cable Machine",
+                                        color = TextSecondary,
+                                        fontSize = 16.sp
+                                    )
+                                }
+                                innerTextField()
+                            }
                         )
                     }
                 }
 
-                // Bodyweight Toggle
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -1585,7 +1586,8 @@ private fun CreateExerciseDialog(
                     }
                 },
                 colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange),
-                enabled = exerciseName.isNotBlank() && selectedMuscleGroups.isNotEmpty()
+                enabled = exerciseName.isNotBlank() && selectedMuscleGroups.isNotEmpty(),
+                elevation = ButtonDefaults.elevation(0.dp) // Removed double border
             ) {
                 Text("Create", color = Color.White, fontWeight = FontWeight.Bold)
             }
@@ -1646,7 +1648,8 @@ private fun EditWorkoutDialog(
                     onSaveWorkout(editedWorkout)
                     onDismiss()
                 },
-                colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange)
+                colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange),
+                elevation = ButtonDefaults.elevation(0.dp) // Removed double border
             ) {
                 Text("Save Changes", color = Color.White, fontWeight = FontWeight.Bold)
             }
@@ -1669,7 +1672,8 @@ private fun EditExerciseCard(
     Card(
         backgroundColor = SurfaceColor,
         shape = RoundedCornerShape(8.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        elevation = 0.dp // Removed double border
     ) {
         Column(
             modifier = Modifier.padding(12.dp)
@@ -1722,43 +1726,58 @@ private fun EditSetRow(
             modifier = Modifier.width(50.dp)
         )
 
-        // Reps
         var repsText by remember { mutableStateOf(set.reps.toString()) }
-        TextField(
+        BasicTextField(
             value = repsText,
             onValueChange = { newText ->
                 repsText = newText.filter { it.isDigit() }
-                val newReps = repsText.toIntOrNull() ?: set.reps
-                onUpdateSet(set.copy(reps = newReps.coerceIn(0, 999)))
+                val newReps = parseNumberInput(repsText).coerceIn(0, 999)
+                onUpdateSet(set.copy(reps = newReps))
             },
-            modifier = Modifier.width(80.dp),
-            textStyle = TextStyle(fontSize = 14.sp, textAlign = TextAlign.Center),
-            singleLine = true,
-            colors = TextFieldDefaults.textFieldColors(
-                backgroundColor = Color.Transparent,
-                focusedIndicatorColor = AccentOrange
-            )
+            modifier = Modifier
+                .width(80.dp)
+                .background(
+                    color = Color.Transparent,
+                    shape = RoundedCornerShape(4.dp)
+                )
+                .padding(8.dp),
+            textStyle = TextStyle(
+                fontSize = 14.sp,
+                textAlign = TextAlign.Center,
+                color = TextPrimary
+            ),
+            singleLine = true
         )
 
-        // Weight
         var weightText by remember { mutableStateOf(formatWeight(set.weightKg)) }
-        TextField(
-            value = weightText,
-            onValueChange = { newText ->
-                weightText = newText.filter { it.isDigit() || it == '.' }
-                val newWeight = parseWeightInput(weightText)
-                onUpdateSet(set.copy(weightKg = newWeight))
-            },
-            modifier = Modifier.width(80.dp),
-            textStyle = TextStyle(fontSize = 14.sp, textAlign = TextAlign.Center),
-            singleLine = true,
-            colors = TextFieldDefaults.textFieldColors(
-                backgroundColor = Color.Transparent,
-                focusedIndicatorColor = AccentOrange
+        Row(
+            modifier = Modifier.width(100.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BasicTextField(
+                value = weightText,
+                onValueChange = { newText ->
+                    weightText = newText.filter { it.isDigit() || it == '.' }
+                    val newWeight = parseWeightInput(weightText)
+                    onUpdateSet(set.copy(weightKg = newWeight))
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .background(
+                        color = Color.Transparent,
+                        shape = RoundedCornerShape(4.dp)
+                    )
+                    .padding(8.dp),
+                textStyle = TextStyle(
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Center,
+                    color = TextPrimary
+                ),
+                singleLine = true
             )
-        )
+            Text("kg", fontSize = 12.sp, color = TextSecondary)
+        }
 
-        // Complete toggle
         Switch(
             checked = set.completed,
             onCheckedChange = { completed ->
@@ -1775,14 +1794,12 @@ private fun EditSetRow(
     }
 }
 
-// =============================================================================
-// BW+Xkg Display Logic - Smart weight formatting for bodyweight exercises
-// =============================================================================
-
+// Weight display logic with kg unit
 enum class WeightDisplayMode {
-    COMPACT,    // "BW+10kg" for SetRows
-    DETAILED,   // "BW+10kg (85kg)" for History
-    TOTAL_ONLY  // "85kg" for calculations
+    COMPACT,               // "BW+10kg" for SetRows
+    COMPACT_WITH_UNIT,     // "BW+10kg" or "50kg" - shows unit
+    DETAILED,              // "BW+10kg (85kg)" for History
+    TOTAL_ONLY             // "85kg" for calculations
 }
 
 private fun formatWeightDisplay(
@@ -1792,22 +1809,23 @@ private fun formatWeightDisplay(
     mode: WeightDisplayMode = WeightDisplayMode.COMPACT
 ): String {
     if (!isBodyweight) {
-        // Normal weighted exercise - just show the weight
-        return "${formatWeight(weight)}kg"
+        return when (mode) {
+            WeightDisplayMode.COMPACT -> formatWeight(weight)
+            WeightDisplayMode.COMPACT_WITH_UNIT -> "${formatWeight(weight)}kg"
+            WeightDisplayMode.DETAILED -> "${formatWeight(weight)}kg"
+            WeightDisplayMode.TOTAL_ONLY -> "${formatWeight(weight)}kg"
+        }
     }
 
-    // Bodyweight exercise logic
     val totalWeight = bodyweight + weight
 
     return when (mode) {
         WeightDisplayMode.COMPACT -> {
-            if (weight == 0.0) {
-                "BW" // Pure bodyweight, no additional weight
-            } else {
-                "BW+${formatWeight(weight)}kg"
-            }
+            if (weight == 0.0) "BW" else "BW+${formatWeight(weight)}"
         }
-
+        WeightDisplayMode.COMPACT_WITH_UNIT -> {
+            if (weight == 0.0) "BW" else "BW+${formatWeight(weight)}kg"
+        }
         WeightDisplayMode.DETAILED -> {
             if (weight == 0.0) {
                 "BW (${formatWeight(bodyweight)}kg)"
@@ -1815,40 +1833,28 @@ private fun formatWeightDisplay(
                 "BW+${formatWeight(weight)}kg (${formatWeight(totalWeight)}kg)"
             }
         }
-
-        WeightDisplayMode.TOTAL_ONLY -> {
-            "${formatWeight(totalWeight)}kg"
-        }
+        WeightDisplayMode.TOTAL_ONLY -> "${formatWeight(totalWeight)}kg"
     }
 }
 
-private fun getActualWeight(weight: Double, isBodyweight: Boolean, bodyweight: Double): Double {
-    return if (isBodyweight) bodyweight + weight else weight
-}
-
-// Robust weight input parsing function
 private fun parseWeightInput(input: String): Double {
     if (input.isEmpty() || input == ".") return 0.0
 
-    // Handle common input patterns
     val cleanInput = when {
-        input.startsWith(".") -> "0$input"  // ".5" -> "0.5"
-        input.endsWith(".") -> input.dropLast(1)  // "100." -> "100"
+        input.startsWith(".") -> "0$input"
+        input.endsWith(".") -> input.dropLast(1)
         else -> input
     }
 
-    // Try direct parsing first
     cleanInput.toDoubleOrNull()?.let { parsed ->
         return parsed.coerceIn(0.0, 9999.0)
     }
 
-    // If that fails, try removing leading zeros and parsing again
     val withoutLeadingZeros = cleanInput.trimStart('0').ifEmpty { "0" }
     withoutLeadingZeros.toDoubleOrNull()?.let { parsed ->
         return parsed.coerceIn(0.0, 9999.0)
     }
 
-    // If all else fails, extract just the numbers
     val numbersOnly = cleanInput.filter { it.isDigit() }
     return if (numbersOnly.isEmpty()) {
         0.0
@@ -1857,15 +1863,18 @@ private fun parseWeightInput(input: String): Double {
     }
 }
 
-// Helper functions
+// Leading zero removal for number inputs
+private fun parseNumberInput(input: String): Int {
+    if (input.isEmpty()) return 0
+
+    val withoutLeadingZeros = input.trimStart('0').ifEmpty { "0" }
+    return withoutLeadingZeros.toIntOrNull() ?: 0
+}
+
 private fun formatWeight(weight: Double): String {
     return if (weight % 1.0 == 0.0) {
         weight.toInt().toString()
     } else {
         String.format("%.3f", weight).trimEnd('0').trimEnd('.')
     }
-}
-
-private fun formatToThreeDecimals(value: Double): Double {
-    return String.format("%.3f", value).toDouble()
 }
