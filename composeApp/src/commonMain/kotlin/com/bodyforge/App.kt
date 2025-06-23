@@ -876,12 +876,14 @@ private fun SetRow(
     }
 }
 
+// Editable Reps Control
 @Composable
 private fun ResponsiveValueControl(
     label: String,
     value: Int,
     onDecrease: () -> Unit,
     onIncrease: () -> Unit,
+    onValueChange: ((Int) -> Unit)? = null, // Direct value change for reps
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -902,58 +904,101 @@ private fun ResponsiveValueControl(
             horizontalArrangement = Arrangement.SpaceEvenly,
             modifier = Modifier.fillMaxWidth()
         ) {
-            // Decrease button
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .background(
-                        color = AccentOrange.copy(alpha = 0.2f),
-                        shape = RoundedCornerShape(6.dp)
-                    )
-                    .clickable { onDecrease() },
-                contentAlignment = Alignment.Center
+            // Decrease button - FLAT design
+            TextButton(
+                onClick = onDecrease,
+                colors = ButtonDefaults.textButtonColors(contentColor = AccentOrange),
+                modifier = Modifier.size(32.dp),
+                contentPadding = PaddingValues(0.dp)
             ) {
-                Text(
-                    text = "−",
-                    color = AccentOrange,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Text("−", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
 
-            // Value display
-            Card(
-                backgroundColor = SurfaceColor.copy(alpha = 0.7f),
-                shape = RoundedCornerShape(6.dp),
-                modifier = Modifier.weight(1f)
-            ) {
+            // FIXED: Editable reps value
+            if (onValueChange != null) {
+                var textValue by remember(value) { mutableStateOf(value.toString()) }
+                var isEditing by remember { mutableStateOf(false) }
+
+                if (isEditing) {
+                    TextField(
+                        value = textValue,
+                        onValueChange = { newText ->
+                            val filtered = newText.filter { it.isDigit() }
+                            if (filtered.length <= 3) { // Max 999 reps
+                                textValue = filtered
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        textStyle = TextStyle(
+                            fontSize = 16.sp,
+                            color = TextPrimary,
+                            textAlign = TextAlign.Center,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        singleLine = true,
+                        colors = TextFieldDefaults.textFieldColors(
+                            backgroundColor = SurfaceColor.copy(alpha = 0.7f),
+                            focusedIndicatorColor = AccentOrange,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            cursorColor = AccentOrange
+                        ),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number,
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                val newValue = textValue.toIntOrNull()?.coerceIn(0, 999) ?: value
+                                onValueChange(newValue)
+                                textValue = newValue.toString()
+                                isEditing = false
+                            }
+                        )
+                    )
+                } else {
+                    // FIXED: Single border, clickable for editing
+                    Text(
+                        text = value.toString(),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { isEditing = true }
+                            .background(
+                                color = SurfaceColor.copy(alpha = 0.7f),
+                                shape = RoundedCornerShape(6.dp)
+                            )
+                            .padding(vertical = 8.dp),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            } else {
+                // Read-only version (fallback)
                 Text(
                     text = value.toString(),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary,
-                    modifier = Modifier.padding(vertical = 8.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(
+                            color = SurfaceColor.copy(alpha = 0.7f),
+                            shape = RoundedCornerShape(6.dp)
+                        )
+                        .padding(vertical = 8.dp),
                     textAlign = TextAlign.Center
                 )
             }
 
-            // Increase button
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .background(
-                        color = AccentOrange.copy(alpha = 0.2f),
-                        shape = RoundedCornerShape(6.dp)
-                    )
-                    .clickable { onIncrease() },
-                contentAlignment = Alignment.Center
+            // Increase button - FLAT design
+            TextButton(
+                onClick = onIncrease,
+                colors = ButtonDefaults.textButtonColors(contentColor = AccentOrange),
+                modifier = Modifier.size(32.dp),
+                contentPadding = PaddingValues(0.dp)
             ) {
-                Text(
-                    text = "+",
-                    color = AccentOrange,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Text("+", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
