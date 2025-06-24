@@ -86,13 +86,11 @@ INSERT INTO Exercise (id, name, muscle_groups, instructions, equipment_needed, i
 
 -- Additional Popular Exercises
 ('incline_bench_press', 'Incline Bench Press', '["Chest", "Triceps"]', 'Press barbell on inclined bench', 'Barbell', 0, 0, 120),
-('decline_bench_press', 'Decline Bench Press', '["Chest", "Triceps"]', 'Press barbell on declined bench', 'Barbell', 0, 0, 120),
 ('dumbbell_press', 'Dumbbell Press', '["Chest", "Triceps"]', 'Press dumbbells from chest', 'Dumbbells', 0, 0, 90),
-('shoulder_shrugs', 'Shoulder Shrugs', '["Traps"]', 'Lift shoulders up and back down with weight', 'Dumbbells', 0, 0, 60),
+('shrugs', 'Shrugs', '["Upper Traps"]', 'Lift shoulders up and back down with weight', 'Dumbbells', 0, 0, 60),
 ('bicep_curls', 'Bicep Curls', '["Biceps"]', 'Curl dumbbells up to shoulders', 'Dumbbells', 0, 0, 60),
 ('tricep_pushdowns', 'Tricep Pushdowns', '["Triceps"]', 'Push cable down with triceps', 'Cable Machine', 0, 0, 60),
 ('calf_raises', 'Calf Raises', '["Calves"]', 'Raise up onto toes', 'None', 0, 1, 45),
-('planks', 'Planks', '["Core"]', 'Hold body straight in plank position', 'None', 0, 1, 30);
 
 -- EXERCISE QUERIES
 
