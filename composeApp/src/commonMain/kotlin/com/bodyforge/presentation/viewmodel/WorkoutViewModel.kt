@@ -4,8 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bodyforge.data.repository.ExerciseRepositoryImpl
 import com.bodyforge.data.repository.WorkoutRepositoryImpl
+import com.bodyforge.data.repository.WorkoutTemplateRepositoryImpl
 import com.bodyforge.domain.models.Exercise
 import com.bodyforge.domain.models.Workout
+import com.bodyforge.domain.models.WorkoutTemplate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,6 +19,7 @@ data class WorkoutUiState(
     val selectedExercises: List<Exercise> = emptyList(),
     val currentWorkout: Workout? = null,
     val completedWorkouts: List<Workout> = emptyList(),
+    val workoutTemplates: List<WorkoutTemplate> = emptyList(),
     val bodyweight: Double = 75.0,
     val isLoading: Boolean = false,
     val error: String? = null,
@@ -27,6 +30,7 @@ class WorkoutViewModel : ViewModel() {
 
     private val exerciseRepo = ExerciseRepositoryImpl()
     private val workoutRepo = WorkoutRepositoryImpl()
+    private val templateRepo = WorkoutTemplateRepositoryImpl()
 
     private val _uiState = MutableStateFlow(WorkoutUiState())
     val uiState: StateFlow<WorkoutUiState> = _uiState.asStateFlow()
@@ -35,8 +39,10 @@ class WorkoutViewModel : ViewModel() {
         loadExercises()
         loadActiveWorkout()
         loadCompletedWorkouts()
+        loadWorkoutTemplates()
     }
 
+    // Existing functions...
     private fun loadExercises() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
@@ -81,6 +87,21 @@ class WorkoutViewModel : ViewModel() {
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     error = "Failed to load workout history: ${e.message}"
+                )
+            }
+        }
+    }
+
+    private fun loadWorkoutTemplates() {
+        viewModelScope.launch {
+            try {
+                val templates = templateRepo.getAllTemplates()
+                _uiState.value = _uiState.value.copy(
+                    workoutTemplates = templates
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = "Failed to load workout templates: ${e.message}"
                 )
             }
         }
@@ -274,7 +295,6 @@ class WorkoutViewModel : ViewModel() {
         _uiState.value = _uiState.value.copy(error = null)
     }
 
-    // Create Custom Exercise
     fun createCustomExercise(
         name: String,
         muscleGroups: List<String>,
@@ -288,7 +308,7 @@ class WorkoutViewModel : ViewModel() {
                     id = "custom_${Clock.System.now().epochSeconds}_${name.replace(" ", "_").lowercase()}",
                     name = name,
                     muscleGroups = muscleGroups,
-                    instructions = "", // User can add later
+                    instructions = "",
                     equipmentNeeded = equipment,
                     isCustom = true,
                     isBodyweight = isBodyweight,
@@ -311,7 +331,6 @@ class WorkoutViewModel : ViewModel() {
         }
     }
 
-    // Update existing workout (for history editing)
     fun updateWorkout(workout: Workout) {
         viewModelScope.launch {
             try {
@@ -320,6 +339,112 @@ class WorkoutViewModel : ViewModel() {
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     error = "Failed to update workout: ${e.message}"
+                )
+            }
+        }
+    }
+
+    // =============================================================================
+    // TEMPLATE FUNCTIONS
+    // =============================================================================
+
+    fun createWorkoutTemplate(name: String, exercises: List<Exercise>) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            try {
+                val template = WorkoutTemplate.create(name, exercises)
+                templateRepo.saveTemplate(template)
+                loadWorkoutTemplates() // Reload templates
+
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = null
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = "Failed to create template: ${e.message}",
+                    isLoading = false
+                )
+            }
+        }
+    }
+
+    fun loadWorkoutTemplate(template: WorkoutTemplate) {
+        viewModelScope.launch {
+            try {
+                // Clear current selection
+                _uiState.value = _uiState.value.copy(selectedExercises = emptyList())
+
+                // Load exercises from template
+                val exercises = mutableListOf<Exercise>()
+                template.exerciseIds.forEach { exerciseId ->
+                    exerciseRepo.getExerciseById(exerciseId)?.let { exercise ->
+                        exercises.add(exercise)
+                    }
+                }
+
+                _uiState.value = _uiState.value.copy(
+                    selectedExercises = exercises,
+                    error = if (exercises.size != template.exerciseIds.size) {
+                        "Some exercises from this template are no longer available"
+                    } else null
+                )
+
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = "Failed to load template: ${e.message}"
+                )
+            }
+        }
+    }
+
+    fun editWorkoutTemplate(template: WorkoutTemplate) {
+        // Load template exercises for editing
+        loadWorkoutTemplate(template)
+
+        // Store template ID for updating instead of creating new
+        // TODO: Implement edit mode in UI state if needed
+    }
+
+    fun deleteWorkoutTemplate(template: WorkoutTemplate) {
+        viewModelScope.launch {
+            try {
+                val success = templateRepo.deleteTemplate(template.id)
+                if (success) {
+                    loadWorkoutTemplates() // Reload templates
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        error = "Failed to delete template"
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = "Failed to delete template: ${e.message}"
+                )
+            }
+        }
+    }
+
+    // Delete custom exercise (soft delete)
+    fun deleteCustomExercise(exerciseId: String) {
+        viewModelScope.launch {
+            try {
+                val success = exerciseRepo.deleteCustomExercise(exerciseId)
+                if (success) {
+                    loadExercises() // Reload to hide deleted exercise
+
+                    // Remove from current selection if selected
+                    val currentSelected = _uiState.value.selectedExercises
+                    val updatedSelected = currentSelected.filter { it.id != exerciseId }
+                    _uiState.value = _uiState.value.copy(selectedExercises = updatedSelected)
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        error = "Failed to delete exercise"
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = "Failed to delete exercise: ${e.message}"
                 )
             }
         }
