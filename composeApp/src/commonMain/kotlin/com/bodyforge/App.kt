@@ -3,7 +3,11 @@ package com.bodyforge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
@@ -11,6 +15,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -18,6 +23,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -33,16 +39,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.Switch
-import androidx.compose.material.SwitchDefaults
-import androidx.compose.material.AlertDialog
 import androidx.compose.ui.draw.scale
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.heightIn
 
 // Modern Color Palette
 private val DarkBackground = Color(0xFF0F172A)
@@ -279,162 +278,39 @@ private fun ErrorCard(
 }
 
 @Composable
-private fun BodyweightInputCard(
-    bodyweight: Double,
-    onBodyweightChange: (Double) -> Unit
-) {
-    Card(
-        backgroundColor = Color(0xFF0F766E),
-        elevation = 0.dp, // Removed double border
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = "💪",
-                    fontSize = 20.sp
-                )
-                Text(
-                    text = "Your Bodyweight:",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.White,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                Button(
-                    onClick = {
-                        if (bodyweight > 30.0) {
-                            val newWeight = (bodyweight - 0.5).coerceAtLeast(30.0)
-                            onBodyweightChange(newWeight)
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        backgroundColor = if (bodyweight > 30.0) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f)
-                    ),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.size(48.dp),
-                    contentPadding = PaddingValues(0.dp),
-                    elevation = ButtonDefaults.elevation(0.dp) // Removed double border
-                ) {
-                    Text(
-                        text = "−",
-                        fontSize = 24.sp,
-                        color = if (bodyweight > 30.0) Color.White else Color.White.copy(alpha = 0.5f),
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                // Editable bodyweight input with leading zero removal
-                var textValue by remember(bodyweight) { mutableStateOf(formatWeight(bodyweight)) }
-                var isEditing by remember { mutableStateOf(false) }
-
-                if (isEditing) {
-                    BasicTextField(
-                        value = textValue,
-                        onValueChange = { newText ->
-                            val filtered = newText.filter { it.isDigit() || it == '.' }
-                            if (filtered.count { it == '.' } <= 1 && filtered.length <= 8) {
-                                textValue = filtered
-                            }
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 8.dp)
-                            .background(
-                                color = Color.White.copy(alpha = 0.2f),
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            .padding(12.dp),
-                        textStyle = TextStyle(
-                            fontSize = 18.sp,
-                            color = Color.White,
-                            textAlign = TextAlign.Center,
-                            fontWeight = FontWeight.Bold
-                        ),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Decimal,
-                            imeAction = ImeAction.Done
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onDone = {
-                                val newValue = parseWeightInput(textValue).coerceIn(30.0, 999.0)
-                                onBodyweightChange(newValue)
-                                textValue = formatWeight(newValue)
-                                isEditing = false
-                            }
-                        )
-                    )
-                } else {
-                    Text(
-                        text = "${formatWeight(bodyweight)} kg",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable {
-                                isEditing = true
-                                textValue = formatWeight(bodyweight)
-                            }
-                            .background(
-                                color = Color.White.copy(alpha = 0.2f),
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            .padding(vertical = 12.dp, horizontal = 16.dp),
-                        textAlign = TextAlign.Center
-                    )
-                }
-
-                Button(
-                    onClick = {
-                        if (bodyweight < 999.0) {
-                            val newWeight = (bodyweight + 0.5).coerceAtMost(999.0)
-                            onBodyweightChange(newWeight)
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        backgroundColor = if (bodyweight < 999.0) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f)
-                    ),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.size(48.dp),
-                    contentPadding = PaddingValues(0.dp),
-                    elevation = ButtonDefaults.elevation(0.dp) // Removed double border
-                ) {
-                    Text(
-                        text = "+",
-                        fontSize = 24.sp,
-                        color = if (bodyweight < 999.0) Color.White else Color.White.copy(alpha = 0.5f),
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun CreateWorkoutContent(
     uiState: com.bodyforge.presentation.viewmodel.WorkoutUiState,
     viewModel: WorkoutViewModel
 ) {
     var showCreateExerciseDialog by remember { mutableStateOf(false) }
+    var showCreateTemplateDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirmDialog by remember { mutableStateOf<com.bodyforge.domain.models.Exercise?>(null) }
+
+    // Search and filter state
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedMuscleFilters by remember { mutableStateOf(setOf<String>()) }
+    var selectedEquipmentFilters by remember { mutableStateOf(setOf<String>()) }
+    var showFilters by remember { mutableStateOf(false) }
+
+    // Filter exercises based on search and filters
+    val filteredExercises = remember(uiState.availableExercises, searchQuery, selectedMuscleFilters, selectedEquipmentFilters) {
+        uiState.availableExercises.filter { exercise ->
+            val matchesSearch = searchQuery.isEmpty() ||
+                    exercise.name.contains(searchQuery, ignoreCase = true) ||
+                    exercise.muscleGroups.any { it.contains(searchQuery, ignoreCase = true) } ||
+                    exercise.equipmentNeeded.contains(searchQuery, ignoreCase = true)
+
+            val matchesMuscleFilter = selectedMuscleFilters.isEmpty() ||
+                    exercise.muscleGroups.any { muscleGroup ->
+                        selectedMuscleFilters.any { filter -> muscleGroup.contains(filter, ignoreCase = true) }
+                    }
+
+            val matchesEquipmentFilter = selectedEquipmentFilters.isEmpty() ||
+                    selectedEquipmentFilters.contains(exercise.equipmentNeeded)
+
+            matchesSearch && matchesMuscleFilter && matchesEquipmentFilter
+        }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -442,15 +318,59 @@ private fun CreateWorkoutContent(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // Templates Section
+        item {
+            TemplatesSection(
+                templates = uiState.workoutTemplates,
+                onLoadTemplate = { template -> viewModel.loadWorkoutTemplate(template) },
+                onEditTemplate = { template -> viewModel.editWorkoutTemplate(template) },
+                onDeleteTemplate = { template -> viewModel.deleteWorkoutTemplate(template) },
+                onCreateTemplate = { showCreateTemplateDialog = true }
+            )
+        }
+
         // Sticky Selected Exercises Card (only when exercises are selected)
         if (uiState.selectedExercises.isNotEmpty()) {
             item {
                 StickySelectedExercisesCard(
                     selectedExercises = uiState.selectedExercises,
                     isLoading = uiState.isLoading,
-                    onStartWorkout = { viewModel.startWorkout() }
+                    onStartWorkout = { viewModel.startWorkout() },
+                    onSaveAsTemplate = { showCreateTemplateDialog = true }
                 )
             }
+        }
+
+        // Search and Filter Section
+        item {
+            SearchFilterSection(
+                searchQuery = searchQuery,
+                onSearchChange = { searchQuery = it },
+                selectedMuscleFilters = selectedMuscleFilters,
+                onMuscleFilterToggle = { muscle ->
+                    selectedMuscleFilters = if (selectedMuscleFilters.contains(muscle)) {
+                        selectedMuscleFilters - muscle
+                    } else {
+                        selectedMuscleFilters + muscle
+                    }
+                },
+                selectedEquipmentFilters = selectedEquipmentFilters,
+                onEquipmentFilterToggle = { equipment ->
+                    selectedEquipmentFilters = if (selectedEquipmentFilters.contains(equipment)) {
+                        selectedEquipmentFilters - equipment
+                    } else {
+                        selectedEquipmentFilters + equipment
+                    }
+                },
+                showFilters = showFilters,
+                onToggleFilters = { showFilters = !showFilters },
+                onClearFilters = {
+                    searchQuery = ""
+                    selectedMuscleFilters = emptySet()
+                    selectedEquipmentFilters = emptySet()
+                },
+                availableExercises = uiState.availableExercises
+            )
         }
 
         // Exercise Library Header with Create Button
@@ -461,7 +381,7 @@ private fun CreateWorkoutContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "🎯 Exercise Library",
+                    text = "🎯 Exercise Library (${filteredExercises.size})",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary,
@@ -473,7 +393,7 @@ private fun CreateWorkoutContent(
                     colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen),
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.height(36.dp),
-                    elevation = ButtonDefaults.elevation(0.dp) // Removed double border
+                    elevation = ButtonDefaults.elevation(0.dp)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -491,21 +411,38 @@ private fun CreateWorkoutContent(
             }
         }
 
-        items(uiState.availableExercises) { exercise ->
-            ExerciseCard(
-                exercise = exercise,
-                isSelected = uiState.selectedExercises.contains(exercise),
-                onToggle = {
-                    if (uiState.selectedExercises.contains(exercise)) {
-                        viewModel.removeExerciseFromSelection(exercise)
-                    } else {
-                        viewModel.addExerciseToSelection(exercise)
+        // Show message if no exercises found
+        if (filteredExercises.isEmpty()) {
+            item {
+                NoExercisesFoundCard(
+                    searchQuery = searchQuery,
+                    hasFilters = selectedMuscleFilters.isNotEmpty() || selectedEquipmentFilters.isNotEmpty(),
+                    onClearFilters = {
+                        searchQuery = ""
+                        selectedMuscleFilters = emptySet()
+                        selectedEquipmentFilters = emptySet()
                     }
-                }
-            )
+                )
+            }
+        } else {
+            items(filteredExercises) { exercise ->
+                ExerciseCard(
+                    exercise = exercise,
+                    isSelected = uiState.selectedExercises.contains(exercise),
+                    onToggle = {
+                        if (uiState.selectedExercises.contains(exercise)) {
+                            viewModel.removeExerciseFromSelection(exercise)
+                        } else {
+                            viewModel.addExerciseToSelection(exercise)
+                        }
+                    },
+                    onDelete = if (exercise.isCustom) { { showDeleteConfirmDialog = exercise } } else null
+                )
+            }
         }
     }
 
+    // Dialogs
     CreateExerciseDialog(
         showDialog = showCreateExerciseDialog,
         onDismiss = { showCreateExerciseDialog = false },
@@ -513,258 +450,37 @@ private fun CreateWorkoutContent(
             viewModel.createCustomExercise(name, muscleGroups, equipment, isBodyweight)
         }
     )
+
+    CreateTemplateDialog(
+        showDialog = showCreateTemplateDialog,
+        selectedExercises = uiState.selectedExercises,
+        onDismiss = { showCreateTemplateDialog = false },
+        onCreateTemplate = { name -> viewModel.createWorkoutTemplate(name, uiState.selectedExercises) }
+    )
+
+    DeleteExerciseConfirmDialog(
+        exercise = showDeleteConfirmDialog,
+        onDismiss = { showDeleteConfirmDialog = null },
+        onConfirmDelete = { exercise ->
+            viewModel.deleteCustomExercise(exercise.id)
+            showDeleteConfirmDialog = null
+        }
+    )
 }
 
 @Composable
-private fun StickySelectedExercisesCard(
-    selectedExercises: List<com.bodyforge.domain.models.Exercise>,
-    isLoading: Boolean,
-    onStartWorkout: () -> Unit
+private fun TemplatesSection(
+    templates: List<com.bodyforge.domain.models.WorkoutTemplate>,
+    onLoadTemplate: (com.bodyforge.domain.models.WorkoutTemplate) -> Unit,
+    onEditTemplate: (com.bodyforge.domain.models.WorkoutTemplate) -> Unit,
+    onDeleteTemplate: (com.bodyforge.domain.models.WorkoutTemplate) -> Unit,
+    onCreateTemplate: () -> Unit
 ) {
+    if (templates.isEmpty()) return
+
     Card(
-        backgroundColor = SelectedGreen,
-        elevation = 2.dp, // Reduced elevation to avoid double border
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "${selectedExercises.size} Exercises Selected",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Text(
-                    text = selectedExercises.take(2).joinToString(", ") { it.name } +
-                            if (selectedExercises.size > 2) "..." else "",
-                    fontSize = 12.sp,
-                    color = Color.White.copy(alpha = 0.8f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            Button(
-                onClick = onStartWorkout,
-                enabled = !isLoading,
-                colors = ButtonDefaults.buttonColors(
-                    backgroundColor = AccentOrange,
-                    contentColor = Color.White
-                ),
-                shape = RoundedCornerShape(25.dp),
-                elevation = ButtonDefaults.elevation(0.dp) // Removed double border
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color.White)
-                    Text(
-                        text = if (isLoading) "Starting..." else "Start",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ExerciseCard(
-    exercise: com.bodyforge.domain.models.Exercise,
-    isSelected: Boolean,
-    onToggle: () -> Unit
-) {
-    Card(
-        backgroundColor = if (isSelected) SelectedGreen else CardBackground,
-        elevation = if (isSelected) 2.dp else 1.dp, // Reduced elevation
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = exercise.name,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = if (isSelected) Color.White else TextPrimary
-                )
-                Text(
-                    text = "${exercise.muscleGroups.joinToString(", ")} • ${exercise.equipmentNeeded}",
-                    fontSize = 12.sp,
-                    color = if (isSelected) Color.White.copy(alpha = 0.8f) else TextSecondary
-                )
-            }
-
-            IconButton(onClick = onToggle) {
-                Icon(
-                    imageVector = if (isSelected) Icons.Filled.Check else Icons.Filled.Add,
-                    contentDescription = if (isSelected) "Remove" else "Add",
-                    tint = if (isSelected) AccentGreen else AccentOrange
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ActiveWorkoutContent(
-    uiState: com.bodyforge.presentation.viewmodel.WorkoutUiState,
-    viewModel: WorkoutViewModel
-) {
-    val currentWorkout = uiState.currentWorkout
-
-    if (currentWorkout == null) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text("🏋️", fontSize = 64.sp)
-                Text(
-                    text = "No Active Workout",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = "Create a workout to start tracking your sets!",
-                    fontSize = 16.sp,
-                    color = TextSecondary,
-                    textAlign = TextAlign.Center
-                )
-
-                Button(
-                    onClick = { viewModel.setActiveTab("create") },
-                    colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange),
-                    shape = RoundedCornerShape(25.dp),
-                    elevation = ButtonDefaults.elevation(0.dp) // Removed double border
-                ) {
-                    Text("Create Workout", color = Color.White, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    } else {
-        val hasBodyweightExercises = currentWorkout.exercises.any { it.exercise.isBodyweight }
-
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            if (hasBodyweightExercises) {
-                item {
-                    BodyweightInputCard(
-                        bodyweight = uiState.bodyweight,
-                        onBodyweightChange = { viewModel.updateBodyweight(it) }
-                    )
-                }
-            }
-
-            item {
-                WorkoutHeaderCard(
-                    workout = currentWorkout,
-                    onFinishWorkout = { viewModel.completeWorkout() }
-                )
-            }
-
-            items(currentWorkout.exercises) { exerciseInWorkout ->
-                ActiveExerciseCard(
-                    exerciseInWorkout = exerciseInWorkout,
-                    bodyweight = uiState.bodyweight,
-                    onUpdateSet = { setId: String, reps: Int?, weight: Double?, completed: Boolean? ->
-                        viewModel.updateSet(exerciseInWorkout.exercise.id, setId, reps, weight, completed)
-                    },
-                    onAddSet = {
-                        viewModel.addSetToExercise(exerciseInWorkout.exercise.id)
-                    },
-                    onRemoveSet = { setId: String ->
-                        viewModel.removeSetFromExercise(exerciseInWorkout.exercise.id, setId)
-                    }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun WorkoutHeaderCard(
-    workout: com.bodyforge.domain.models.Workout,
-    onFinishWorkout: () -> Unit
-) {
-    Card(
-        backgroundColor = Color(0xFF1E40AF),
-        elevation = 2.dp, // Reduced elevation
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = workout.name,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Text(
-                        text = "Started: ${workout.startedAt.toLocalDateTime(TimeZone.currentSystemDefault()).time}",
-                        fontSize = 12.sp,
-                        color = Color.White.copy(alpha = 0.8f)
-                    )
-                }
-
-                Button(
-                    onClick = onFinishWorkout,
-                    colors = ButtonDefaults.buttonColors(backgroundColor = AccentRed),
-                    shape = RoundedCornerShape(25.dp),
-                    elevation = ButtonDefaults.elevation(0.dp) // Removed double border
-                ) {
-                    Text("🏁 Finish", color = Color.White, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ActiveExerciseCard(
-    exerciseInWorkout: com.bodyforge.domain.models.ExerciseInWorkout,
-    bodyweight: Double,
-    onUpdateSet: (String, Int?, Double?, Boolean?) -> Unit,
-    onAddSet: () -> Unit,
-    onRemoveSet: (String) -> Unit
-) {
-    Card(
-        backgroundColor = CardBackground,
-        elevation = 2.dp, // Reduced elevation
+        backgroundColor = Color(0xFF1E40AF).copy(alpha = 0.8f),
+        elevation = 2.dp,
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -777,456 +493,354 @@ private fun ActiveExerciseCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = exerciseInWorkout.exercise.name,
+                    text = "💾 My Templates",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    color = TextPrimary,
-                    modifier = Modifier.weight(1f),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    color = Color.White
                 )
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                TextButton(
+                    onClick = onCreateTemplate,
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color.White)
                 ) {
-                    IconButton(
-                        onClick = {
-                            if (exerciseInWorkout.sets.isNotEmpty()) {
-                                onRemoveSet(exerciseInWorkout.sets.last().id)
-                            }
-                        },
-                        enabled = exerciseInWorkout.sets.isNotEmpty()
-                    ) {
-                        Text(
-                            text = "−",
-                            fontSize = 20.sp,
-                            color = if (exerciseInWorkout.sets.isNotEmpty()) AccentRed else TextSecondary
-                        )
-                    }
-
-                    Text(
-                        text = "${exerciseInWorkout.sets.size} sets",
-                        fontSize = 12.sp,
-                        color = TextSecondary
-                    )
-
-                    IconButton(onClick = onAddSet) {
-                        Text(
-                            text = "+",
-                            fontSize = 20.sp,
-                            color = AccentGreen
-                        )
-                    }
+                    Text("+ New", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            exerciseInWorkout.sets.forEachIndexed { index, set ->
-                SetRow(
-                    setNumber = index + 1,
-                    set = set,
-                    exercise = exerciseInWorkout.exercise,
-                    bodyweight = bodyweight,
-                    onUpdateSet = onUpdateSet
-                )
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(templates) { template ->
+                    TemplateChip(
+                        template = template,
+                        onLoad = { onLoadTemplate(template) },
+                        onEdit = { onEditTemplate(template) },
+                        onDelete = { onDeleteTemplate(template) }
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun SetRow(
-    setNumber: Int,
-    set: com.bodyforge.domain.models.WorkoutSet,
-    exercise: com.bodyforge.domain.models.Exercise,
-    bodyweight: Double,
-    onUpdateSet: (String, Int?, Double?, Boolean?) -> Unit
+private fun TemplateChip(
+    template: com.bodyforge.domain.models.WorkoutTemplate,
+    onLoad: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
 ) {
     Card(
-        backgroundColor = SurfaceColor,
-        shape = RoundedCornerShape(8.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 2.dp),
-        elevation = 0.dp // Removed double border
+        backgroundColor = Color.White.copy(alpha = 0.2f),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.clickable { onLoad() }
     ) {
         Column(
-            modifier = Modifier.padding(12.dp)
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = template.name,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                maxLines = 1
+            )
+            Text(
+                text = "${template.exerciseIds.size} exercises",
+                fontSize = 12.sp,
+                color = Color.White.copy(alpha = 0.8f)
+            )
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                IconButton(
+                    onClick = onEdit,
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Text("📝", fontSize = 12.sp)
+                }
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Text("🗑️", fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StickySelectedExercisesCard(
+    selectedExercises: List<com.bodyforge.domain.models.Exercise>,
+    isLoading: Boolean,
+    onStartWorkout: () -> Unit,
+    onSaveAsTemplate: () -> Unit
+) {
+    Card(
+        backgroundColor = SelectedGreen,
+        elevation = 2.dp,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Set $setNumber",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = TextSecondary
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "${selectedExercises.size} Exercises Selected",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Text(
+                        text = selectedExercises.take(2).joinToString(", ") { it.name } +
+                                if (selectedExercises.size > 2) "..." else "",
+                        fontSize = 12.sp,
+                        color = Color.White.copy(alpha = 0.8f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Save as Template Button
+                    Button(
+                        onClick = onSaveAsTemplate,
+                        colors = ButtonDefaults.buttonColors(
+                            backgroundColor = Color.White.copy(alpha = 0.2f),
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier.height(36.dp),
+                        elevation = ButtonDefaults.elevation(0.dp)
+                    ) {
+                        Text(
+                            text = "💾",
+                            fontSize = 14.sp
+                        )
+                    }
+
+                    // Start Workout Button
+                    Button(
+                        onClick = onStartWorkout,
+                        enabled = !isLoading,
+                        colors = ButtonDefaults.buttonColors(
+                            backgroundColor = AccentOrange,
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(25.dp),
+                        elevation = ButtonDefaults.elevation(0.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color.White)
+                            Text(
+                                text = if (isLoading) "Starting..." else "Start",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchFilterSection(
+    searchQuery: String,
+    onSearchChange: (String) -> Unit,
+    selectedMuscleFilters: Set<String>,
+    onMuscleFilterToggle: (String) -> Unit,
+    selectedEquipmentFilters: Set<String>,
+    onEquipmentFilterToggle: (String) -> Unit,
+    showFilters: Boolean,
+    onToggleFilters: () -> Unit,
+    onClearFilters: () -> Unit,
+    availableExercises: List<com.bodyforge.domain.models.Exercise>
+) {
+    Card(
+        backgroundColor = CardBackground,
+        elevation = 2.dp,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            // Search Bar
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                BasicTextField(
+                    value = searchQuery,
+                    onValueChange = onSearchChange,
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(
+                            color = SurfaceColor,
+                            shape = RoundedCornerShape(25.dp)
+                        )
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    textStyle = TextStyle(
+                        fontSize = 16.sp,
+                        color = TextPrimary
+                    ),
+                    singleLine = true,
+                    decorationBox = { innerTextField ->
+                        if (searchQuery.isEmpty()) {
+                            Text(
+                                text = "🔍 Search exercises...",
+                                color = TextSecondary,
+                                fontSize = 16.sp
+                            )
+                        }
+                        innerTextField()
+                    }
                 )
 
+                // Filter Toggle Button
                 Button(
-                    onClick = { onUpdateSet(set.id, null, null, !set.completed) },
+                    onClick = onToggleFilters,
                     colors = ButtonDefaults.buttonColors(
-                        backgroundColor = if (set.completed) AccentGreen else Color(0xFF475569)
+                        backgroundColor = if (showFilters) AccentOrange else SurfaceColor
                     ),
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier.size(width = 80.dp, height = 32.dp),
+                    shape = RoundedCornerShape(25.dp),
+                    modifier = Modifier.size(48.dp),
                     contentPadding = PaddingValues(0.dp),
-                    elevation = ButtonDefaults.elevation(0.dp) // Removed double border
+                    elevation = ButtonDefaults.elevation(0.dp)
                 ) {
-                    if (set.completed) {
-                        Text(
-                            text = "✓",
-                            color = Color.White,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    } else {
-                        Text(
-                            text = "DONE",
-                            color = Color.White.copy(alpha = 0.7f),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                    Text(
+                        text = if (showFilters) "🔻" else "🔽",
+                        fontSize = 16.sp
+                    )
+                }
+
+                // Clear Button (if filters active)
+                if (searchQuery.isNotEmpty() || selectedMuscleFilters.isNotEmpty() || selectedEquipmentFilters.isNotEmpty()) {
+                    Button(
+                        onClick = onClearFilters,
+                        colors = ButtonDefaults.buttonColors(backgroundColor = AccentRed),
+                        shape = RoundedCornerShape(25.dp),
+                        modifier = Modifier.height(48.dp),
+                        elevation = ButtonDefaults.elevation(0.dp)
+                    ) {
+                        Text("❌ Clear", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            // Filter Options (collapsible)
+            if (showFilters) {
+                Spacer(modifier = Modifier.height(16.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                ResponsiveValueControl(
-                    label = "Reps",
-                    value = set.reps,
-                    onDecrease = { if (set.reps > 0) onUpdateSet(set.id, set.reps - 1, null, null) },
-                    onIncrease = { onUpdateSet(set.id, set.reps + 1, null, null) },
-                    onValueChange = { newReps -> onUpdateSet(set.id, newReps, null, null) },
-                    modifier = Modifier.weight(1f)
-                )
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                ResponsiveWeightControl(
-                    label = if (exercise.isBodyweight) "BW+kg" else "Weight (kg)",
-                    value = set.weightKg,
-                    onDecrease = {
-                        if (set.weightKg > 0)
-                            onUpdateSet(set.id, null, (set.weightKg - 2.5).coerceAtLeast(0.0), null)
-                    },
-                    onIncrease = { onUpdateSet(set.id, null, set.weightKg + 2.5, null) },
-                    onValueChange = { newWeight -> onUpdateSet(set.id, null, newWeight, null) },
-                    modifier = Modifier.weight(1f),
-                    isBodyweight = exercise.isBodyweight,
-                    bodyweight = bodyweight
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ResponsiveValueControl(
-    label: String,
-    value: Int,
-    onDecrease: () -> Unit,
-    onIncrease: () -> Unit,
-    onValueChange: ((Int) -> Unit)? = null,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier
-    ) {
-        Text(
-            text = label,
-            fontSize = 12.sp,
-            color = TextSecondary,
-            fontWeight = FontWeight.Medium
-        )
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            TextButton(
-                onClick = onDecrease,
-                colors = ButtonDefaults.textButtonColors(contentColor = AccentOrange),
-                modifier = Modifier.size(32.dp),
-                contentPadding = PaddingValues(0.dp)
-            ) {
-                Text("−", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            }
-
-            if (onValueChange != null) {
-                var textValue by remember(value) { mutableStateOf(value.toString()) }
-                var isEditing by remember { mutableStateOf(false) }
-
-                if (isEditing) {
-                    BasicTextField(
-                        value = textValue,
-                        onValueChange = { newText ->
-                            val filtered = newText.filter { it.isDigit() }
-                            if (filtered.length <= 3) {
-                                textValue = filtered
-                            }
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(
-                                color = SurfaceColor.copy(alpha = 0.7f),
-                                shape = RoundedCornerShape(6.dp)
-                            )
-                            .padding(8.dp),
-                        textStyle = TextStyle(
-                            fontSize = 16.sp,
-                            color = TextPrimary,
-                            textAlign = TextAlign.Center,
-                            fontWeight = FontWeight.Bold
-                        ),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
-                            imeAction = ImeAction.Done
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onDone = {
-                                val newValue = parseNumberInput(textValue).coerceIn(0, 999)
-                                onValueChange(newValue)
-                                textValue = newValue.toString()
-                                isEditing = false
-                            }
-                        )
-                    )
-                } else {
-                    Text(
-                        text = value.toString(),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary,
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { isEditing = true }
-                            .background(
-                                color = SurfaceColor.copy(alpha = 0.7f),
-                                shape = RoundedCornerShape(6.dp)
-                            )
-                            .padding(vertical = 8.dp),
-                        textAlign = TextAlign.Center
-                    )
-                }
-            } else {
+                // Muscle Groups Filter
                 Text(
-                    text = value.toString(),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary,
-                    modifier = Modifier
-                        .weight(1f)
-                        .background(
-                            color = SurfaceColor.copy(alpha = 0.7f),
-                            shape = RoundedCornerShape(6.dp)
-                        )
-                        .padding(vertical = 8.dp),
-                    textAlign = TextAlign.Center
-                )
-            }
-
-            TextButton(
-                onClick = onIncrease,
-                colors = ButtonDefaults.textButtonColors(contentColor = AccentOrange),
-                modifier = Modifier.size(32.dp),
-                contentPadding = PaddingValues(0.dp)
-            ) {
-                Text("+", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
-@Composable
-private fun ResponsiveWeightControl(
-    label: String,
-    value: Double,
-    onDecrease: () -> Unit,
-    onIncrease: () -> Unit,
-    onValueChange: (Double) -> Unit,
-    modifier: Modifier = Modifier,
-    isBodyweight: Boolean = false,
-    bodyweight: Double = 75.0
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier
-    ) {
-        Text(
-            text = label,
-            fontSize = 12.sp,
-            color = TextSecondary,
-            fontWeight = FontWeight.Medium
-        )
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            TextButton(
-                onClick = onDecrease,
-                colors = ButtonDefaults.textButtonColors(contentColor = AccentOrange),
-                modifier = Modifier.size(32.dp),
-                contentPadding = PaddingValues(0.dp)
-            ) {
-                Text("−", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            }
-
-            var textValue by remember(value) { mutableStateOf(formatWeight(value)) }
-            var isEditing by remember { mutableStateOf(false) }
-
-            if (isEditing) {
-                BasicTextField(
-                    value = textValue,
-                    onValueChange = { newText ->
-                        val filtered = newText.filter { it.isDigit() || it == '.' }
-                        if (filtered.count { it == '.' } <= 1 && filtered.length <= 8) {
-                            textValue = filtered
-                        }
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(40.dp)
-                        .background(
-                            color = SurfaceColor.copy(alpha = 0.7f),
-                            shape = RoundedCornerShape(6.dp)
-                        )
-                        .padding(8.dp),
-                    textStyle = TextStyle(
-                        fontSize = 14.sp,
-                        color = TextPrimary,
-                        textAlign = TextAlign.Center,
-                        fontWeight = FontWeight.Bold
-                    ),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Decimal,
-                        imeAction = ImeAction.Done
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onDone = {
-                            val newValue = parseWeightInput(textValue)
-                            onValueChange(newValue)
-                            textValue = formatWeight(newValue)
-                            isEditing = false
-                        }
-                    )
-                )
-            } else {
-                Text(
-                    text = formatWeightDisplay(
-                        weight = value,
-                        isBodyweight = isBodyweight,
-                        bodyweight = bodyweight,
-                        mode = WeightDisplayMode.COMPACT_WITH_UNIT
-                    ),
+                    text = "💪 Muscle Groups",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = TextPrimary,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(40.dp)
-                        .clickable {
-                            isEditing = true
-                            textValue = formatWeight(value)
-                        }
-                        .background(
-                            color = SurfaceColor.copy(alpha = 0.7f),
-                            shape = RoundedCornerShape(6.dp)
+                    color = TextPrimary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                val availableMuscleGroups = remember(availableExercises) {
+                    availableExercises.flatMap { it.muscleGroups }.distinct().sorted()
+                }
+
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(availableMuscleGroups) { muscle ->
+                        FilterChip(
+                            text = muscle,
+                            isSelected = selectedMuscleFilters.contains(muscle),
+                            onClick = { onMuscleFilterToggle(muscle) }
                         )
-                        .wrapContentHeight(align = Alignment.CenterVertically),
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+                    }
+                }
 
-            TextButton(
-                onClick = onIncrease,
-                colors = ButtonDefaults.textButtonColors(contentColor = AccentOrange),
-                modifier = Modifier.size(32.dp),
-                contentPadding = PaddingValues(0.dp)
-            ) {
-                Text("+", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Equipment Filter
+                Text(
+                    text = "🏋️ Equipment",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                val availableEquipment = remember(availableExercises) {
+                    availableExercises.map { it.equipmentNeeded }.distinct().sorted()
+                }
+
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(availableEquipment) { equipment ->
+                        FilterChip(
+                            text = equipment,
+                            isSelected = selectedEquipmentFilters.contains(equipment),
+                            onClick = { onEquipmentFilterToggle(equipment) }
+                        )
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun HistoryContent(
-    uiState: com.bodyforge.presentation.viewmodel.WorkoutUiState,
-    viewModel: WorkoutViewModel
+private fun FilterChip(
+    text: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
 ) {
-    var editingWorkout by remember { mutableStateOf<com.bodyforge.domain.models.Workout?>(null) }
-
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(
+            backgroundColor = if (isSelected) AccentOrange else SurfaceColor,
+            contentColor = if (isSelected) Color.White else TextSecondary
+        ),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.height(32.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+        elevation = ButtonDefaults.elevation(0.dp)
     ) {
-        item {
-            Text(
-                text = "📊 Workout History",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-        }
-
-        if (uiState.completedWorkouts.isEmpty()) {
-            item {
-                EmptyHistoryCard()
-            }
-        } else {
-            items(uiState.completedWorkouts) { workout ->
-                HistoryWorkoutCard(
-                    workout = workout,
-                    bodyweight = uiState.bodyweight,
-                    onDelete = { viewModel.deleteWorkout(workout.id) },
-                    onEdit = { editingWorkout = workout }
-                )
-            }
-        }
+        Text(
+            text = text,
+            fontSize = 12.sp,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+        )
     }
-
-    EditWorkoutDialog(
-        workout = editingWorkout,
-        bodyweight = uiState.bodyweight,
-        onDismiss = { editingWorkout = null },
-        onSaveWorkout = { editedWorkout ->
-            viewModel.updateWorkout(editedWorkout)
-            editingWorkout = null
-        }
-    )
 }
 
 @Composable
-private fun EmptyHistoryCard() {
+private fun NoExercisesFoundCard(
+    searchQuery: String,
+    hasFilters: Boolean,
+    onClearFilters: () -> Unit
+) {
     Card(
         backgroundColor = CardBackground,
-        elevation = 1.dp, // Reduced elevation
+        elevation = 2.dp,
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -1237,161 +851,144 @@ private fun EmptyHistoryCard() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("💪", fontSize = 48.sp)
+            Text("🔍", fontSize = 48.sp)
             Text(
-                text = "No Completed Workouts Yet",
+                text = "No Exercises Found",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary,
                 textAlign = TextAlign.Center
             )
+
+            val message = when {
+                searchQuery.isNotEmpty() && hasFilters -> "No exercises match \"$searchQuery\" with current filters"
+                searchQuery.isNotEmpty() -> "No exercises match \"$searchQuery\""
+                hasFilters -> "No exercises match current filters"
+                else -> "No exercises available"
+            }
+
             Text(
-                text = "Complete your first workout to see it here!",
+                text = message,
                 fontSize = 14.sp,
                 color = TextSecondary,
                 textAlign = TextAlign.Center
             )
+
+            if (searchQuery.isNotEmpty() || hasFilters) {
+                Button(
+                    onClick = onClearFilters,
+                    colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange),
+                    shape = RoundedCornerShape(25.dp),
+                    elevation = ButtonDefaults.elevation(0.dp)
+                ) {
+                    Text("Clear Search & Filters", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun HistoryWorkoutCard(
-    workout: com.bodyforge.domain.models.Workout,
-    bodyweight: Double,
-    onDelete: () -> Unit,
-    onEdit: () -> Unit
+private fun ExerciseCard(
+    exercise: com.bodyforge.domain.models.Exercise,
+    isSelected: Boolean,
+    onToggle: () -> Unit,
+    onDelete: (() -> Unit)? = null
 ) {
     Card(
-        backgroundColor = CardBackground,
-        elevation = 2.dp, // Reduced elevation
+        backgroundColor = if (isSelected) SelectedGreen else CardBackground,
+        elevation = if (isSelected) 2.dp else 1.dp,
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = workout.name,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-
-                    val finishedDate = workout.finishedAt?.toLocalDateTime(TimeZone.currentSystemDefault())
-                    Text(
-                        text = "Completed: ${finishedDate?.date} at ${finishedDate?.time}",
-                        fontSize = 12.sp,
-                        color = TextSecondary
-                    )
-                }
-
+            Column(modifier = Modifier.weight(1f)) {
                 Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    IconButton(onClick = onEdit) {
-                        Icon(
-                            Icons.Filled.Edit,
-                            contentDescription = "Edit workout",
-                            tint = AccentOrange
+                    Text(
+                        text = exercise.name,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (isSelected) Color.White else TextPrimary
+                    )
+
+                    // Custom exercise badge
+                    if (exercise.isCustom) {
+                        Text(
+                            text = "CUSTOM",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentOrange,
+                            modifier = Modifier
+                                .background(
+                                    color = AccentOrange.copy(alpha = 0.2f),
+                                    shape = RoundedCornerShape(4.dp)
+                                )
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
 
-                    IconButton(onClick = onDelete) {
-                        Icon(
-                            Icons.Filled.Delete,
-                            contentDescription = "Delete workout",
-                            tint = AccentRed
+                    // Bodyweight badge
+                    if (exercise.isBodyweight) {
+                        Text(
+                            text = "BW",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentGreen,
+                            modifier = Modifier
+                                .background(
+                                    color = AccentGreen.copy(alpha = 0.2f),
+                                    shape = RoundedCornerShape(4.dp)
+                                )
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "${exercise.muscleGroups.joinToString(", ")} • ${exercise.equipmentNeeded}",
+                    fontSize = 12.sp,
+                    color = if (isSelected) Color.White.copy(alpha = 0.8f) else TextSecondary
+                )
+            }
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                WorkoutStat(
-                    label = "Duration",
-                    value = "${workout.durationMinutes ?: 0} min"
-                )
-                WorkoutStat(
-                    label = "Sets",
-                    value = "${workout.performedSets}/${workout.totalSets}"
-                )
-                WorkoutStat(
-                    label = "Volume",
-                    value = "${workout.totalVolumePerformed.toInt()} kg"
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = "Exercises:",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = TextPrimary
-            )
-
-            workout.exercises.forEach { exerciseInWorkout ->
-                Column(
-                    modifier = Modifier.padding(start = 8.dp, top = 4.dp)
-                ) {
-                    Text(
-                        text = "• ${exerciseInWorkout.exercise.name} (${exerciseInWorkout.performedSets} sets)",
-                        fontSize = 12.sp,
-                        color = TextSecondary
-                    )
-
-                    exerciseInWorkout.sets.filter { it.completed }.forEachIndexed { index, set ->
-                        Text(
-                            text = "  Set ${index + 1}: ${set.reps} × ${
-                                formatWeightDisplay(
-                                    weight = set.weightKg,
-                                    isBodyweight = exerciseInWorkout.exercise.isBodyweight,
-                                    bodyweight = bodyweight,
-                                    mode = WeightDisplayMode.DETAILED
-                                )
-                            }",
-                            fontSize = 11.sp,
-                            color = TextSecondary.copy(alpha = 0.8f),
-                            modifier = Modifier.padding(start = 8.dp)
+                // Delete button for custom exercises
+                if (onDelete != null) {
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = "Delete exercise",
+                            tint = AccentRed,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
+                }
+
+                // Add/Remove toggle button
+                IconButton(onClick = onToggle) {
+                    Icon(
+                        imageVector = if (isSelected) Icons.Filled.Check else Icons.Filled.Add,
+                        contentDescription = if (isSelected) "Remove" else "Add",
+                        tint = if (isSelected) AccentGreen else AccentOrange
+                    )
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun WorkoutStat(
-    label: String,
-    value: String
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = value,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            color = AccentOrange
-        )
-        Text(
-            text = label,
-            fontSize = 12.sp,
-            color = TextSecondary
-        )
     }
 }
 
@@ -1410,7 +1007,7 @@ private fun CreateExerciseDialog(
 
     val availableMuscleGroups = listOf(
         "Chest", "Back", "Shoulders", "Biceps", "Triceps",
-        "Quadriceps", "Hamstrings", "Glutes", "Calves", "Core", "Traps"
+        "Quadriceps", "Hamstrings", "Glutes", "Calves", "Core", "Upper Traps"
     )
 
     AlertDialog(
@@ -1498,7 +1095,7 @@ private fun CreateExerciseDialog(
                                         .fillMaxWidth()
                                         .height(32.dp),
                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                                    elevation = ButtonDefaults.elevation(0.dp) // Removed double border
+                                    elevation = ButtonDefaults.elevation(0.dp)
                                 ) {
                                     Text(
                                         text = muscle,
@@ -1587,7 +1184,7 @@ private fun CreateExerciseDialog(
                 },
                 colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange),
                 enabled = exerciseName.isNotBlank() && selectedMuscleGroups.isNotEmpty(),
-                elevation = ButtonDefaults.elevation(0.dp) // Removed double border
+                elevation = ButtonDefaults.elevation(0.dp)
             ) {
                 Text("Create", color = Color.White, fontWeight = FontWeight.Bold)
             }
@@ -1602,56 +1199,96 @@ private fun CreateExerciseDialog(
 }
 
 @Composable
-private fun EditWorkoutDialog(
-    workout: com.bodyforge.domain.models.Workout?,
-    bodyweight: Double,
+private fun CreateTemplateDialog(
+    showDialog: Boolean,
+    selectedExercises: List<com.bodyforge.domain.models.Exercise>,
     onDismiss: () -> Unit,
-    onSaveWorkout: (com.bodyforge.domain.models.Workout) -> Unit
+    onCreateTemplate: (String) -> Unit
 ) {
-    if (workout == null) return
+    if (!showDialog) return
 
-    var editedWorkout by remember { mutableStateOf(workout) }
+    var templateName by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "Edit Workout: ${workout.name}",
+                text = "💾 Create Workout Template",
                 fontWeight = FontWeight.Bold,
-                color = TextPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                color = TextPrimary
             )
         },
         text = {
-            LazyColumn(
-                modifier = Modifier.heightIn(max = 500.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                items(editedWorkout.exercises) { exerciseInWorkout ->
-                    EditExerciseCard(
-                        exerciseInWorkout = exerciseInWorkout,
-                        bodyweight = bodyweight,
-                        onUpdateExercise = { updatedExercise ->
-                            editedWorkout = editedWorkout.updateExercise(
-                                exerciseInWorkout.exercise.id,
-                                updatedExercise
+                Text(
+                    text = "Template Name",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = TextPrimary
+                )
+                BasicTextField(
+                    value = templateName,
+                    onValueChange = { templateName = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            color = SurfaceColor,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .padding(12.dp),
+                    textStyle = TextStyle(
+                        fontSize = 16.sp,
+                        color = TextPrimary
+                    ),
+                    singleLine = true,
+                    decorationBox = { innerTextField ->
+                        if (templateName.isEmpty()) {
+                            Text(
+                                text = "e.g., Push Day, Pull Day, Leg Day",
+                                color = TextSecondary,
+                                fontSize = 16.sp
                             )
                         }
-                    )
+                        innerTextField()
+                    }
+                )
+
+                Text(
+                    text = "This template will include ${selectedExercises.size} exercises:",
+                    fontSize = 14.sp,
+                    color = TextSecondary
+                )
+
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 200.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(selectedExercises) { exercise ->
+                        Text(
+                            text = "• ${exercise.name}",
+                            fontSize = 13.sp,
+                            color = TextSecondary,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
                 }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    onSaveWorkout(editedWorkout)
-                    onDismiss()
+                    if (templateName.isNotBlank()) {
+                        onCreateTemplate(templateName.trim())
+                        onDismiss()
+                    }
                 },
                 colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange),
-                elevation = ButtonDefaults.elevation(0.dp) // Removed double border
+                enabled = templateName.isNotBlank() && selectedExercises.isNotEmpty(),
+                elevation = ButtonDefaults.elevation(0.dp)
             ) {
-                Text("Save Changes", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Create Template", color = Color.White, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
@@ -1664,39 +1301,317 @@ private fun EditWorkoutDialog(
 }
 
 @Composable
-private fun EditExerciseCard(
-    exerciseInWorkout: com.bodyforge.domain.models.ExerciseInWorkout,
+private fun DeleteExerciseConfirmDialog(
+    exercise: com.bodyforge.domain.models.Exercise?,
+    onDismiss: () -> Unit,
+    onConfirmDelete: (com.bodyforge.domain.models.Exercise) -> Unit
+) {
+    if (exercise == null) return
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "🗑️ Delete Exercise",
+                fontWeight = FontWeight.Bold,
+                color = AccentRed
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Are you sure you want to delete \"${exercise.name}\"?",
+                    fontSize = 16.sp,
+                    color = TextPrimary
+                )
+
+                Card(
+                    backgroundColor = AccentRed.copy(alpha = 0.1f),
+                    elevation = 0.dp,
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp)
+                    ) {
+                        Text(
+                            text = "⚠️ This will:",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentRed
+                        )
+                        Text(
+                            text = "• Hide this exercise from the library",
+                            fontSize = 13.sp,
+                            color = TextPrimary,
+                            modifier = Modifier.padding(start = 8.dp, top = 4.dp)
+                        )
+                        Text(
+                            text = "• Keep it visible in past workouts",
+                            fontSize = 13.sp,
+                            color = TextPrimary,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                        Text(
+                            text = "• This action cannot be undone",
+                            fontSize = 13.sp,
+                            color = AccentRed,
+                            modifier = Modifier.padding(start = 8.dp),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirmDelete(exercise) },
+                colors = ButtonDefaults.buttonColors(backgroundColor = AccentRed),
+                elevation = ButtonDefaults.elevation(0.dp)
+            ) {
+                Text("Delete Exercise", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = TextSecondary)
+            }
+        },
+        backgroundColor = CardBackground
+    )
+}
+
+@Composable
+private fun BodyweightInputCard(
     bodyweight: Double,
-    onUpdateExercise: (com.bodyforge.domain.models.ExerciseInWorkout) -> Unit
+    onBodyweightChange: (Double) -> Unit
 ) {
     Card(
-        backgroundColor = SurfaceColor,
-        shape = RoundedCornerShape(8.dp),
-        modifier = Modifier.fillMaxWidth(),
-        elevation = 0.dp // Removed double border
+        backgroundColor = Color(0xFF0F766E),
+        elevation = 0.dp,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
     ) {
         Column(
-            modifier = Modifier.padding(12.dp)
+            modifier = Modifier.padding(16.dp)
         ) {
-            Text(
-                text = exerciseInWorkout.exercise.name,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "💪",
+                    fontSize = 20.sp
+                )
+                Text(
+                    text = "Your Bodyweight:",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White,
+                    modifier = Modifier.weight(1f)
+                )
+            }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            exerciseInWorkout.sets.forEachIndexed { index, set ->
-                EditSetRow(
-                    setNumber = index + 1,
-                    set = set,
-                    exercise = exerciseInWorkout.exercise,
-                    bodyweight = bodyweight,
-                    onUpdateSet = { updatedSet ->
-                        val updatedSets = exerciseInWorkout.sets.toMutableList()
-                        updatedSets[index] = updatedSet
-                        onUpdateExercise(exerciseInWorkout.copy(sets = updatedSets))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                Button(
+                    onClick = {
+                        if (bodyweight > 30.0) {
+                            val newWeight = (bodyweight - 0.5).coerceAtLeast(30.0)
+                            onBodyweightChange(newWeight)
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        backgroundColor = if (bodyweight > 30.0) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f)
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.size(48.dp),
+                    contentPadding = PaddingValues(0.dp),
+                    elevation = ButtonDefaults.elevation(0.dp)
+                ) {
+                    Text(
+                        text = "−",
+                        fontSize = 24.sp,
+                        color = if (bodyweight > 30.0) Color.White else Color.White.copy(alpha = 0.5f),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                var textValue by remember(bodyweight) { mutableStateOf(formatWeight(bodyweight)) }
+                var isEditing by remember { mutableStateOf(false) }
+
+                if (isEditing) {
+                    BasicTextField(
+                        value = textValue,
+                        onValueChange = { newText ->
+                            val filtered = newText.filter { it.isDigit() || it == '.' }
+                            if (filtered.count { it == '.' } <= 1 && filtered.length <= 8) {
+                                textValue = filtered
+                            }
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 8.dp)
+                            .background(
+                                color = Color.White.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(12.dp),
+                        textStyle = TextStyle(
+                            fontSize = 18.sp,
+                            color = Color.White,
+                            textAlign = TextAlign.Center,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Decimal,
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                val newValue = parseWeightInput(textValue).coerceIn(30.0, 999.0)
+                                onBodyweightChange(newValue)
+                                textValue = formatWeight(newValue)
+                                isEditing = false
+                            }
+                        )
+                    )
+                } else {
+                    Text(
+                        text = "${formatWeight(bodyweight)} kg",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable {
+                                isEditing = true
+                                textValue = formatWeight(bodyweight)
+                            }
+                            .background(
+                                color = Color.White.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(vertical = 12.dp, horizontal = 16.dp),
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                Button(
+                    onClick = {
+                        if (bodyweight < 999.0) {
+                            val newWeight = (bodyweight + 0.5).coerceAtMost(999.0)
+                            onBodyweightChange(newWeight)
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        backgroundColor = if (bodyweight < 999.0) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f)
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.size(48.dp),
+                    contentPadding = PaddingValues(0.dp),
+                    elevation = ButtonDefaults.elevation(0.dp)
+                ) {
+                    Text(
+                        text = "+",
+                        fontSize = 24.sp,
+                        color = if (bodyweight < 999.0) Color.White else Color.White.copy(alpha = 0.5f),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActiveWorkoutContent(
+    uiState: com.bodyforge.presentation.viewmodel.WorkoutUiState,
+    viewModel: WorkoutViewModel
+) {
+    val currentWorkout = uiState.currentWorkout
+
+    if (currentWorkout == null) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text("🏋️", fontSize = 64.sp)
+                Text(
+                    text = "No Active Workout",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = "Create a workout to start tracking your sets!",
+                    fontSize = 16.sp,
+                    color = TextSecondary,
+                    textAlign = TextAlign.Center
+                )
+
+                Button(
+                    onClick = { viewModel.setActiveTab("create") },
+                    colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange),
+                    shape = RoundedCornerShape(25.dp),
+                    elevation = ButtonDefaults.elevation(0.dp)
+                ) {
+                    Text("Create Workout", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    } else {
+        val hasBodyweightExercises = currentWorkout.exercises.any { it.exercise.isBodyweight }
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            if (hasBodyweightExercises) {
+                item {
+                    BodyweightInputCard(
+                        bodyweight = uiState.bodyweight,
+                        onBodyweightChange = { viewModel.updateBodyweight(it) }
+                    )
+                }
+            }
+
+            item {
+                WorkoutHeaderCard(
+                    workout = currentWorkout,
+                    onFinishWorkout = { viewModel.completeWorkout() }
+                )
+            }
+
+            items(currentWorkout.exercises) { exerciseInWorkout ->
+                ActiveExerciseCard(
+                    exerciseInWorkout = exerciseInWorkout,
+                    bodyweight = uiState.bodyweight,
+                    onUpdateSet = { setId: String, reps: Int?, weight: Double?, completed: Boolean? ->
+                        viewModel.updateSet(exerciseInWorkout.exercise.id, setId, reps, weight, completed)
+                    },
+                    onAddSet = {
+                        viewModel.addSetToExercise(exerciseInWorkout.exercise.id)
+                    },
+                    onRemoveSet = { setId: String ->
+                        viewModel.removeSetFromExercise(exerciseInWorkout.exercise.id, setId)
                     }
                 )
             }
@@ -1705,135 +1620,61 @@ private fun EditExerciseCard(
 }
 
 @Composable
-private fun EditSetRow(
-    setNumber: Int,
-    set: com.bodyforge.domain.models.WorkoutSet,
-    exercise: com.bodyforge.domain.models.Exercise,
-    bodyweight: Double,
-    onUpdateSet: (com.bodyforge.domain.models.WorkoutSet) -> Unit
+private fun HistoryContent(
+    uiState: com.bodyforge.presentation.viewmodel.WorkoutUiState,
+    viewModel: WorkoutViewModel
 ) {
-    Row(
+    var editingWorkout by remember { mutableStateOf<com.bodyforge.domain.models.Workout?>(null) }
+
+    LazyColumn(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = "Set $setNumber",
-            fontSize = 12.sp,
-            color = TextSecondary,
-            modifier = Modifier.width(50.dp)
-        )
-
-        var repsText by remember { mutableStateOf(set.reps.toString()) }
-        BasicTextField(
-            value = repsText,
-            onValueChange = { newText ->
-                repsText = newText.filter { it.isDigit() }
-                val newReps = parseNumberInput(repsText).coerceIn(0, 999)
-                onUpdateSet(set.copy(reps = newReps))
-            },
-            modifier = Modifier
-                .width(80.dp)
-                .background(
-                    color = Color.Transparent,
-                    shape = RoundedCornerShape(4.dp)
-                )
-                .padding(8.dp),
-            textStyle = TextStyle(
-                fontSize = 14.sp,
-                textAlign = TextAlign.Center,
-                color = TextPrimary
-            ),
-            singleLine = true
-        )
-
-        var weightText by remember { mutableStateOf(formatWeight(set.weightKg)) }
-        Row(
-            modifier = Modifier.width(100.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            BasicTextField(
-                value = weightText,
-                onValueChange = { newText ->
-                    weightText = newText.filter { it.isDigit() || it == '.' }
-                    val newWeight = parseWeightInput(weightText)
-                    onUpdateSet(set.copy(weightKg = newWeight))
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .background(
-                        color = Color.Transparent,
-                        shape = RoundedCornerShape(4.dp)
-                    )
-                    .padding(8.dp),
-                textStyle = TextStyle(
-                    fontSize = 14.sp,
-                    textAlign = TextAlign.Center,
-                    color = TextPrimary
-                ),
-                singleLine = true
+        item {
+            Text(
+                text = "📊 Workout History",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary,
+                modifier = Modifier.padding(bottom = 8.dp)
             )
-            Text("kg", fontSize = 12.sp, color = TextSecondary)
         }
 
-        Switch(
-            checked = set.completed,
-            onCheckedChange = { completed ->
-                onUpdateSet(
-                    if (completed) set.complete() else set.copy(completed = false, completedAt = null)
+        if (uiState.completedWorkouts.isEmpty()) {
+            item {
+                EmptyHistoryCard()
+            }
+        } else {
+            items(uiState.completedWorkouts) { workout ->
+                HistoryWorkoutCard(
+                    workout = workout,
+                    bodyweight = uiState.bodyweight,
+                    onDelete = { viewModel.deleteWorkout(workout.id) },
+                    onEdit = { editingWorkout = workout }
                 )
-            },
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = AccentGreen,
-                checkedTrackColor = AccentGreen.copy(alpha = 0.5f)
-            ),
-            modifier = Modifier.scale(0.8f)
-        )
-    }
-}
-
-// Weight display logic with kg unit
-enum class WeightDisplayMode {
-    COMPACT,               // "BW+10kg" for SetRows
-    COMPACT_WITH_UNIT,     // "BW+10kg" or "50kg" - shows unit
-    DETAILED,              // "BW+10kg (85kg)" for History
-    TOTAL_ONLY             // "85kg" for calculations
-}
-
-private fun formatWeightDisplay(
-    weight: Double,
-    isBodyweight: Boolean,
-    bodyweight: Double,
-    mode: WeightDisplayMode = WeightDisplayMode.COMPACT
-): String {
-    if (!isBodyweight) {
-        return when (mode) {
-            WeightDisplayMode.COMPACT -> formatWeight(weight)
-            WeightDisplayMode.COMPACT_WITH_UNIT -> "${formatWeight(weight)}kg"
-            WeightDisplayMode.DETAILED -> "${formatWeight(weight)}kg"
-            WeightDisplayMode.TOTAL_ONLY -> "${formatWeight(weight)}kg"
-        }
-    }
-
-    val totalWeight = bodyweight + weight
-
-    return when (mode) {
-        WeightDisplayMode.COMPACT -> {
-            if (weight == 0.0) "BW" else "BW+${formatWeight(weight)}"
-        }
-        WeightDisplayMode.COMPACT_WITH_UNIT -> {
-            if (weight == 0.0) "BW" else "BW+${formatWeight(weight)}kg"
-        }
-        WeightDisplayMode.DETAILED -> {
-            if (weight == 0.0) {
-                "BW (${formatWeight(bodyweight)}kg)"
-            } else {
-                "BW+${formatWeight(weight)}kg (${formatWeight(totalWeight)}kg)"
             }
         }
-        WeightDisplayMode.TOTAL_ONLY -> "${formatWeight(totalWeight)}kg"
+    }
+
+    EditWorkoutDialog(
+        workout = editingWorkout,
+        bodyweight = uiState.bodyweight,
+        onDismiss = { editingWorkout = null },
+        onSaveWorkout = { editedWorkout ->
+            viewModel.updateWorkout(editedWorkout)
+            editingWorkout = null
+        }
+    )
+}
+
+// Helper functions
+private fun formatWeight(weight: Double): String {
+    return if (weight % 1.0 == 0.0) {
+        weight.toInt().toString()
+    } else {
+        String.format("%.3f", weight).trimEnd('0').trimEnd('.')
     }
 }
 
@@ -1863,7 +1704,6 @@ private fun parseWeightInput(input: String): Double {
     }
 }
 
-// Leading zero removal for number inputs
 private fun parseNumberInput(input: String): Int {
     if (input.isEmpty()) return 0
 
@@ -1871,10 +1711,44 @@ private fun parseNumberInput(input: String): Int {
     return withoutLeadingZeros.toIntOrNull() ?: 0
 }
 
-private fun formatWeight(weight: Double): String {
-    return if (weight % 1.0 == 0.0) {
-        weight.toInt().toString()
-    } else {
-        String.format("%.3f", weight).trimEnd('0').trimEnd('.')
-    }
+// Placeholder functions - need to add the remaining ones
+@Composable
+private fun WorkoutHeaderCard(workout: com.bodyforge.domain.models.Workout, onFinishWorkout: () -> Unit) {
+    Text("WorkoutHeaderCard - TODO: Add implementation")
+}
+
+@Composable
+private fun ActiveExerciseCard(
+    exerciseInWorkout: com.bodyforge.domain.models.ExerciseInWorkout,
+    bodyweight: Double,
+    onUpdateSet: (String, Int?, Double?, Boolean?) -> Unit,
+    onAddSet: () -> Unit,
+    onRemoveSet: (String) -> Unit
+) {
+    Text("ActiveExerciseCard - TODO: Add implementation")
+}
+
+@Composable
+private fun EmptyHistoryCard() {
+    Text("EmptyHistoryCard - TODO: Add implementation")
+}
+
+@Composable
+private fun HistoryWorkoutCard(
+    workout: com.bodyforge.domain.models.Workout,
+    bodyweight: Double,
+    onDelete: () -> Unit,
+    onEdit: () -> Unit
+) {
+    Text("HistoryWorkoutCard - TODO: Add implementation")
+}
+
+@Composable
+private fun EditWorkoutDialog(
+    workout: com.bodyforge.domain.models.Workout?,
+    bodyweight: Double,
+    onDismiss: () -> Unit,
+    onSaveWorkout: (com.bodyforge.domain.models.Workout) -> Unit
+) {
+    // EditWorkoutDialog - TODO: Add implementation
 }
