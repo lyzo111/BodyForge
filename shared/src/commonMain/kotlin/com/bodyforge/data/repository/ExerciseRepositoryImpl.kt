@@ -83,7 +83,8 @@ class ExerciseRepositoryImpl : ExerciseRepository {
             equipment_needed = customExercise.equipmentNeeded,
             is_custom = 1L,
             is_bodyweight = if (customExercise.isBodyweight) 1L else 0L,
-            default_rest_time_seconds = customExercise.defaultRestTimeSeconds.toLong()
+            default_rest_time_seconds = customExercise.defaultRestTimeSeconds.toLong(),
+            deleted = 0L
         )
         customExercise
     }
