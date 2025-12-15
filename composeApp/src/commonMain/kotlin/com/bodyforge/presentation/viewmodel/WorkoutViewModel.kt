@@ -2,146 +2,80 @@ package com.bodyforge.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.bodyforge.data.repository.ExerciseRepositoryImpl
-import com.bodyforge.data.repository.WorkoutRepositoryImpl
 import com.bodyforge.domain.models.Exercise
 import com.bodyforge.domain.models.Workout
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.bodyforge.domain.models.WorkoutTemplate
+import com.bodyforge.presentation.state.SharedWorkoutState
 import kotlinx.coroutines.launch
-
-data class WorkoutUiState(
-    val availableExercises: List<Exercise> = emptyList(),
-    val selectedExercises: List<Exercise> = emptyList(),
-    val currentWorkout: Workout? = null,
-    val completedWorkouts: List<Workout> = emptyList(),
-    val bodyweight: Double = 75.0,  // Default bodyweight
-    val isLoading: Boolean = false,
-    val error: String? = null,
-    val activeTab: String = "create"
-)
 
 class WorkoutViewModel : ViewModel() {
 
-    private val exerciseRepo = ExerciseRepositoryImpl()
-    private val workoutRepo = WorkoutRepositoryImpl()
+    private val sharedState = SharedWorkoutState
 
-    private val _uiState = MutableStateFlow(WorkoutUiState())
-    val uiState: StateFlow<WorkoutUiState> = _uiState.asStateFlow()
-
-    init {
-        loadExercises()
-        loadActiveWorkout()
-        loadCompletedWorkouts()
-    }
-
-    private fun loadExercises() {
+    fun initialize() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
-            try {
-                val exercises = exerciseRepo.getAllExercises()
-                _uiState.value = _uiState.value.copy(
-                    availableExercises = exercises,
-                    isLoading = false
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = "Failed to load exercises: ${e.message}",
-                    isLoading = false
-                )
-            }
+            sharedState.refreshAll()
         }
     }
 
-    private fun loadActiveWorkout() {
+    fun startQuickWorkout(exercises: List<Exercise>, workoutName: String = "") {
         viewModelScope.launch {
+            sharedState.setLoading(true)
             try {
-                val activeWorkout = workoutRepo.getActiveWorkout()
-                _uiState.value = _uiState.value.copy(
-                    currentWorkout = activeWorkout,
-                    activeTab = if (activeWorkout != null) "active" else "create"
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = "Failed to load active workout: ${e.message}"
-                )
-            }
-        }
-    }
-
-    private fun loadCompletedWorkouts() {
-        viewModelScope.launch {
-            try {
-                val completedWorkouts = workoutRepo.getCompletedWorkouts()
-                _uiState.value = _uiState.value.copy(
-                    completedWorkouts = completedWorkouts
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = "Failed to load workout history: ${e.message}"
-                )
-            }
-        }
-    }
-
-    fun setActiveTab(tab: String) {
-        _uiState.value = _uiState.value.copy(activeTab = tab)
-
-        if (tab == "history") {
-            loadCompletedWorkouts()
-        }
-    }
-
-    fun addExerciseToSelection(exercise: Exercise) {
-        val currentSelected = _uiState.value.selectedExercises
-        if (!currentSelected.contains(exercise)) {
-            _uiState.value = _uiState.value.copy(
-                selectedExercises = currentSelected + exercise
-            )
-        }
-    }
-
-    fun removeExerciseFromSelection(exercise: Exercise) {
-        val currentSelected = _uiState.value.selectedExercises
-        _uiState.value = _uiState.value.copy(
-            selectedExercises = currentSelected - exercise
-        )
-    }
-
-    fun startWorkout(workoutName: String = "") {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
-            try {
-                val selectedExercises = _uiState.value.selectedExercises
-                if (selectedExercises.isEmpty()) {
-                    _uiState.value = _uiState.value.copy(
-                        error = "Please select at least one exercise",
-                        isLoading = false
-                    )
+                if (exercises.isEmpty()) {
+                    sharedState.setError("Please select at least one exercise")
                     return@launch
                 }
 
-                val workout = Workout.create(workoutName, selectedExercises)
-                val savedWorkout = workoutRepo.saveWorkout(workout)
+                val workout = Workout.create(workoutName.ifEmpty { "" }, exercises)
+                val savedWorkout = sharedState.workoutRepo.saveWorkout(workout)
 
-                _uiState.value = _uiState.value.copy(
-                    currentWorkout = savedWorkout,
-                    selectedExercises = emptyList(),
-                    activeTab = "active",
-                    isLoading = false
-                )
+                sharedState.updateActiveWorkout(savedWorkout)
+                sharedState.clearError()
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = "Failed to start workout: ${e.message}",
-                    isLoading = false
-                )
+                sharedState.setError("Failed to start workout: ${e.message ?: "Unknown error"}")
+            } finally {
+                sharedState.setLoading(false)
+            }
+        }
+    }
+
+    fun startWorkoutFromTemplate(template: WorkoutTemplate) {
+        viewModelScope.launch {
+            sharedState.setLoading(true)
+            try {
+                // Load exercises from template
+                val exercises = mutableListOf<Exercise>()
+                template.exerciseIds.forEach { exerciseId ->
+                    sharedState.exerciseRepo.getExerciseById(exerciseId)?.let { exercise ->
+                        exercises.add(exercise)
+                    }
+                }
+
+                if (exercises.isEmpty()) {
+                    sharedState.setError("Template contains no valid exercises")
+                    return@launch
+                }
+
+                if (exercises.size != template.exerciseIds.size) {
+                    sharedState.setError("Some exercises from this template are no longer available")
+                }
+
+                val workout = Workout.create(template.name.ifEmpty { "Template Workout" }, exercises)
+                val savedWorkout = sharedState.workoutRepo.saveWorkout(workout)
+
+                sharedState.updateActiveWorkout(savedWorkout)
+                sharedState.clearError()
+            } catch (e: Exception) {
+                sharedState.setError("Failed to start workout from template: ${e.message ?: "Unknown error"}")
+            } finally {
+                sharedState.setLoading(false)
             }
         }
     }
 
     fun updateSet(exerciseId: String, setId: String, reps: Int?, weight: Double?, completed: Boolean?) {
-        val currentWorkout = _uiState.value.currentWorkout ?: return
+        val currentWorkout = sharedState.activeWorkout.value ?: return
 
         viewModelScope.launch {
             try {
@@ -162,64 +96,17 @@ class WorkoutViewModel : ViewModel() {
                 val updatedExercise = exerciseInWorkout.updateSet(setId, updatedSet)
                 val updatedWorkout = currentWorkout.updateExercise(exerciseId, updatedExercise)
 
-                workoutRepo.updateWorkout(updatedWorkout)
-
-                _uiState.value = _uiState.value.copy(currentWorkout = updatedWorkout)
+                sharedState.workoutRepo.updateWorkout(updatedWorkout)
+                sharedState.updateActiveWorkout(updatedWorkout)
 
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = "Failed to update set: ${e.message}"
-                )
-            }
-        }
-    }
-
-    fun completeWorkout() {
-        val currentWorkout = _uiState.value.currentWorkout ?: return
-
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
-            try {
-                val finishedWorkout = currentWorkout.finish()
-                workoutRepo.updateWorkout(finishedWorkout)
-
-                loadCompletedWorkouts()
-
-                _uiState.value = _uiState.value.copy(
-                    currentWorkout = null,
-                    activeTab = "create",
-                    isLoading = false
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = "Failed to finish workout: ${e.message}",
-                    isLoading = false
-                )
-            }
-        }
-    }
-
-    fun deleteWorkout(workoutId: String) {
-        viewModelScope.launch {
-            try {
-                val success = workoutRepo.deleteWorkout(workoutId)
-                if (success) {
-                    loadCompletedWorkouts()
-                } else {
-                    _uiState.value = _uiState.value.copy(
-                        error = "Failed to delete workout"
-                    )
-                }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = "Failed to delete workout: ${e.message}"
-                )
+                sharedState.setError("Failed to update set: ${e.message ?: "Unknown error"}")
             }
         }
     }
 
     fun addSetToExercise(exerciseId: String) {
-        val currentWorkout = _uiState.value.currentWorkout ?: return
+        val currentWorkout = sharedState.activeWorkout.value ?: return
 
         viewModelScope.launch {
             try {
@@ -229,20 +116,17 @@ class WorkoutViewModel : ViewModel() {
                 val updatedExercise = exerciseInWorkout.addSet()
                 val updatedWorkout = currentWorkout.updateExercise(exerciseId, updatedExercise)
 
-                workoutRepo.updateWorkout(updatedWorkout)
-
-                _uiState.value = _uiState.value.copy(currentWorkout = updatedWorkout)
+                sharedState.workoutRepo.updateWorkout(updatedWorkout)
+                sharedState.updateActiveWorkout(updatedWorkout)
 
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = "Failed to add set: ${e.message}"
-                )
+                sharedState.setError("Failed to add set: ${e.message ?: "Unknown error"}")
             }
         }
     }
 
     fun removeSetFromExercise(exerciseId: String, setId: String) {
-        val currentWorkout = _uiState.value.currentWorkout ?: return
+        val currentWorkout = sharedState.activeWorkout.value ?: return
 
         viewModelScope.launch {
             try {
@@ -253,23 +137,60 @@ class WorkoutViewModel : ViewModel() {
                 val updatedExercise = exerciseInWorkout.copy(sets = updatedSets)
                 val updatedWorkout = currentWorkout.updateExercise(exerciseId, updatedExercise)
 
-                workoutRepo.updateWorkout(updatedWorkout)
-
-                _uiState.value = _uiState.value.copy(currentWorkout = updatedWorkout)
+                sharedState.workoutRepo.updateWorkout(updatedWorkout)
+                sharedState.updateActiveWorkout(updatedWorkout)
 
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = "Failed to remove set: ${e.message}"
-                )
+                sharedState.setError("Failed to remove set: ${e.message ?: "Unknown error"}")
             }
         }
     }
 
-    fun updateBodyweight(newBodyweight: Double) {
-        _uiState.value = _uiState.value.copy(bodyweight = newBodyweight)
+    fun completeWorkout() {
+        val currentWorkout = sharedState.activeWorkout.value ?: return
+
+        viewModelScope.launch {
+            sharedState.setLoading(true)
+            try {
+                val finishedWorkout = currentWorkout.finish()
+                sharedState.workoutRepo.updateWorkout(finishedWorkout)
+
+                // Clear active workout and refresh completed workouts
+                sharedState.updateActiveWorkout(null)
+                sharedState.loadCompletedWorkouts()
+
+                sharedState.clearError()
+            } catch (e: Exception) {
+                sharedState.setError("Failed to finish workout: ${e.message ?: "Unknown error"}")
+            } finally {
+                sharedState.setLoading(false)
+            }
+        }
     }
 
-    fun clearError() {
-        _uiState.value = _uiState.value.copy(error = null)
+    fun deleteWorkout(workoutId: String) {
+        viewModelScope.launch {
+            try {
+                val success = sharedState.workoutRepo.deleteWorkout(workoutId)
+                if (success) {
+                    sharedState.loadCompletedWorkouts()
+                } else {
+                    sharedState.setError("Failed to delete workout")
+                }
+            } catch (e: Exception) {
+                sharedState.setError("Failed to delete workout: ${e.message ?: "Unknown error"}")
+            }
+        }
+    }
+
+    fun updateWorkout(workout: Workout) {
+        viewModelScope.launch {
+            try {
+                sharedState.workoutRepo.updateWorkout(workout)
+                sharedState.loadCompletedWorkouts()
+            } catch (e: Exception) {
+                sharedState.setError("Failed to update workout: ${e.message ?: "Unknown error"}")
+            }
+        }
     }
 }
