@@ -1,0 +1,17 @@
+-- Migration from schema version 1 to 2.
+-- Adds the data-model foundation for template origin, routine variations and set skip/replace status.
+-- Existing rows keep working: new NOT NULL columns get backward-compatible defaults,
+-- new nullable columns default to NULL.
+
+-- Template origin: link a workout to the template it was started from.
+ALTER TABLE Workout ADD COLUMN template_id TEXT;
+
+-- Routine grouping: group templates into variations such as "Upper A" / "Upper B".
+ALTER TABLE WorkoutTemplate ADD COLUMN routine_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE WorkoutTemplate ADD COLUMN routine_name TEXT NOT NULL DEFAULT '';
+ALTER TABLE WorkoutTemplate ADD COLUMN variation_label TEXT NOT NULL DEFAULT '';
+
+-- Skip/replace status: track whether a set was completed, skipped or substituted.
+-- Existing sets become COMPLETED so historical data is unchanged.
+ALTER TABLE WorkoutSet ADD COLUMN status TEXT NOT NULL DEFAULT 'COMPLETED';
+ALTER TABLE WorkoutSet ADD COLUMN original_exercise_id TEXT;
