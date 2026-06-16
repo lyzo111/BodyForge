@@ -3,40 +3,29 @@ package com.bodyforge.data.repository
 import com.bodyforge.domain.repository.WorkoutTemplateRepository
 import com.bodyforge.domain.models.WorkoutTemplate
 import com.bodyforge.data.DatabaseFactory
+import com.bodyforge.data.mappers.WorkoutMapper.toDomain
+import com.bodyforge.database.BodyForgeDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.datetime.Instant
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.decodeFromString
 
-class WorkoutTemplateRepositoryImpl : WorkoutTemplateRepository {
+class WorkoutTemplateRepositoryImpl(
+    database: BodyForgeDatabase = DatabaseFactory.create()
+) : WorkoutTemplateRepository {
 
-    private val database = DatabaseFactory.create()
     private val queries = database.bodyForgeDatabaseQueries
 
     override suspend fun getAllTemplates(): List<WorkoutTemplate> = withContext(Dispatchers.IO) {
-        queries.selectAllTemplates().executeAsList().map { entity ->
-            WorkoutTemplate(
-                id = entity.id,
-                name = entity.name,
-                exerciseIds = Json.decodeFromString<List<String>>(entity.exercise_ids),
-                createdAt = Instant.fromEpochSeconds(entity.created_at),
-                description = entity.description
-            )
-        }
+        queries.selectAllTemplates().executeAsList().map { it.toDomain() }
     }
 
     override suspend fun getTemplateById(id: String): WorkoutTemplate? = withContext(Dispatchers.IO) {
-        queries.selectTemplateById(id).executeAsOneOrNull()?.let { entity ->
-            WorkoutTemplate(
-                id = entity.id,
-                name = entity.name,
-                exerciseIds = Json.decodeFromString<List<String>>(entity.exercise_ids),
-                createdAt = Instant.fromEpochSeconds(entity.created_at),
-                description = entity.description
-            )
-        }
+        queries.selectTemplateById(id).executeAsOneOrNull()?.toDomain()
+    }
+
+    override suspend fun getTemplatesByRoutine(routineId: String): List<WorkoutTemplate> = withContext(Dispatchers.IO) {
+        queries.selectTemplatesByRoutine(routineId).executeAsList().map { it.toDomain() }
     }
 
     override suspend fun saveTemplate(template: WorkoutTemplate): WorkoutTemplate = withContext(Dispatchers.IO) {
@@ -45,7 +34,10 @@ class WorkoutTemplateRepositoryImpl : WorkoutTemplateRepository {
             name = template.name,
             exercise_ids = Json.encodeToString(template.exerciseIds),
             created_at = template.createdAt.epochSeconds,
-            description = template.description
+            description = template.description,
+            routine_id = template.routineId,
+            routine_name = template.routineName,
+            variation_label = template.variationLabel
         )
         template
     }
@@ -55,6 +47,9 @@ class WorkoutTemplateRepositoryImpl : WorkoutTemplateRepository {
             name = template.name,
             exercise_ids = Json.encodeToString(template.exerciseIds),
             description = template.description,
+            routine_id = template.routineId,
+            routine_name = template.routineName,
+            variation_label = template.variationLabel,
             id = template.id
         )
         template
@@ -70,14 +65,6 @@ class WorkoutTemplateRepositoryImpl : WorkoutTemplateRepository {
     }
 
     override suspend fun searchTemplates(query: String): List<WorkoutTemplate> = withContext(Dispatchers.IO) {
-        queries.searchTemplates(query, query).executeAsList().map { entity ->
-            WorkoutTemplate(
-                id = entity.id,
-                name = entity.name,
-                exerciseIds = Json.decodeFromString<List<String>>(entity.exercise_ids),
-                createdAt = Instant.fromEpochSeconds(entity.created_at),
-                description = entity.description
-            )
-        }
+        queries.searchTemplates(query, query).executeAsList().map { it.toDomain() }
     }
 }

@@ -9,6 +9,7 @@ interface WorkoutRepository {
     suspend fun getAllWorkouts(): List<Workout>
     suspend fun getCompletedWorkouts(): List<Workout>
     suspend fun getWorkoutsByDateRange(startDate: LocalDate, endDate: LocalDate): List<Workout>
+    suspend fun getWorkoutsByTemplate(templateId: String): List<Workout>
     suspend fun getActiveWorkout(): Workout?
     suspend fun updateWorkout(workout: Workout): Workout
     suspend fun deleteWorkout(id: String): Boolean

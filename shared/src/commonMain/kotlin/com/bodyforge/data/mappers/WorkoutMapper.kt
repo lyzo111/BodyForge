@@ -3,9 +3,12 @@ package com.bodyforge.data.mappers
 import com.bodyforge.database.Exercise as ExerciseEntity
 import com.bodyforge.database.Workout as WorkoutEntity
 import com.bodyforge.database.WorkoutSet as WorkoutSetEntity
+import com.bodyforge.database.WorkoutTemplate as WorkoutTemplateEntity
 import com.bodyforge.domain.models.Exercise
 import com.bodyforge.domain.models.Workout
 import com.bodyforge.domain.models.WorkoutSet
+import com.bodyforge.domain.models.WorkoutTemplate
+import com.bodyforge.domain.models.SetStatus
 import com.bodyforge.domain.models.ExerciseInWorkout
 import kotlinx.datetime.Instant
 import kotlinx.serialization.json.Json
@@ -51,7 +54,9 @@ object WorkoutMapper {
             restTimeSeconds = rest_time_seconds.toInt(),
             completed = completed == 1L,
             completedAt = completed_at?.let { Instant.fromEpochSeconds(it) },
-            notes = notes
+            notes = notes,
+            status = SetStatus.fromStorage(status),
+            originalExerciseId = original_exercise_id
         )
     }
 
@@ -67,7 +72,9 @@ object WorkoutMapper {
             rest_time_seconds = restTimeSeconds.toLong(),
             completed = if (completed) 1L else 0L,
             completed_at = completedAt?.epochSeconds,
-            notes = notes
+            notes = notes,
+            status = status.name,
+            original_exercise_id = originalExerciseId
         )
     }
 
@@ -79,7 +86,8 @@ object WorkoutMapper {
             startedAt = Instant.fromEpochSeconds(started_at),
             finishedAt = finished_at?.let { Instant.fromEpochSeconds(it) },
             exercises = emptyList(), // Will be populated separately
-            notes = notes
+            notes = notes,
+            templateId = template_id
         )
     }
 
@@ -89,7 +97,35 @@ object WorkoutMapper {
             name = name,
             started_at = startedAt.epochSeconds,
             finished_at = finishedAt?.epochSeconds,
-            notes = notes
+            notes = notes,
+            template_id = templateId
+        )
+    }
+
+    // WorkoutTemplate Mappings
+    fun WorkoutTemplateEntity.toDomain(): WorkoutTemplate {
+        return WorkoutTemplate(
+            id = id,
+            name = name,
+            exerciseIds = Json.decodeFromString<List<String>>(exercise_ids),
+            createdAt = Instant.fromEpochSeconds(created_at),
+            description = description,
+            routineId = routine_id,
+            routineName = routine_name,
+            variationLabel = variation_label
+        )
+    }
+
+    fun WorkoutTemplate.toEntity(): WorkoutTemplateEntity {
+        return WorkoutTemplateEntity(
+            id = id,
+            name = name,
+            exercise_ids = Json.encodeToString(exerciseIds),
+            created_at = createdAt.epochSeconds,
+            description = description,
+            routine_id = routineId,
+            routine_name = routineName,
+            variation_label = variationLabel
         )
     }
 
