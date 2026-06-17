@@ -30,6 +30,7 @@ import com.bodyforge.domain.models.WorkoutSet
 import com.bodyforge.domain.models.WorkoutTemplate
 import com.bodyforge.presentation.state.SharedWorkoutState
 import com.bodyforge.presentation.viewmodel.WorkoutViewModel
+import com.bodyforge.ui.components.cards.CreateExerciseDialog
 import com.bodyforge.ui.components.inputs.BodyweightInput
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
@@ -1135,6 +1136,8 @@ private fun QuickWorkoutFlow(
     var selectedMuscleFilters by remember { mutableStateOf(setOf<String>()) }
     var showFilters by remember { mutableStateOf(false) }
     var showAddToWorkoutDialog by remember { mutableStateOf<Exercise?>(null) }
+    var showCreateExerciseDialog by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         SharedWorkoutState.loadExercises()
@@ -1181,8 +1184,27 @@ private fun QuickWorkoutFlow(
                 color = TextPrimary
             )
 
-            Box(modifier = Modifier.width(80.dp))
+            Button(
+                onClick = { showCreateExerciseDialog = true },
+                colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen),
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                elevation = ButtonDefaults.elevation(0.dp)
+            ) {
+                Text("+ New", color = Color.White, fontWeight = FontWeight.Bold)
+            }
         }
+
+        CreateExerciseDialog(
+            showDialog = showCreateExerciseDialog,
+            onDismiss = { showCreateExerciseDialog = false },
+            onCreateExercise = { name, muscleGroups, equipment, isBodyweight ->
+                scope.launch {
+                    val created = SharedWorkoutState.createCustomExercise(name, muscleGroups, equipment, isBodyweight)
+                    selectedExercises = selectedExercises + created
+                }
+            }
+        )
 
         // Selected exercises card
         if (selectedExercises.isNotEmpty()) {

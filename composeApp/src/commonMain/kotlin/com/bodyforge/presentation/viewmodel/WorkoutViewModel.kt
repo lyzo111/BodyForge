@@ -83,6 +83,10 @@ class WorkoutViewModel : ViewModel() {
     fun substituteExercise(exerciseId: String, newExercise: Exercise) {
         val currentWorkout = sharedState.activeWorkout.value ?: return
         if (newExercise.id == exerciseId) return
+        if (currentWorkout.exercises.any { it.exercise.id == newExercise.id }) {
+            sharedState.setError("\"${newExercise.name}\" is already in this workout")
+            return
+        }
         viewModelScope.launch {
             try {
                 val exerciseInWorkout = currentWorkout.exercises.find { it.exercise.id == exerciseId } ?: return@launch

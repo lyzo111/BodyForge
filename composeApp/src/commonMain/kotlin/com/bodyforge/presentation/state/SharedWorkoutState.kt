@@ -133,6 +133,15 @@ object SharedWorkoutState {
         loadPhases()
     }
 
+    // Re-opens a completed phase (e.g. after accidentally completing it): clears its end date,
+    // makes it active and ends any other currently active phase.
+    suspend fun resumePhase(id: String) {
+        val phase = phaseRepo.getPhaseById(id) ?: return
+        phaseRepo.deactivateActivePhases(today())
+        phaseRepo.updatePhase(phase.copy(endDate = null, isActive = true))
+        loadPhases()
+    }
+
     suspend fun deletePhase(id: String) {
         phaseRepo.deletePhase(id)
         loadPhases()

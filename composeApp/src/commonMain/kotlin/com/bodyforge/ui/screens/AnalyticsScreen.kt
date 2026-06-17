@@ -12,6 +12,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -321,10 +323,12 @@ private fun VolumeProgressionCard(workouts: List<com.bodyforge.domain.models.Wor
 
 @Composable
 private fun VolumeChart(workouts: List<com.bodyforge.domain.models.Workout>) {
-    // Simple bar chart representation
-    val recentWorkouts = workouts.takeLast(10)
+    // All-time volume as a line chart (oldest -> newest)
+    val series = remember(workouts) {
+        workouts.sortedBy { it.startedAt }.map { it.totalVolumePerformed }
+    }
 
-    if (recentWorkouts.isEmpty()) {
+    if (series.isEmpty()) {
         Text(
             text = "No volume data available",
             color = TextSecondary,
@@ -334,40 +338,37 @@ private fun VolumeChart(workouts: List<com.bodyforge.domain.models.Workout>) {
         return
     }
 
-    val maxVolume = recentWorkouts.maxOfOrNull { it.totalVolumePerformed } ?: 1.0
+    val maxV = series.maxOrNull() ?: 0.0
+    val minV = series.minOrNull() ?: 0.0
+    val range = (maxV - minV).let { if (it > 0.0) it else 1.0 }
 
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        items(recentWorkouts) { workout ->
-            val height = if (maxVolume > 0) (workout.totalVolumePerformed / maxVolume * 80).coerceAtLeast(8.0) else 8.0
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Canvas(modifier = Modifier.fillMaxWidth().height(160.dp)) {
+            val n = series.size
+            val leftPad = 8.dp.toPx()
+            val rightPad = 8.dp.toPx()
+            val topPad = 12.dp.toPx()
+            val botPad = 12.dp.toPx()
+            val chartW = size.width - leftPad - rightPad
+            val chartH = size.height - topPad - botPad
 
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.width(32.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .width(20.dp)
-                        .height(height.dp)
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(AccentBlue, AccentBlue.copy(alpha = 0.6f))
-                            ),
-                            shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
-                        )
-                )
+            fun xAt(i: Int): Float = leftPad + if (n == 1) chartW / 2f else chartW * i / (n - 1)
+            fun yAt(v: Double): Float = topPad + chartH * (1f - ((v - minV) / range).toFloat())
 
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = "${workout.totalVolumePerformed.roundToInt()}",
-                    fontSize = 8.sp,
-                    color = TextSecondary
-                )
+            drawLine(SurfaceColor, Offset(leftPad, topPad + chartH), Offset(leftPad + chartW, topPad + chartH), strokeWidth = 1.dp.toPx())
+            for (i in 0 until n - 1) {
+                drawLine(AccentBlue, Offset(xAt(i), yAt(series[i])), Offset(xAt(i + 1), yAt(series[i + 1])), strokeWidth = 3.dp.toPx())
+            }
+            series.forEachIndexed { i, v ->
+                drawCircle(AccentBlue, radius = 4.dp.toPx(), center = Offset(xAt(i), yAt(v)))
             }
         }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            "${series.size} workouts · latest ${series.last().roundToInt()} kg · best ${maxV.roundToInt()} kg",
+            fontSize = 12.sp,
+            color = TextSecondary
+        )
     }
 }
 
