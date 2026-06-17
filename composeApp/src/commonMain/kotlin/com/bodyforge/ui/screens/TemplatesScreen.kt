@@ -24,6 +24,21 @@ import com.bodyforge.ui.components.cards.CreateExerciseDialog
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 
+// Normalises a routine name into a stable grouping key, e.g. "Upper Body" -> "upper_body".
+// Blank input yields "" so the template is treated as ungrouped.
+private fun routineKey(routineName: String): String = buildString {
+    var pendingSeparator = false
+    for (char in routineName.lowercase()) {
+        if (char.isLetterOrDigit()) {
+            append(char)
+            pendingSeparator = false
+        } else if (!pendingSeparator) {
+            append('_')
+            pendingSeparator = true
+        }
+    }
+}.trim('_')
+
 private val AccentOrange = Color(0xFFFF6B35)
 private val AccentBlue = Color(0xFF3B82F6)
 private val AccentGreen = Color(0xFF10B981)
@@ -84,7 +99,28 @@ fun TemplatesScreen() {
             }
             templates.isEmpty() -> EmptyTemplatesCard { showCreateTemplateDialog = true }
             else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(templates) { template ->
+                val groupedByRoutine = templates.filter { it.routineId.isNotBlank() }.groupBy { it.routineId }
+                val ungroupedTemplates = templates.filter { it.routineId.isBlank() }
+
+                groupedByRoutine.forEach { (_, routineTemplates) ->
+                    val variations = routineTemplates.sortedBy { it.variationLabel }
+                    item {
+                        RoutineHeader(
+                            name = variations.first().routineName.ifBlank { "Routine" },
+                            variationCount = variations.size
+                        )
+                    }
+                    items(variations) { template ->
+                        TemplateCard(
+                            template = template,
+                            exercises = exercises,
+                            onEdit = { editingTemplate = template },
+                            onDelete = { deleteConfirmationTemplate = template }
+                        )
+                    }
+                }
+
+                items(ungroupedTemplates) { template ->
                     TemplateCard(
                         template = template,
                         exercises = exercises,
@@ -101,14 +137,17 @@ fun TemplatesScreen() {
             exercises = exercises,
             onCreateExercise = onCreateExercise,
             onDismiss = { showCreateTemplateDialog = false },
-            onCreateTemplate = { name, selected, desc ->
+            onCreateTemplate = { name, selected, desc, routine, variation ->
                 coroutineScope.launch {
                     val template = WorkoutTemplate(
                         id = "template_${Clock.System.now().epochSeconds}",
                         name = name,
                         exerciseIds = selected.map { it.id },
                         createdAt = Clock.System.now(),
-                        description = desc
+                        description = desc,
+                        routineId = routineKey(routine),
+                        routineName = routine.trim(),
+                        variationLabel = variation.trim()
                     )
                     SharedWorkoutState.templateRepo.saveTemplate(template)
                     SharedWorkoutState.loadTemplates()
@@ -179,7 +218,18 @@ private fun TemplateCard(template: WorkoutTemplate, exercises: List<com.bodyforg
         Column(modifier = Modifier.padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(template.name, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(template.name, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                        if (template.hasVariation) {
+                            Text(
+                                template.variationLabel,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                modifier = Modifier.background(AccentBlue, RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                     Text("${template.exerciseIds.size} exercises", fontSize = 14.sp, color = TextSecondary)
                     if (template.description.isNotEmpty()) Text(template.description, fontSize = 12.sp, color = TextSecondary, modifier = Modifier.padding(top = 4.dp))
                 }
@@ -193,6 +243,55 @@ private fun TemplateCard(template: WorkoutTemplate, exercises: List<com.bodyforg
                 Text(templateExercises.take(3).joinToString(", ") { it.name } + if (templateExercises.size > 3) " +${templateExercises.size - 3} more" else "", fontSize = 12.sp, color = TextSecondary.copy(alpha = 0.7f))
             }
         }
+    }
+}
+
+@Composable
+private fun RoutineVariationFields(
+    routineName: String,
+    onRoutineChange: (String) -> Unit,
+    variationLabel: String,
+    onVariationChange: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Routine grouping (optional)", fontSize = 12.sp, color = TextSecondary)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = routineName,
+                onValueChange = onRoutineChange,
+                label = { Text("Routine") },
+                placeholder = { Text("e.g., Upper") },
+                singleLine = true,
+                colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor),
+                modifier = Modifier.weight(2f)
+            )
+            OutlinedTextField(
+                value = variationLabel,
+                onValueChange = onVariationChange,
+                label = { Text("Variation") },
+                placeholder = { Text("A") },
+                singleLine = true,
+                colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor),
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun RoutineHeader(name: String, variationCount: Int) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text("🔁", fontSize = 16.sp)
+        Text(name, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AccentBlue)
+        Text(
+            "$variationCount variation${if (variationCount == 1) "" else "s"}",
+            fontSize = 12.sp,
+            color = TextSecondary
+        )
     }
 }
 
@@ -212,9 +311,11 @@ private fun NewExerciseButton(onClick: () -> Unit) {
 }
 
 @Composable
-private fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exercise>, onCreateExercise: suspend (String, List<String>, String, Boolean) -> Exercise, onDismiss: () -> Unit, onCreateTemplate: (String, List<com.bodyforge.domain.models.Exercise>, String) -> Unit) {
+private fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exercise>, onCreateExercise: suspend (String, List<String>, String, Boolean) -> Exercise, onDismiss: () -> Unit, onCreateTemplate: (String, List<com.bodyforge.domain.models.Exercise>, String, String, String) -> Unit) {
     var templateName by remember { mutableStateOf("") }
     var templateDescription by remember { mutableStateOf("") }
+    var routineName by remember { mutableStateOf("") }
+    var variationLabel by remember { mutableStateOf("") }
     var selectedExercises by remember { mutableStateOf(setOf<com.bodyforge.domain.models.Exercise>()) }
     var searchQuery by remember { mutableStateOf("") }
     var showCreateExerciseDialog by remember { mutableStateOf(false) }
@@ -235,6 +336,7 @@ private fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exe
                 item {
                     OutlinedTextField(value = templateDescription, onValueChange = { templateDescription = it }, label = { Text("Description (optional)") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth(), maxLines = 2)
                 }
+                item { RoutineVariationFields(routineName = routineName, onRoutineChange = { routineName = it }, variationLabel = variationLabel, onVariationChange = { variationLabel = it }) }
                 item {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("Select Exercises (${selectedExercises.size})", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
@@ -261,7 +363,7 @@ private fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exe
                 }
             }
         },
-        confirmButton = { Button(onClick = { if (templateName.isNotBlank() && selectedExercises.isNotEmpty()) onCreateTemplate(templateName, selectedExercises.toList(), templateDescription) }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen), enabled = templateName.isNotBlank() && selectedExercises.isNotEmpty(), elevation = ButtonDefaults.elevation(0.dp)) { Text("Create", color = Color.White, fontWeight = FontWeight.Bold) } },
+        confirmButton = { Button(onClick = { if (templateName.isNotBlank() && selectedExercises.isNotEmpty()) onCreateTemplate(templateName, selectedExercises.toList(), templateDescription, routineName, variationLabel) }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen), enabled = templateName.isNotBlank() && selectedExercises.isNotEmpty(), elevation = ButtonDefaults.elevation(0.dp)) { Text("Create", color = Color.White, fontWeight = FontWeight.Bold) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) } },
         backgroundColor = CardBackground
     )
@@ -284,6 +386,8 @@ private fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exe
 private fun EditTemplateDialog(template: WorkoutTemplate, exercises: List<com.bodyforge.domain.models.Exercise>, onCreateExercise: suspend (String, List<String>, String, Boolean) -> Exercise, onDismiss: () -> Unit, onUpdateTemplate: (WorkoutTemplate) -> Unit) {
     var templateName by remember { mutableStateOf(template.name) }
     var templateDescription by remember { mutableStateOf(template.description) }
+    var routineName by remember { mutableStateOf(template.routineName) }
+    var variationLabel by remember { mutableStateOf(template.variationLabel) }
     var selectedExercises by remember { mutableStateOf(exercises.filter { template.exerciseIds.contains(it.id) }.toSet()) }
     var searchQuery by remember { mutableStateOf("") }
     var showCreateExerciseDialog by remember { mutableStateOf(false) }
@@ -300,6 +404,7 @@ private fun EditTemplateDialog(template: WorkoutTemplate, exercises: List<com.bo
             LazyColumn(modifier = Modifier.heightIn(max = 500.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 item { OutlinedTextField(value = templateName, onValueChange = { templateName = it }, label = { Text("Template Name") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth()) }
                 item { OutlinedTextField(value = templateDescription, onValueChange = { templateDescription = it }, label = { Text("Description") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth(), maxLines = 2) }
+                item { RoutineVariationFields(routineName = routineName, onRoutineChange = { routineName = it }, variationLabel = variationLabel, onVariationChange = { variationLabel = it }) }
                 item {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("Select Exercises (${selectedExercises.size})", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
@@ -321,7 +426,7 @@ private fun EditTemplateDialog(template: WorkoutTemplate, exercises: List<com.bo
                 }
             }
         },
-        confirmButton = { Button(onClick = { if (templateName.isNotBlank() && selectedExercises.isNotEmpty()) onUpdateTemplate(template.copy(name = templateName, description = templateDescription, exerciseIds = selectedExercises.map { it.id })) }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange), enabled = templateName.isNotBlank() && selectedExercises.isNotEmpty(), elevation = ButtonDefaults.elevation(0.dp)) { Text("Save", color = Color.White, fontWeight = FontWeight.Bold) } },
+        confirmButton = { Button(onClick = { if (templateName.isNotBlank() && selectedExercises.isNotEmpty()) onUpdateTemplate(template.copy(name = templateName, description = templateDescription, exerciseIds = selectedExercises.map { it.id }, routineId = routineKey(routineName), routineName = routineName.trim(), variationLabel = variationLabel.trim())) }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange), enabled = templateName.isNotBlank() && selectedExercises.isNotEmpty(), elevation = ButtonDefaults.elevation(0.dp)) { Text("Save", color = Color.White, fontWeight = FontWeight.Bold) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) } },
         backgroundColor = CardBackground
     )

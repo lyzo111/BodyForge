@@ -61,7 +61,8 @@ class WorkoutViewModel : ViewModel() {
                     sharedState.setError("Some exercises from this template are no longer available")
                 }
 
-                val workout = Workout.create(template.name.ifEmpty { "Template Workout" }, exercises)
+                // Record the template origin so workouts can be compared per template / variation.
+                val workout = Workout.create(template.name.ifEmpty { "Template Workout" }, exercises, templateId = template.id)
                 val savedWorkout = sharedState.workoutRepo.saveWorkout(workout)
 
                 sharedState.updateActiveWorkout(savedWorkout)
