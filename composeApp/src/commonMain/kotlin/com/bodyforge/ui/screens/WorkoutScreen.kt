@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.*
@@ -248,13 +250,24 @@ private fun ActiveWorkoutView(
 ) {
     val hasBodyweightExercises = workout.exercises.any { it.exercise.isBodyweight }
     val availableExercises by SharedWorkoutState.exercises.collectAsState()
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val baseOffset = (if (hasBodyweightExercises) 1 else 0) + 1
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        if (workout.exercises.size > 1) {
+            ExerciseJumpBar(
+                exercises = workout.exercises,
+                onJump = { index -> scope.launch { listState.animateScrollToItem(baseOffset + index) } }
+            )
+        }
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
         if (hasBodyweightExercises) {
             item {
                 BodyweightInput(
@@ -300,6 +313,35 @@ private fun ActiveWorkoutView(
                     viewModel.substituteExercise(exerciseInWorkout.exercise.id, newExercise)
                 }
             )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExerciseJumpBar(
+    exercises: List<ExerciseInWorkout>,
+    onJump: (Int) -> Unit
+) {
+    LazyRow(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        itemsIndexed(exercises) { index, exerciseInWorkout ->
+            Box(
+                modifier = Modifier
+                    .background(SurfaceColor, RoundedCornerShape(16.dp))
+                    .clickable { onJump(index) }
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    "${index + 1}. ${exerciseInWorkout.exercise.name}",
+                    color = TextSecondary,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
         }
     }
 }
