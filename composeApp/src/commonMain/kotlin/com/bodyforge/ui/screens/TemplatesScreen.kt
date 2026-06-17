@@ -17,8 +17,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bodyforge.domain.models.Exercise
 import com.bodyforge.domain.models.WorkoutTemplate
 import com.bodyforge.presentation.state.SharedWorkoutState
+import com.bodyforge.ui.components.cards.CreateExerciseDialog
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 
@@ -42,6 +44,13 @@ fun TemplatesScreen() {
     var showCreateTemplateDialog by remember { mutableStateOf(false) }
     var editingTemplate by remember { mutableStateOf<WorkoutTemplate?>(null) }
     var deleteConfirmationTemplate by remember { mutableStateOf<WorkoutTemplate?>(null) }
+
+    // Persists a new custom exercise via shared state and returns it so the template dialog
+    // can select it immediately without navigating away.
+    val onCreateExercise: suspend (String, List<String>, String, Boolean) -> Exercise =
+        { name, muscleGroups, equipment, isBodyweight ->
+            SharedWorkoutState.createCustomExercise(name, muscleGroups, equipment, isBodyweight)
+        }
 
     LaunchedEffect(Unit) {
         SharedWorkoutState.loadTemplates()
@@ -90,6 +99,7 @@ fun TemplatesScreen() {
     if (showCreateTemplateDialog) {
         CreateTemplateDialog(
             exercises = exercises,
+            onCreateExercise = onCreateExercise,
             onDismiss = { showCreateTemplateDialog = false },
             onCreateTemplate = { name, selected, desc ->
                 coroutineScope.launch {
@@ -112,6 +122,7 @@ fun TemplatesScreen() {
         EditTemplateDialog(
             template = template,
             exercises = exercises,
+            onCreateExercise = onCreateExercise,
             onDismiss = { editingTemplate = null },
             onUpdateTemplate = { updated ->
                 coroutineScope.launch {
@@ -186,11 +197,28 @@ private fun TemplateCard(template: WorkoutTemplate, exercises: List<com.bodyforg
 }
 
 @Composable
-private fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exercise>, onDismiss: () -> Unit, onCreateTemplate: (String, List<com.bodyforge.domain.models.Exercise>, String) -> Unit) {
+private fun NewExerciseButton(onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(backgroundColor = AccentBlue),
+        shape = RoundedCornerShape(20.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+        elevation = ButtonDefaults.elevation(0.dp)
+    ) {
+        Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+        Spacer(modifier = Modifier.width(4.dp))
+        Text("New Exercise", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exercise>, onCreateExercise: suspend (String, List<String>, String, Boolean) -> Exercise, onDismiss: () -> Unit, onCreateTemplate: (String, List<com.bodyforge.domain.models.Exercise>, String) -> Unit) {
     var templateName by remember { mutableStateOf("") }
     var templateDescription by remember { mutableStateOf("") }
     var selectedExercises by remember { mutableStateOf(setOf<com.bodyforge.domain.models.Exercise>()) }
     var searchQuery by remember { mutableStateOf("") }
+    var showCreateExerciseDialog by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     val filteredExercises = remember(exercises, searchQuery) {
         exercises.filter { searchQuery.isEmpty() || it.name.contains(searchQuery, ignoreCase = true) || it.muscleGroups.any { m -> m.contains(searchQuery, ignoreCase = true) } }
@@ -207,7 +235,12 @@ private fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exe
                 item {
                     OutlinedTextField(value = templateDescription, onValueChange = { templateDescription = it }, label = { Text("Description (optional)") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth(), maxLines = 2)
                 }
-                item { Text("Select Exercises (${selectedExercises.size})", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = TextPrimary) }
+                item {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Select Exercises (${selectedExercises.size})", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
+                        NewExerciseButton(onClick = { showCreateExerciseDialog = true })
+                    }
+                }
                 item {
                     OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, label = { Text("Search") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth())
                 }
@@ -232,14 +265,29 @@ private fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exe
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) } },
         backgroundColor = CardBackground
     )
+
+    // Inline exercise creation: stays layered over this dialog so template progress is kept,
+    // and the freshly created exercise is selected automatically.
+    CreateExerciseDialog(
+        showDialog = showCreateExerciseDialog,
+        onDismiss = { showCreateExerciseDialog = false },
+        onCreateExercise = { name, muscleGroups, equipment, isBodyweight ->
+            scope.launch {
+                val created = onCreateExercise(name, muscleGroups, equipment, isBodyweight)
+                selectedExercises = selectedExercises + created
+            }
+        }
+    )
 }
 
 @Composable
-private fun EditTemplateDialog(template: WorkoutTemplate, exercises: List<com.bodyforge.domain.models.Exercise>, onDismiss: () -> Unit, onUpdateTemplate: (WorkoutTemplate) -> Unit) {
+private fun EditTemplateDialog(template: WorkoutTemplate, exercises: List<com.bodyforge.domain.models.Exercise>, onCreateExercise: suspend (String, List<String>, String, Boolean) -> Exercise, onDismiss: () -> Unit, onUpdateTemplate: (WorkoutTemplate) -> Unit) {
     var templateName by remember { mutableStateOf(template.name) }
     var templateDescription by remember { mutableStateOf(template.description) }
     var selectedExercises by remember { mutableStateOf(exercises.filter { template.exerciseIds.contains(it.id) }.toSet()) }
     var searchQuery by remember { mutableStateOf("") }
+    var showCreateExerciseDialog by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     val filteredExercises = remember(exercises, searchQuery) {
         exercises.filter { searchQuery.isEmpty() || it.name.contains(searchQuery, ignoreCase = true) || it.muscleGroups.any { m -> m.contains(searchQuery, ignoreCase = true) } }
@@ -252,7 +300,12 @@ private fun EditTemplateDialog(template: WorkoutTemplate, exercises: List<com.bo
             LazyColumn(modifier = Modifier.heightIn(max = 500.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 item { OutlinedTextField(value = templateName, onValueChange = { templateName = it }, label = { Text("Template Name") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth()) }
                 item { OutlinedTextField(value = templateDescription, onValueChange = { templateDescription = it }, label = { Text("Description") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth(), maxLines = 2) }
-                item { Text("Select Exercises (${selectedExercises.size})", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = TextPrimary) }
+                item {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Select Exercises (${selectedExercises.size})", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
+                        NewExerciseButton(onClick = { showCreateExerciseDialog = true })
+                    }
+                }
                 item { OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, label = { Text("Search") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth()) }
                 items(filteredExercises) { exercise ->
                     val isSelected = selectedExercises.contains(exercise)
@@ -271,5 +324,16 @@ private fun EditTemplateDialog(template: WorkoutTemplate, exercises: List<com.bo
         confirmButton = { Button(onClick = { if (templateName.isNotBlank() && selectedExercises.isNotEmpty()) onUpdateTemplate(template.copy(name = templateName, description = templateDescription, exerciseIds = selectedExercises.map { it.id })) }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange), enabled = templateName.isNotBlank() && selectedExercises.isNotEmpty(), elevation = ButtonDefaults.elevation(0.dp)) { Text("Save", color = Color.White, fontWeight = FontWeight.Bold) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) } },
         backgroundColor = CardBackground
+    )
+
+    CreateExerciseDialog(
+        showDialog = showCreateExerciseDialog,
+        onDismiss = { showCreateExerciseDialog = false },
+        onCreateExercise = { name, muscleGroups, equipment, isBodyweight ->
+            scope.launch {
+                val created = onCreateExercise(name, muscleGroups, equipment, isBodyweight)
+                selectedExercises = selectedExercises + created
+            }
+        }
     )
 }
