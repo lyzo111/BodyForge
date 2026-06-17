@@ -79,6 +79,19 @@ CREATE TABLE SleepLog (
     created_at INTEGER NOT NULL -- Unix timestamp when logged
 );
 
+-- Training Phase Table (periodization)
+CREATE TABLE TrainingPhase (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    phase_type TEXT NOT NULL, -- PhaseType enum name, e.g. STRENGTH, HYPERTROPHY
+    start_date INTEGER NOT NULL, -- epoch days (LocalDate.toEpochDays)
+    end_date INTEGER, -- epoch days, NULL while the phase is ongoing
+    goals TEXT NOT NULL DEFAULT '[]', -- JSON array as string
+    description TEXT NOT NULL DEFAULT '',
+    is_active INTEGER NOT NULL DEFAULT 1, -- Boolean as Int (0/1)
+    created_at INTEGER NOT NULL -- Unix timestamp in seconds
+);
+
 -- Pre-populate with standard exercises
 INSERT INTO Exercise (id, name, muscle_groups, instructions, equipment_needed, is_custom, is_bodyweight, default_rest_time_seconds, deleted) VALUES
 -- Compound Movements
@@ -108,7 +121,21 @@ INSERT INTO Exercise (id, name, muscle_groups, instructions, equipment_needed, i
 ('kelso_shrugs', 'Kelso Shrugs', '["Traps"]', 'Let your shoulder blades get pulled forward horizontally, then pull shoulder blades back', 'Cable Machine', 0, 0, 60, 0),
 ('bicep_curls', 'Bicep Curls', '["Biceps"]', 'Curl dumbbells up to shoulders', 'Dumbbells', 0, 0, 60, 0),
 ('tricep_pushdowns', 'Tricep Pushdowns', '["Triceps"]', 'Push cable down with triceps', 'Cable Machine', 0, 0, 60, 0),
-('calf_raises', 'Calf Raises', '["Calves"]', 'Raise up onto toes', 'None', 0, 1, 45, 0);
+('calf_raises', 'Calf Raises', '["Calves"]', 'Raise up onto toes', 'None', 0, 1, 45, 0),
+
+-- Additional machine & free-weight movements
+('cable_lateral_raises', 'Cable Lateral Raises', '["Shoulders"]', 'Raise the cable handle out to shoulder height from your side', 'Cable Machine', 0, 0, 60, 0),
+('t_bar_row', 'T-Bar Row', '["Back", "Biceps"]', 'Hinge at the hips and row the T-bar handle to your chest', 'T-Bar', 0, 0, 120, 0),
+('hack_squat', 'Hack Squat', '["Quadriceps", "Glutes"]', 'Squat down on the angled hack squat sled, driving through the heels', 'Hack Squat Machine', 0, 0, 150, 0),
+('pendulum_squat', 'Pendulum Squat', '["Quadriceps", "Glutes"]', 'Squat on the pendulum machine keeping the torso upright', 'Pendulum Squat Machine', 0, 0, 150, 0),
+('stiff_leg_deadlift', 'Stiff-Leg Deadlift', '["Hamstrings", "Glutes"]', 'Hinge at the hips with near-straight legs, lowering the bar along the shins', 'Barbell', 0, 0, 150, 0),
+('romanian_deadlift', 'Romanian Deadlift', '["Hamstrings", "Glutes"]', 'Hip hinge with a slight knee bend, keeping the bar close to the legs', 'Barbell', 0, 0, 150, 0),
+('leg_press', 'Leg Press', '["Quadriceps", "Glutes"]', 'Press the sled away by extending the knees and hips', 'Leg Press Machine', 0, 0, 150, 0),
+('seated_cable_row', 'Seated Cable Row', '["Back", "Biceps"]', 'Pull the cable handle to your stomach, squeezing the shoulder blades', 'Cable Machine', 0, 0, 90, 0),
+('face_pulls', 'Face Pulls', '["Shoulders", "Back"]', 'Pull the rope towards your face, flaring the elbows out', 'Cable Machine', 0, 0, 60, 0),
+('hammer_curls', 'Hammer Curls', '["Biceps"]', 'Curl dumbbells with a neutral grip', 'Dumbbells', 0, 0, 60, 0),
+('hip_thrust', 'Hip Thrust', '["Glutes", "Hamstrings"]', 'Drive the hips up with the bar across the hips, back on a bench', 'Barbell', 0, 0, 120, 0),
+('bulgarian_split_squat', 'Bulgarian Split Squat', '["Quadriceps", "Glutes"]', 'Rear foot elevated, lower into a lunge and drive back up', 'Dumbbells', 0, 0, 120, 0);
 
 -- EXERCISE QUERIES
 
@@ -278,3 +305,27 @@ UPDATE SleepLog SET bedtime = ?, wake_time = ?, sleep_quality = ?, notes = ? WHE
 
 deleteSleepLog:
 DELETE FROM SleepLog WHERE id = ?;
+
+-- TRAINING PHASE QUERIES
+
+selectAllPhases:
+SELECT * FROM TrainingPhase ORDER BY start_date DESC, created_at DESC;
+
+selectActivePhase:
+SELECT * FROM TrainingPhase WHERE is_active = 1 ORDER BY start_date DESC LIMIT 1;
+
+selectPhaseById:
+SELECT * FROM TrainingPhase WHERE id = ?;
+
+insertPhase:
+INSERT INTO TrainingPhase (id, name, phase_type, start_date, end_date, goals, description, is_active, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updatePhase:
+UPDATE TrainingPhase SET name = ?, phase_type = ?, start_date = ?, end_date = ?, goals = ?, description = ?, is_active = ? WHERE id = ?;
+
+deactivateActivePhases:
+UPDATE TrainingPhase SET is_active = 0, end_date = COALESCE(end_date, ?) WHERE is_active = 1;
+
+deletePhase:
+DELETE FROM TrainingPhase WHERE id = ?;

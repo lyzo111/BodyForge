@@ -19,6 +19,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bodyforge.presentation.state.SharedWorkoutState
+import com.bodyforge.ui.components.cards.PhaseSection
 import com.bodyforge.ui.components.cards.VariationProgressCard
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
@@ -48,6 +49,7 @@ fun AnalyticsScreen() {
     LaunchedEffect(Unit) {
         SharedWorkoutState.loadCompletedWorkouts()
         SharedWorkoutState.loadTemplates()
+        SharedWorkoutState.loadPhases()
     }
 
     LazyColumn(
@@ -64,6 +66,11 @@ fun AnalyticsScreen() {
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
             )
+        }
+
+        // Training phases (periodization) — independent of whether workouts exist yet
+        item {
+            PhaseSection()
         }
 
         if (isLoading) {

@@ -1,21 +1,27 @@
 package com.bodyforge.presentation.state
 
 import com.bodyforge.data.repository.ExerciseRepositoryImpl
+import com.bodyforge.data.repository.TrainingPhaseRepositoryImpl
 import com.bodyforge.data.repository.WorkoutRepositoryImpl
 import com.bodyforge.data.repository.WorkoutTemplateRepositoryImpl
 import com.bodyforge.domain.models.Exercise
+import com.bodyforge.domain.models.PhaseType
+import com.bodyforge.domain.models.TrainingPhase
 import com.bodyforge.domain.models.Workout
 import com.bodyforge.domain.models.WorkoutTemplate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.todayIn
 
 object SharedWorkoutState {
     // Repositories - Single instances for entire app
     val exerciseRepo = ExerciseRepositoryImpl()
     val workoutRepo = WorkoutRepositoryImpl()
     val templateRepo = WorkoutTemplateRepositoryImpl()
+    val phaseRepo = TrainingPhaseRepositoryImpl()
 
     // Shared State Flows - Single source of truth
     private val _exercises = MutableStateFlow<List<Exercise>>(emptyList())
@@ -29,6 +35,12 @@ object SharedWorkoutState {
 
     private val _templates = MutableStateFlow<List<WorkoutTemplate>>(emptyList())
     val templates: StateFlow<List<WorkoutTemplate>> = _templates.asStateFlow()
+
+    private val _phases = MutableStateFlow<List<TrainingPhase>>(emptyList())
+    val phases: StateFlow<List<TrainingPhase>> = _phases.asStateFlow()
+
+    private val _activePhase = MutableStateFlow<TrainingPhase?>(null)
+    val activePhase: StateFlow<TrainingPhase?> = _activePhase.asStateFlow()
 
     private val _bodyweight = MutableStateFlow(75.0)
     val bodyweight: StateFlow<Double> = _bodyweight.asStateFlow()
@@ -77,6 +89,53 @@ object SharedWorkoutState {
         } catch (e: Exception) {
             _error.value = "Failed to load templates: ${e.message}"
         }
+    }
+
+    suspend fun loadPhases() {
+        try {
+            _phases.value = phaseRepo.getAllPhases()
+            _activePhase.value = phaseRepo.getActivePhase()
+        } catch (e: Exception) {
+            _error.value = "Failed to load training phases: ${e.message}"
+        }
+    }
+
+    private fun today() = Clock.System.todayIn(TimeZone.currentSystemDefault())
+
+    // Starts a new phase: ends the currently active one (today) so phases form a continuous
+    // timeline, then inserts the new active phase starting today.
+    suspend fun startPhase(name: String, phaseType: PhaseType, description: String = "", goals: List<String> = emptyList()): TrainingPhase {
+        val today = today()
+        phaseRepo.deactivateActivePhases(today)
+        val phase = TrainingPhase(
+            id = "phase_${Clock.System.now().epochSeconds}",
+            name = name,
+            phaseType = phaseType,
+            startDate = today,
+            goals = goals,
+            description = description,
+            isActive = true
+        )
+        phaseRepo.savePhase(phase)
+        loadPhases()
+        return phase
+    }
+
+    suspend fun updatePhase(phase: TrainingPhase) {
+        phaseRepo.updatePhase(phase)
+        loadPhases()
+    }
+
+    // Ends a phase as of today and clears its active flag.
+    suspend fun completePhase(id: String) {
+        val phase = phaseRepo.getPhaseById(id) ?: return
+        phaseRepo.updatePhase(phase.copy(endDate = today(), isActive = false))
+        loadPhases()
+    }
+
+    suspend fun deletePhase(id: String) {
+        phaseRepo.deletePhase(id)
+        loadPhases()
     }
 
     // Persists a user-created exercise, refreshes the shared list and returns the saved instance
@@ -177,5 +236,6 @@ object SharedWorkoutState {
         loadActiveWorkout()
         loadCompletedWorkouts()
         loadTemplates()
+        loadPhases()
     }
 }
