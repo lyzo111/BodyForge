@@ -115,7 +115,7 @@ fun TemplatesScreen(onStartWorkout: () -> Unit = {}) {
                 CircularProgressIndicator(color = AccentOrange)
             }
             templates.isEmpty() -> EmptyTemplatesCard { showCreateTemplateDialog = true }
-            else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            else -> LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 val groupedByRoutine = templates.filter { it.routineId.isNotBlank() }.groupBy { it.routineId }
                 val ungroupedTemplates = templates.filter { it.routineId.isBlank() }
 

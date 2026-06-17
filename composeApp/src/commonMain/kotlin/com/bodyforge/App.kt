@@ -257,9 +257,11 @@ private fun TabButton(
                 )
                 Text(
                     text = tab.title,
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    softWrap = false
                 )
             }
         }

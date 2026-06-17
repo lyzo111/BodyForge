@@ -130,6 +130,9 @@ fun PhaseSection() {
                                 Text("${phase.phaseType.displayName} · $range", fontSize = 11.sp, color = TextSecondary)
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                TextButton(onClick = { scope.launch { SharedWorkoutState.resumePhase(phase.id) } }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
+                                    Text("Resume", color = AccentGreen, fontSize = 11.sp)
+                                }
                                 TextButton(onClick = { editing = phase }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
                                     Text("Edit", color = AccentBlue, fontSize = 11.sp)
                                 }
