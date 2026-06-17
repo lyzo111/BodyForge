@@ -43,7 +43,6 @@ fun AnalyticsScreen() {
     val completedWorkouts by SharedWorkoutState.completedWorkouts.collectAsState()
     val templates by SharedWorkoutState.templates.collectAsState()
     val isLoading by SharedWorkoutState.isLoading.collectAsState()
-    var showCreatePhaseDialog by remember { mutableStateOf(false) }
 
     // Initialize data
     LaunchedEffect(Unit) {
@@ -59,33 +58,12 @@ fun AnalyticsScreen() {
     ) {
         // Header
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "📈 Analytics",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-
-                Button(
-                    onClick = { showCreatePhaseDialog = true },
-                    colors = ButtonDefaults.buttonColors(backgroundColor = AccentPurple),
-                    shape = RoundedCornerShape(25.dp),
-                    elevation = ButtonDefaults.elevation(0.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                        Text("Phase", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    }
-                }
-            }
+            Text(
+                text = "📈 Analytics",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
+            )
         }
 
         if (isLoading) {
@@ -102,11 +80,6 @@ fun AnalyticsScreen() {
                 EmptyAnalyticsCard()
             }
         } else {
-            // Current Phase (Placeholder)
-            item {
-                CurrentPhaseCard()
-            }
-
             // Quick Stats Row
             item {
                 QuickStatsRow(completedWorkouts)
@@ -137,17 +110,6 @@ fun AnalyticsScreen() {
                 TrainingFrequencyCard(completedWorkouts)
             }
         }
-    }
-
-    // Create Phase Dialog (Placeholder)
-    if (showCreatePhaseDialog) {
-        CreatePhaseDialog(
-            onDismiss = { showCreatePhaseDialog = false },
-            onCreatePhase = { phaseName, phaseType ->
-                // TODO: Create new training phase
-                showCreatePhaseDialog = false
-            }
-        )
     }
 }
 
