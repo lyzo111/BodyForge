@@ -42,3 +42,8 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+### Kotlin Multiplatform build cache ###
+.kotlin/
+
+### Local SDK config (never commit) ###
+local.properties
