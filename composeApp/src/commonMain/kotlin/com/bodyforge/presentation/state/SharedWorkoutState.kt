@@ -118,6 +118,39 @@ object SharedWorkoutState {
         return "custom_${slug}_${Clock.System.now().toEpochMilliseconds()}"
     }
 
+    // Starts a workout from a template: resolves its exercises, records the template origin
+    // (so workouts can be compared per template / variation) and makes it the active workout.
+    // Returns the started workout, or null if the template has no resolvable exercises.
+    suspend fun startWorkoutFromTemplate(template: WorkoutTemplate): Workout? {
+        setLoading(true)
+        return try {
+            val exercises = template.exerciseIds.mapNotNull { exerciseRepo.getExerciseById(it) }
+            if (exercises.isEmpty()) {
+                setError("Template contains no valid exercises")
+                null
+            } else {
+                val workout = Workout.create(
+                    template.name.ifEmpty { "Template Workout" },
+                    exercises,
+                    templateId = template.id
+                )
+                val saved = workoutRepo.saveWorkout(workout)
+                updateActiveWorkout(saved)
+                if (exercises.size != template.exerciseIds.size) {
+                    setError("Some exercises from this template are no longer available")
+                } else {
+                    clearError()
+                }
+                saved
+            }
+        } catch (e: Exception) {
+            setError("Failed to start workout from template: ${e.message ?: "Unknown error"}")
+            null
+        } finally {
+            setLoading(false)
+        }
+    }
+
     fun updateActiveWorkout(workout: Workout?) {
         _activeWorkout.value = workout
     }
