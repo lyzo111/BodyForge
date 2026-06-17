@@ -189,7 +189,9 @@ private fun MainContent(hasActiveWorkout: Boolean) {
         ) { page ->
             when (page) {
                 0 -> WorkoutScreen()
-                1 -> TemplatesScreen()
+                1 -> TemplatesScreen(onStartWorkout = {
+                    coroutineScope.launch { pagerState.animateScrollToPage(0) }
+                })
                 2 -> AnalyticsScreen()
                 3 -> HistoryScreen()
             }

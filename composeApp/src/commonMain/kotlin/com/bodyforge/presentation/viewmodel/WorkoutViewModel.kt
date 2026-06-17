@@ -42,36 +42,7 @@ class WorkoutViewModel : ViewModel() {
 
     fun startWorkoutFromTemplate(template: WorkoutTemplate) {
         viewModelScope.launch {
-            sharedState.setLoading(true)
-            try {
-                // Load exercises from template
-                val exercises = mutableListOf<Exercise>()
-                template.exerciseIds.forEach { exerciseId ->
-                    sharedState.exerciseRepo.getExerciseById(exerciseId)?.let { exercise ->
-                        exercises.add(exercise)
-                    }
-                }
-
-                if (exercises.isEmpty()) {
-                    sharedState.setError("Template contains no valid exercises")
-                    return@launch
-                }
-
-                if (exercises.size != template.exerciseIds.size) {
-                    sharedState.setError("Some exercises from this template are no longer available")
-                }
-
-                // Record the template origin so workouts can be compared per template / variation.
-                val workout = Workout.create(template.name.ifEmpty { "Template Workout" }, exercises, templateId = template.id)
-                val savedWorkout = sharedState.workoutRepo.saveWorkout(workout)
-
-                sharedState.updateActiveWorkout(savedWorkout)
-                sharedState.clearError()
-            } catch (e: Exception) {
-                sharedState.setError("Failed to start workout from template: ${e.message ?: "Unknown error"}")
-            } finally {
-                sharedState.setLoading(false)
-            }
+            sharedState.startWorkoutFromTemplate(template)
         }
     }
 

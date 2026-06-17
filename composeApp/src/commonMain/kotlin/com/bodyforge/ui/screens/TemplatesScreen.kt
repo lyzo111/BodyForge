@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,15 +51,17 @@ private val SurfaceColor = Color(0xFF334155)
 private val SelectedGreen = Color(0xFF065F46)
 
 @Composable
-fun TemplatesScreen() {
+fun TemplatesScreen(onStartWorkout: () -> Unit = {}) {
     val templates by SharedWorkoutState.templates.collectAsState()
     val exercises by SharedWorkoutState.exercises.collectAsState()
     val isLoading by SharedWorkoutState.isLoading.collectAsState()
+    val activeWorkout by SharedWorkoutState.activeWorkout.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
     var showCreateTemplateDialog by remember { mutableStateOf(false) }
     var editingTemplate by remember { mutableStateOf<WorkoutTemplate?>(null) }
     var deleteConfirmationTemplate by remember { mutableStateOf<WorkoutTemplate?>(null) }
+    var startConfirmTemplate by remember { mutableStateOf<WorkoutTemplate?>(null) }
 
     // Persists a new custom exercise via shared state and returns it so the template dialog
     // can select it immediately without navigating away.
@@ -66,6 +69,18 @@ fun TemplatesScreen() {
         { name, muscleGroups, equipment, isBodyweight ->
             SharedWorkoutState.createCustomExercise(name, muscleGroups, equipment, isBodyweight)
         }
+
+    // Launches the template's workout and, on success, asks the host to switch to the Workout tab.
+    val launchTemplate: (WorkoutTemplate) -> Unit = { template ->
+        coroutineScope.launch {
+            val started = SharedWorkoutState.startWorkoutFromTemplate(template)
+            if (started != null) onStartWorkout()
+        }
+    }
+    // Guards against silently discarding an in-progress workout before starting a new one.
+    val requestStart: (WorkoutTemplate) -> Unit = { template ->
+        if (activeWorkout != null) startConfirmTemplate = template else launchTemplate(template)
+    }
 
     LaunchedEffect(Unit) {
         SharedWorkoutState.loadTemplates()
@@ -114,6 +129,7 @@ fun TemplatesScreen() {
                         TemplateCard(
                             template = template,
                             exercises = exercises,
+                            onStart = { requestStart(template) },
                             onEdit = { editingTemplate = template },
                             onDelete = { deleteConfirmationTemplate = template }
                         )
@@ -124,6 +140,7 @@ fun TemplatesScreen() {
                     TemplateCard(
                         template = template,
                         exercises = exercises,
+                        onStart = { requestStart(template) },
                         onEdit = { editingTemplate = template },
                         onDelete = { deleteConfirmationTemplate = template }
                     )
@@ -194,6 +211,26 @@ fun TemplatesScreen() {
             backgroundColor = CardBackground
         )
     }
+
+    startConfirmTemplate?.let { template ->
+        AlertDialog(
+            onDismissRequest = { startConfirmTemplate = null },
+            title = { Text("Start new workout?", color = TextPrimary) },
+            text = { Text("You already have a workout in progress. Starting \"${template.name}\" will finish the current one.", color = TextSecondary) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        startConfirmTemplate = null
+                        launchTemplate(template)
+                    },
+                    colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen),
+                    elevation = ButtonDefaults.elevation(0.dp)
+                ) { Text("Start", color = Color.White, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = { TextButton(onClick = { startConfirmTemplate = null }) { Text("Cancel", color = TextSecondary) } },
+            backgroundColor = CardBackground
+        )
+    }
 }
 
 @Composable
@@ -211,7 +248,7 @@ private fun EmptyTemplatesCard(onCreateClick: () -> Unit) {
 }
 
 @Composable
-private fun TemplateCard(template: WorkoutTemplate, exercises: List<com.bodyforge.domain.models.Exercise>, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun TemplateCard(template: WorkoutTemplate, exercises: List<com.bodyforge.domain.models.Exercise>, onStart: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
     val templateExercises = remember(template, exercises) { exercises.filter { template.exerciseIds.contains(it.id) } }
 
     Card(backgroundColor = CardBackground, elevation = 2.dp, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
@@ -241,6 +278,18 @@ private fun TemplateCard(template: WorkoutTemplate, exercises: List<com.bodyforg
             if (templateExercises.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(templateExercises.take(3).joinToString(", ") { it.name } + if (templateExercises.size > 3) " +${templateExercises.size - 3} more" else "", fontSize = 12.sp, color = TextSecondary.copy(alpha = 0.7f))
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = onStart,
+                colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen),
+                shape = RoundedCornerShape(10.dp),
+                elevation = ButtonDefaults.elevation(0.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Start Workout", color = Color.White, fontWeight = FontWeight.Bold)
             }
         }
     }
