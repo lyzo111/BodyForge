@@ -3,6 +3,7 @@ package com.bodyforge.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bodyforge.domain.models.Exercise
+import com.bodyforge.domain.models.SetStatus
 import com.bodyforge.domain.models.Workout
 import com.bodyforge.domain.models.WorkoutTemplate
 import com.bodyforge.presentation.state.SharedWorkoutState
@@ -43,6 +44,61 @@ class WorkoutViewModel : ViewModel() {
     fun startWorkoutFromTemplate(template: WorkoutTemplate) {
         viewModelScope.launch {
             sharedState.startWorkoutFromTemplate(template)
+        }
+    }
+
+    // Marks every set of an exercise as skipped for this workout (drawn as a gap in progress graphs).
+    fun skipExercise(exerciseId: String) {
+        val currentWorkout = sharedState.activeWorkout.value ?: return
+        viewModelScope.launch {
+            try {
+                val exerciseInWorkout = currentWorkout.exercises.find { it.exercise.id == exerciseId } ?: return@launch
+                val updated = exerciseInWorkout.copy(sets = exerciseInWorkout.sets.map { it.skip() })
+                val newWorkout = currentWorkout.updateExercise(exerciseId, updated)
+                sharedState.workoutRepo.updateWorkout(newWorkout)
+                sharedState.updateActiveWorkout(newWorkout)
+            } catch (e: Exception) {
+                sharedState.setError("Failed to skip exercise: ${e.message ?: "Unknown error"}")
+            }
+        }
+    }
+
+    // Clears the skipped state so the exercise can be logged normally again.
+    fun resumeExercise(exerciseId: String) {
+        val currentWorkout = sharedState.activeWorkout.value ?: return
+        viewModelScope.launch {
+            try {
+                val exerciseInWorkout = currentWorkout.exercises.find { it.exercise.id == exerciseId } ?: return@launch
+                val updated = exerciseInWorkout.copy(sets = exerciseInWorkout.sets.map { it.copy(status = SetStatus.COMPLETED) })
+                val newWorkout = currentWorkout.updateExercise(exerciseId, updated)
+                sharedState.workoutRepo.updateWorkout(newWorkout)
+                sharedState.updateActiveWorkout(newWorkout)
+            } catch (e: Exception) {
+                sharedState.setError("Failed to resume exercise: ${e.message ?: "Unknown error"}")
+            }
+        }
+    }
+
+    // Replaces an exercise for this workout while remembering the original it stood in for.
+    fun substituteExercise(exerciseId: String, newExercise: Exercise) {
+        val currentWorkout = sharedState.activeWorkout.value ?: return
+        if (newExercise.id == exerciseId) return
+        viewModelScope.launch {
+            try {
+                val exerciseInWorkout = currentWorkout.exercises.find { it.exercise.id == exerciseId } ?: return@launch
+                val updatedSets = exerciseInWorkout.sets.map {
+                    it.copy(
+                        status = SetStatus.SUBSTITUTED,
+                        originalExerciseId = it.originalExerciseId ?: exerciseId
+                    )
+                }
+                val updated = exerciseInWorkout.copy(exercise = newExercise, sets = updatedSets)
+                val newWorkout = currentWorkout.updateExercise(exerciseId, updated)
+                sharedState.workoutRepo.updateWorkout(newWorkout)
+                sharedState.updateActiveWorkout(newWorkout)
+            } catch (e: Exception) {
+                sharedState.setError("Failed to substitute exercise: ${e.message ?: "Unknown error"}")
+            }
         }
     }
 

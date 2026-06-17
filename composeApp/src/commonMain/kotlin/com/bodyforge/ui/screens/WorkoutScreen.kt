@@ -243,6 +243,7 @@ private fun ActiveWorkoutView(
     viewModel: WorkoutViewModel
 ) {
     val hasBodyweightExercises = workout.exercises.any { it.exercise.isBodyweight }
+    val availableExercises by SharedWorkoutState.exercises.collectAsState()
 
     LazyColumn(
         modifier = Modifier
@@ -268,9 +269,11 @@ private fun ActiveWorkoutView(
         }
 
         items(workout.exercises) { exerciseInWorkout ->
+            val isSkipped = exerciseInWorkout.sets.isNotEmpty() && exerciseInWorkout.sets.all { it.isSkipped }
             ActiveExerciseCard(
                 exerciseInWorkout = exerciseInWorkout,
                 bodyweight = bodyweight,
+                availableExercises = availableExercises,
                 onUpdateSet = { setId, reps, weight, completed ->
                     viewModel.updateSet(exerciseInWorkout.exercise.id, setId, reps, weight, completed)
                 },
@@ -284,6 +287,13 @@ private fun ActiveWorkoutView(
                             exerciseInWorkout.sets.last().id
                         )
                     }
+                },
+                onSkipToggle = {
+                    if (isSkipped) viewModel.resumeExercise(exerciseInWorkout.exercise.id)
+                    else viewModel.skipExercise(exerciseInWorkout.exercise.id)
+                },
+                onSubstitute = { newExercise ->
+                    viewModel.substituteExercise(exerciseInWorkout.exercise.id, newExercise)
                 }
             )
         }
@@ -348,11 +358,18 @@ private fun WorkoutHeaderCard(
 private fun ActiveExerciseCard(
     exerciseInWorkout: ExerciseInWorkout,
     bodyweight: Double,
+    availableExercises: List<Exercise>,
     onUpdateSet: (String, Int?, Double?, Boolean?) -> Unit,
     onAddSet: () -> Unit,
-    onRemoveSet: () -> Unit
+    onRemoveSet: () -> Unit,
+    onSkipToggle: () -> Unit,
+    onSubstitute: (Exercise) -> Unit
 ) {
     val exercise = exerciseInWorkout.exercise
+    val isSkipped = exerciseInWorkout.sets.isNotEmpty() && exerciseInWorkout.sets.all { it.isSkipped }
+    val substitutedFromId = exerciseInWorkout.sets.firstOrNull { it.originalExerciseId != null }?.originalExerciseId
+    val substitutedFromName = substitutedFromId?.let { id -> availableExercises.firstOrNull { it.id == id }?.name }
+    var showSubstitutePicker by remember { mutableStateOf(false) }
 
     Card(
         backgroundColor = CardBackground,
@@ -422,26 +439,145 @@ private fun ActiveExerciseCard(
                 }
             }
 
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Skip / Substitute actions
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ExerciseActionChip(
+                    text = if (isSkipped) "Resume" else "Skip",
+                    color = if (isSkipped) AccentGreen else AccentRed,
+                    onClick = onSkipToggle
+                )
+                ExerciseActionChip(
+                    text = "Swap",
+                    color = AccentBlue,
+                    onClick = { showSubstitutePicker = true }
+                )
+                if (substitutedFromName != null) {
+                    Text(
+                        text = "↔ from $substitutedFromName",
+                        fontSize = 11.sp,
+                        color = TextSecondary
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Sets
-            exerciseInWorkout.sets.forEachIndexed { index, set ->
-                SetRowWithButtons(
-                    setNumber = index + 1,
-                    set = set,
-                    exercise = exercise,
-                    bodyweight = bodyweight,
-                    onUpdateSet = { reps, weight, completed ->
-                        onUpdateSet(set.id, reps, weight, completed)
-                    }
+            if (isSkipped) {
+                Text(
+                    text = "Skipped for this workout — tap Resume to log sets.",
+                    fontSize = 13.sp,
+                    color = TextSecondary
                 )
+            } else {
+                exerciseInWorkout.sets.forEachIndexed { index, set ->
+                    SetRowWithButtons(
+                        setNumber = index + 1,
+                        set = set,
+                        exercise = exercise,
+                        bodyweight = bodyweight,
+                        onUpdateSet = { reps, weight, completed ->
+                            onUpdateSet(set.id, reps, weight, completed)
+                        }
+                    )
 
-                if (index < exerciseInWorkout.sets.size - 1) {
-                    Spacer(modifier = Modifier.height(12.dp))
+                    if (index < exerciseInWorkout.sets.size - 1) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
                 }
             }
         }
     }
+
+    if (showSubstitutePicker) {
+        SubstituteExerciseDialog(
+            currentExerciseId = exercise.id,
+            exercises = availableExercises,
+            onDismiss = { showSubstitutePicker = false },
+            onPick = { picked ->
+                onSubstitute(picked)
+                showSubstitutePicker = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun ExerciseActionChip(text: String, color: Color, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .background(color.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    ) {
+        Text(text, color = color, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun SubstituteExerciseDialog(
+    currentExerciseId: String,
+    exercises: List<Exercise>,
+    onDismiss: () -> Unit,
+    onPick: (Exercise) -> Unit
+) {
+    var query by remember { mutableStateOf("") }
+    val filtered = remember(exercises, query, currentExerciseId) {
+        exercises.filter {
+            it.id != currentExerciseId &&
+                (query.isBlank() || it.name.contains(query, ignoreCase = true) ||
+                    it.muscleGroups.any { muscle -> muscle.contains(query, ignoreCase = true) })
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Substitute Exercise", fontWeight = FontWeight.Bold, color = TextPrimary) },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    label = { Text("Search") },
+                    singleLine = true,
+                    colors = TextFieldDefaults.outlinedTextFieldColors(
+                        textColor = TextPrimary,
+                        focusedBorderColor = AccentBlue,
+                        unfocusedBorderColor = SurfaceColor
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().height(320.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(filtered) { exercise ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(SurfaceColor, RoundedCornerShape(8.dp))
+                                .clickable { onPick(exercise) }
+                                .padding(12.dp)
+                        ) {
+                            Column {
+                                Text(exercise.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
+                                Text(exercise.muscleGroups.joinToString(", "), fontSize = 12.sp, color = TextSecondary)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) } },
+        backgroundColor = CardBackground
+    )
 }
 
 @Composable
@@ -649,6 +785,7 @@ private fun ValueControlGroup(
         Spacer(modifier = Modifier.height(8.dp))
 
         Row(
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -665,7 +802,7 @@ private fun ValueControlGroup(
 
             Box(
                 modifier = Modifier
-                    .width(60.dp)
+                    .weight(1f)
                     .height(40.dp)
                     .background(
                         color = SurfaceColor.copy(alpha = 0.5f),
@@ -741,6 +878,7 @@ private fun BodyweightValueControl(
         Spacer(modifier = Modifier.height(8.dp))
 
         Row(
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -757,7 +895,7 @@ private fun BodyweightValueControl(
 
             Box(
                 modifier = Modifier
-                    .widthIn(min = 70.dp)
+                    .weight(1f)
                     .height(40.dp)
                     .background(
                         color = SurfaceColor.copy(alpha = 0.5f),
