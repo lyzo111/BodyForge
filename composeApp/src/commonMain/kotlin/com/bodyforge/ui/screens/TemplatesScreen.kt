@@ -378,7 +378,7 @@ private fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exe
         onDismissRequest = onDismiss,
         title = { Text("📋 Create Template", fontWeight = FontWeight.Bold, color = TextPrimary) },
         text = {
-            LazyColumn(modifier = Modifier.heightIn(max = 500.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            LazyColumn(modifier = Modifier.fillMaxWidth().height(400.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 item {
                     OutlinedTextField(value = templateName, onValueChange = { templateName = it }, label = { Text("Template Name") }, placeholder = { Text("e.g., Push Day") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth())
                 }
@@ -450,7 +450,7 @@ private fun EditTemplateDialog(template: WorkoutTemplate, exercises: List<com.bo
         onDismissRequest = onDismiss,
         title = { Text("Edit Template", fontWeight = FontWeight.Bold, color = TextPrimary) },
         text = {
-            LazyColumn(modifier = Modifier.heightIn(max = 500.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            LazyColumn(modifier = Modifier.fillMaxWidth().height(400.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 item { OutlinedTextField(value = templateName, onValueChange = { templateName = it }, label = { Text("Template Name") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth()) }
                 item { OutlinedTextField(value = templateDescription, onValueChange = { templateDescription = it }, label = { Text("Description") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth(), maxLines = 2) }
                 item { RoutineVariationFields(routineName = routineName, onRoutineChange = { routineName = it }, variationLabel = variationLabel, onVariationChange = { variationLabel = it }) }
