@@ -19,6 +19,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bodyforge.presentation.state.SharedWorkoutState
+import com.bodyforge.ui.components.cards.VariationProgressCard
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -40,12 +41,14 @@ private val SurfaceColor = Color(0xFF334155)
 @Composable
 fun AnalyticsScreen() {
     val completedWorkouts by SharedWorkoutState.completedWorkouts.collectAsState()
+    val templates by SharedWorkoutState.templates.collectAsState()
     val isLoading by SharedWorkoutState.isLoading.collectAsState()
     var showCreatePhaseDialog by remember { mutableStateOf(false) }
 
     // Initialize data
     LaunchedEffect(Unit) {
         SharedWorkoutState.loadCompletedWorkouts()
+        SharedWorkoutState.loadTemplates()
     }
 
     LazyColumn(
@@ -107,6 +110,11 @@ fun AnalyticsScreen() {
             // Quick Stats Row
             item {
                 QuickStatsRow(completedWorkouts)
+            }
+
+            // Per-variation progress (volume / est. 1RM, selectable per exercise)
+            item {
+                VariationProgressCard(completedWorkouts, templates)
             }
 
             // Volume Progression Chart
