@@ -39,8 +39,9 @@ kotlin {
             implementation("app.cash.sqldelight:android-driver:2.0.0")
         }
 
-        // JVM SQLite driver so repository logic can be unit-tested against an in-memory database
-        androidUnitTest.dependencies {
+        // JVM SQLite driver so repository logic can be unit-tested against an in-memory database.
+        // Referenced via getByName because androidUnitTest has no type-safe source-set accessor here.
+        getByName("androidUnitTest").dependencies {
             implementation("app.cash.sqldelight:sqlite-driver:2.0.0")
         }
 
