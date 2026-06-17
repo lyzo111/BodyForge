@@ -27,9 +27,12 @@ import com.bodyforge.domain.models.Exercise
 import com.bodyforge.domain.models.ExerciseInWorkout
 import com.bodyforge.domain.models.Workout
 import com.bodyforge.domain.models.WorkoutSet
+import com.bodyforge.domain.models.WorkoutTemplate
 import com.bodyforge.presentation.state.SharedWorkoutState
 import com.bodyforge.presentation.viewmodel.WorkoutViewModel
 import com.bodyforge.ui.components.inputs.BodyweightInput
+import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
 
 // Colors matching the screenshot
 private val AccentOrange = Color(0xFFFF6B35)
@@ -667,10 +670,10 @@ private fun SetRowWithButtons(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Reps and Weight controls
-            Row(
+            // Reps and Weight controls (stacked full-width so values never get cramped)
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Reps control
                 ValueControlGroup(
@@ -693,10 +696,8 @@ private fun SetRowWithButtons(
                         }
                     },
                     enabled = !isCompleted,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.fillMaxWidth()
                 )
-
-                Spacer(modifier = Modifier.width(16.dp))
 
                 // Weight control
                 if (exercise.isBodyweight) {
@@ -720,13 +721,13 @@ private fun SetRowWithButtons(
                             }
                         },
                         enabled = !isCompleted,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.fillMaxWidth()
                     )
                 } else {
                     ValueControlGroup(
                         label = "Weight",
                         value = set.weightKg.toInt(),
-                        displayValue = "${formatWeight(set.weightKg)}kg",
+                        displayValue = "${formatWeight(set.weightKg)} kg",
                         onDecrement = {
                             if (set.weightKg > 0 && !isCompleted) {
                                 onUpdateSet(null, (set.weightKg - 2.5).coerceAtLeast(0.0), null)
@@ -750,7 +751,7 @@ private fun SetRowWithButtons(
                                 onUpdateSet(null, newWeight, null)
                             }
                         },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
@@ -815,7 +816,9 @@ private fun ValueControlGroup(
                     text = displayValue,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (enabled) TextPrimary else TextSecondary
+                    color = if (enabled) TextPrimary else TextSecondary,
+                    maxLines = 1,
+                    softWrap = false
                 )
             }
 
@@ -915,7 +918,9 @@ private fun BodyweightValueControl(
                     text = displayText,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (enabled) AccentGreen else TextSecondary
+                    color = if (enabled) AccentGreen else TextSecondary,
+                    maxLines = 1,
+                    softWrap = false
                 )
             }
 
@@ -993,28 +998,31 @@ private fun NumberEditDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit $label", color = TextPrimary, fontWeight = FontWeight.Bold) },
         text = {
-            BasicTextField(
-                value = textValue,
-                onValueChange = { newText ->
-                    val filtered = newText.filter { it.isDigit() }
-                    if (filtered.length <= 4) {
-                        textValue = filtered
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(SurfaceColor, RoundedCornerShape(8.dp))
-                    .padding(16.dp),
-                textStyle = TextStyle(
-                    fontSize = 24.sp,
-                    color = TextPrimary,
-                    textAlign = TextAlign.Center,
-                    fontWeight = FontWeight.Bold
-                ),
-                singleLine = true
-            )
+            Column {
+                Text("Edit $label", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Spacer(modifier = Modifier.height(16.dp))
+                BasicTextField(
+                    value = textValue,
+                    onValueChange = { newText ->
+                        val filtered = newText.filter { it.isDigit() }
+                        if (filtered.length <= 4) {
+                            textValue = filtered
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(SurfaceColor, RoundedCornerShape(8.dp))
+                        .padding(16.dp),
+                    textStyle = TextStyle(
+                        fontSize = 24.sp,
+                        color = TextPrimary,
+                        textAlign = TextAlign.Center,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    singleLine = true
+                )
+            }
         },
         confirmButton = {
             Button(
@@ -1045,15 +1053,15 @@ private fun WeightEditDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = if (isBodyweight) "Edit Additional Weight" else "Edit Weight",
-                color = TextPrimary,
-                fontWeight = FontWeight.Bold
-            )
-        },
         text = {
             Column {
+                Text(
+                    text = if (isBodyweight) "Edit Additional Weight" else "Edit Weight",
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+                Spacer(modifier = Modifier.height(16.dp))
                 BasicTextField(
                     value = textValue,
                     onValueChange = { newText ->
@@ -1426,10 +1434,14 @@ private fun TemplateSelectionFlow(
     onStartFromTemplate: (com.bodyforge.domain.models.WorkoutTemplate) -> Unit
 ) {
     val templates by SharedWorkoutState.templates.collectAsState()
+    val exercises by SharedWorkoutState.exercises.collectAsState()
     val isLoading by SharedWorkoutState.isLoading.collectAsState()
+    var showCreateDialog by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         SharedWorkoutState.loadTemplates()
+        SharedWorkoutState.loadExercises()
     }
 
     Column(
@@ -1458,7 +1470,15 @@ private fun TemplateSelectionFlow(
                 color = TextPrimary
             )
 
-            Box(modifier = Modifier.width(80.dp))
+            Button(
+                onClick = { showCreateDialog = true },
+                colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen),
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                elevation = ButtonDefaults.elevation(0.dp)
+            ) {
+                Text("+ New", color = Color.White, fontWeight = FontWeight.Bold)
+            }
         }
 
         if (isLoading) {
@@ -1482,7 +1502,7 @@ private fun TemplateSelectionFlow(
                         color = TextPrimary
                     )
                     Text(
-                        text = "Create templates in the Templates tab",
+                        text = "Tap + New to create one and start right away",
                         fontSize = 14.sp,
                         color = TextSecondary
                     )
@@ -1534,6 +1554,34 @@ private fun TemplateSelectionFlow(
                 }
             }
         }
+    }
+
+    if (showCreateDialog) {
+        CreateTemplateDialog(
+            exercises = exercises,
+            onCreateExercise = { name, muscleGroups, equipment, isBodyweight ->
+                SharedWorkoutState.createCustomExercise(name, muscleGroups, equipment, isBodyweight)
+            },
+            onDismiss = { showCreateDialog = false },
+            onCreateTemplate = { name, selected, desc, routine, variation ->
+                scope.launch {
+                    val template = WorkoutTemplate(
+                        id = "template_${Clock.System.now().epochSeconds}",
+                        name = name,
+                        exerciseIds = selected.map { it.id },
+                        createdAt = Clock.System.now(),
+                        description = desc,
+                        routineId = routineKey(routine),
+                        routineName = routine.trim(),
+                        variationLabel = variation.trim()
+                    )
+                    SharedWorkoutState.templateRepo.saveTemplate(template)
+                    SharedWorkoutState.loadTemplates()
+                    showCreateDialog = false
+                    onStartFromTemplate(template)
+                }
+            }
+        )
     }
 }
 

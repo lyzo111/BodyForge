@@ -2,6 +2,8 @@ package com.bodyforge.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,7 +29,7 @@ import kotlinx.datetime.Clock
 
 // Normalises a routine name into a stable grouping key, e.g. "Upper Body" -> "upper_body".
 // Blank input yields "" so the template is treated as ungrouped.
-private fun routineKey(routineName: String): String = buildString {
+fun routineKey(routineName: String): String = buildString {
     var pendingSeparator = false
     for (char in routineName.lowercase()) {
         if (char.isLetterOrDigit()) {
@@ -360,7 +362,7 @@ private fun NewExerciseButton(onClick: () -> Unit) {
 }
 
 @Composable
-private fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exercise>, onCreateExercise: suspend (String, List<String>, String, Boolean) -> Exercise, onDismiss: () -> Unit, onCreateTemplate: (String, List<com.bodyforge.domain.models.Exercise>, String, String, String) -> Unit) {
+fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exercise>, onCreateExercise: suspend (String, List<String>, String, Boolean) -> Exercise, onDismiss: () -> Unit, onCreateTemplate: (String, List<com.bodyforge.domain.models.Exercise>, String, String, String) -> Unit) {
     var templateName by remember { mutableStateOf("") }
     var templateDescription by remember { mutableStateOf("") }
     var routineName by remember { mutableStateOf("") }
@@ -378,24 +380,16 @@ private fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exe
         onDismissRequest = onDismiss,
         title = { Text("📋 Create Template", fontWeight = FontWeight.Bold, color = TextPrimary) },
         text = {
-            LazyColumn(modifier = Modifier.fillMaxWidth().height(400.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                item {
-                    OutlinedTextField(value = templateName, onValueChange = { templateName = it }, label = { Text("Template Name") }, placeholder = { Text("e.g., Push Day") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth())
+            Column(modifier = Modifier.fillMaxWidth().height(400.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                OutlinedTextField(value = templateName, onValueChange = { templateName = it }, label = { Text("Template Name") }, placeholder = { Text("e.g., Push Day") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = templateDescription, onValueChange = { templateDescription = it }, label = { Text("Description (optional)") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth(), maxLines = 2)
+                RoutineVariationFields(routineName = routineName, onRoutineChange = { routineName = it }, variationLabel = variationLabel, onVariationChange = { variationLabel = it })
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Select Exercises (${selectedExercises.size})", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
+                    NewExerciseButton(onClick = { showCreateExerciseDialog = true })
                 }
-                item {
-                    OutlinedTextField(value = templateDescription, onValueChange = { templateDescription = it }, label = { Text("Description (optional)") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth(), maxLines = 2)
-                }
-                item { RoutineVariationFields(routineName = routineName, onRoutineChange = { routineName = it }, variationLabel = variationLabel, onVariationChange = { variationLabel = it }) }
-                item {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Select Exercises (${selectedExercises.size})", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
-                        NewExerciseButton(onClick = { showCreateExerciseDialog = true })
-                    }
-                }
-                item {
-                    OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, label = { Text("Search") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth())
-                }
-                items(filteredExercises) { exercise ->
+                OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, label = { Text("Search") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth())
+                filteredExercises.forEach { exercise ->
                     val isSelected = selectedExercises.contains(exercise)
                     Card(backgroundColor = if (isSelected) SelectedGreen else SurfaceColor, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth().clickable { selectedExercises = if (isSelected) selectedExercises - exercise else selectedExercises + exercise }) {
                         Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -450,18 +444,16 @@ private fun EditTemplateDialog(template: WorkoutTemplate, exercises: List<com.bo
         onDismissRequest = onDismiss,
         title = { Text("Edit Template", fontWeight = FontWeight.Bold, color = TextPrimary) },
         text = {
-            LazyColumn(modifier = Modifier.fillMaxWidth().height(400.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                item { OutlinedTextField(value = templateName, onValueChange = { templateName = it }, label = { Text("Template Name") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth()) }
-                item { OutlinedTextField(value = templateDescription, onValueChange = { templateDescription = it }, label = { Text("Description") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth(), maxLines = 2) }
-                item { RoutineVariationFields(routineName = routineName, onRoutineChange = { routineName = it }, variationLabel = variationLabel, onVariationChange = { variationLabel = it }) }
-                item {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Select Exercises (${selectedExercises.size})", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
-                        NewExerciseButton(onClick = { showCreateExerciseDialog = true })
-                    }
+            Column(modifier = Modifier.fillMaxWidth().height(400.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                OutlinedTextField(value = templateName, onValueChange = { templateName = it }, label = { Text("Template Name") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = templateDescription, onValueChange = { templateDescription = it }, label = { Text("Description") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth(), maxLines = 2)
+                RoutineVariationFields(routineName = routineName, onRoutineChange = { routineName = it }, variationLabel = variationLabel, onVariationChange = { variationLabel = it })
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Select Exercises (${selectedExercises.size})", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
+                    NewExerciseButton(onClick = { showCreateExerciseDialog = true })
                 }
-                item { OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, label = { Text("Search") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth()) }
-                items(filteredExercises) { exercise ->
+                OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, label = { Text("Search") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth())
+                filteredExercises.forEach { exercise ->
                     val isSelected = selectedExercises.contains(exercise)
                     Card(backgroundColor = if (isSelected) SelectedGreen else SurfaceColor, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth().clickable { selectedExercises = if (isSelected) selectedExercises - exercise else selectedExercises + exercise }) {
                         Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
