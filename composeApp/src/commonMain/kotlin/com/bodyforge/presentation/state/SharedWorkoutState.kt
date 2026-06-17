@@ -9,6 +9,7 @@ import com.bodyforge.domain.models.WorkoutTemplate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.datetime.Clock
 
 object SharedWorkoutState {
     // Repositories - Single instances for entire app
@@ -76,6 +77,45 @@ object SharedWorkoutState {
         } catch (e: Exception) {
             _error.value = "Failed to load templates: ${e.message}"
         }
+    }
+
+    // Persists a user-created exercise, refreshes the shared list and returns the saved instance
+    // so callers (e.g. the template dialog) can select it without reloading the screen.
+    suspend fun createCustomExercise(
+        name: String,
+        muscleGroups: List<String>,
+        equipment: String,
+        isBodyweight: Boolean
+    ): Exercise {
+        val created = exerciseRepo.saveCustomExercise(
+            Exercise(
+                id = generateCustomExerciseId(name),
+                name = name,
+                muscleGroups = muscleGroups,
+                equipmentNeeded = equipment,
+                isCustom = true,
+                isBodyweight = isBodyweight
+            )
+        )
+        loadExercises()
+        return created
+    }
+
+    // Builds a unique, readable id, e.g. "custom_cable_lateral_raises_1718611200000".
+    private fun generateCustomExerciseId(name: String): String {
+        val slug = buildString {
+            var pendingSeparator = false
+            for (char in name.lowercase()) {
+                if (char.isLetterOrDigit()) {
+                    append(char)
+                    pendingSeparator = false
+                } else if (!pendingSeparator) {
+                    append('_')
+                    pendingSeparator = true
+                }
+            }
+        }.trim('_').ifBlank { "exercise" }
+        return "custom_${slug}_${Clock.System.now().toEpochMilliseconds()}"
     }
 
     fun updateActiveWorkout(workout: Workout?) {

@@ -20,6 +20,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bodyforge.presentation.state.SharedWorkoutState
+import com.bodyforge.ui.components.cards.CreateExerciseDialog
+import kotlinx.coroutines.launch
 
 // Colors
 private val AccentOrange = Color(0xFFFF6B35)
@@ -41,6 +43,7 @@ fun LibraryScreen() {
     var selectedEquipmentFilters by remember { mutableStateOf(setOf<String>()) }
     var showFilters by remember { mutableStateOf(false) }
     var showCreateExerciseDialog by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     // Initialize exercises
     LaunchedEffect(Unit) {
@@ -180,20 +183,16 @@ fun LibraryScreen() {
         }
     }
 
-    // Create Exercise Dialog (placeholder)
-    if (showCreateExerciseDialog) {
-        AlertDialog(
-            onDismissRequest = { showCreateExerciseDialog = false },
-            title = { Text("Create Exercise", color = TextPrimary) },
-            text = { Text("Create Exercise Dialog - TODO", color = TextSecondary) },
-            confirmButton = {
-                TextButton(onClick = { showCreateExerciseDialog = false }) {
-                    Text("OK")
-                }
-            },
-            backgroundColor = CardBackground
-        )
-    }
+    // Create Exercise Dialog
+    CreateExerciseDialog(
+        showDialog = showCreateExerciseDialog,
+        onDismiss = { showCreateExerciseDialog = false },
+        onCreateExercise = { name, muscleGroups, equipment, isBodyweight ->
+            scope.launch {
+                SharedWorkoutState.createCustomExercise(name, muscleGroups, equipment, isBodyweight)
+            }
+        }
+    )
 }
 
 @Composable
