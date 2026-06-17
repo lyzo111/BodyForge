@@ -19,7 +19,8 @@ CREATE TABLE Workout (
     name TEXT NOT NULL,
     started_at INTEGER NOT NULL, -- Unix timestamp in seconds
     finished_at INTEGER, -- NULL if active, timestamp if finished
-    notes TEXT NOT NULL DEFAULT ''
+    notes TEXT NOT NULL DEFAULT '',
+    template_id TEXT -- Source template this workout was started from, NULL for ad-hoc workouts
 );
 
 -- Workout Sets Table
@@ -35,6 +36,8 @@ CREATE TABLE WorkoutSet (
     completed INTEGER NOT NULL DEFAULT 0, -- Boolean as Int
     completed_at INTEGER, -- Unix timestamp when completed
     notes TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'COMPLETED', -- COMPLETED, SKIPPED, SUBSTITUTED
+    original_exercise_id TEXT, -- Exercise this set replaced when status is SUBSTITUTED, NULL otherwise
     FOREIGN KEY (workout_id) REFERENCES Workout(id) ON DELETE CASCADE,
     FOREIGN KEY (exercise_id) REFERENCES Exercise(id) ON DELETE CASCADE
 );
@@ -45,7 +48,10 @@ CREATE TABLE WorkoutTemplate (
     name TEXT NOT NULL,
     exercise_ids TEXT NOT NULL, -- JSON array as string: ["exercise1", "exercise2"]
     created_at INTEGER NOT NULL, -- Unix timestamp in seconds
-    description TEXT NOT NULL DEFAULT ''
+    description TEXT NOT NULL DEFAULT '',
+    routine_id TEXT NOT NULL DEFAULT '', -- Groups variations of one routine, empty when ungrouped
+    routine_name TEXT NOT NULL DEFAULT '', -- Display name of the parent routine, e.g. "Upper"
+    variation_label TEXT NOT NULL DEFAULT '' -- Variation within the routine, e.g. "A" or "B"
 );
 
 -- Nutrition Log Table
@@ -140,27 +146,32 @@ UPDATE Exercise SET deleted = 1 WHERE id = ? AND is_custom = 1;
 -- WORKOUT QUERIES
 
 insertWorkout:
-INSERT INTO Workout (id, name, started_at, finished_at, notes)
-VALUES (?, ?, ?, ?, ?);
+INSERT INTO Workout (id, name, started_at, finished_at, notes, template_id)
+VALUES (?, ?, ?, ?, ?, ?);
 
 updateWorkout:
-UPDATE Workout SET name = ?, started_at = ?, finished_at = ?, notes = ? WHERE id = ?;
+UPDATE Workout SET name = ?, started_at = ?, finished_at = ?, notes = ?, template_id = ? WHERE id = ?;
 
 selectWorkoutById:
-SELECT id, name, started_at, finished_at, notes FROM Workout WHERE id = ?;
+SELECT id, name, started_at, finished_at, notes, template_id FROM Workout WHERE id = ?;
 
 selectAllWorkouts:
-SELECT id, name, started_at, finished_at, notes FROM Workout ORDER BY started_at DESC;
+SELECT id, name, started_at, finished_at, notes, template_id FROM Workout ORDER BY started_at DESC;
 
 selectCompletedWorkouts:
-SELECT id, name, started_at, finished_at, notes FROM Workout
+SELECT id, name, started_at, finished_at, notes, template_id FROM Workout
 WHERE finished_at IS NOT NULL
 ORDER BY started_at DESC;
 
 selectActiveWorkout:
-SELECT id, name, started_at, finished_at, notes FROM Workout
+SELECT id, name, started_at, finished_at, notes, template_id FROM Workout
 WHERE finished_at IS NULL
 LIMIT 1;
+
+selectWorkoutsByTemplate:
+SELECT id, name, started_at, finished_at, notes, template_id FROM Workout
+WHERE template_id = ?
+ORDER BY started_at DESC;
 
 finishAllActiveWorkouts:
 UPDATE Workout SET finished_at = ? WHERE finished_at IS NULL;
@@ -179,11 +190,11 @@ DELETE FROM Workout WHERE id = ?;
 -- WORKOUT SET QUERIES
 
 insertWorkoutSet:
-INSERT INTO WorkoutSet (id, workout_id, exercise_id, order_in_workout, set_number, reps, weight_kg, rest_time_seconds, completed, completed_at, notes)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO WorkoutSet (id, workout_id, exercise_id, order_in_workout, set_number, reps, weight_kg, rest_time_seconds, completed, completed_at, notes, status, original_exercise_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateWorkoutSet:
-UPDATE WorkoutSet SET reps = ?, weight_kg = ?, rest_time_seconds = ?, completed = ?, completed_at = ?, notes = ?
+UPDATE WorkoutSet SET reps = ?, weight_kg = ?, rest_time_seconds = ?, completed = ?, completed_at = ?, notes = ?, status = ?, original_exercise_id = ?
 WHERE id = ?;
 
 selectSetsForWorkout:
@@ -203,17 +214,22 @@ SELECT * FROM WorkoutTemplate ORDER BY created_at DESC;
 selectTemplateById:
 SELECT * FROM WorkoutTemplate WHERE id = ?;
 
+selectTemplatesByRoutine:
+SELECT * FROM WorkoutTemplate
+WHERE routine_id = ?
+ORDER BY variation_label, created_at DESC;
+
 searchTemplates:
 SELECT * FROM WorkoutTemplate
 WHERE name LIKE '%' || ? || '%' OR description LIKE '%' || ? || '%'
 ORDER BY created_at DESC;
 
 insertTemplate:
-INSERT INTO WorkoutTemplate (id, name, exercise_ids, created_at, description)
-VALUES (?, ?, ?, ?, ?);
+INSERT INTO WorkoutTemplate (id, name, exercise_ids, created_at, description, routine_id, routine_name, variation_label)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 updateTemplate:
-UPDATE WorkoutTemplate SET name = ?, exercise_ids = ?, description = ? WHERE id = ?;
+UPDATE WorkoutTemplate SET name = ?, exercise_ids = ?, description = ?, routine_id = ?, routine_name = ?, variation_label = ? WHERE id = ?;
 
 deleteTemplate:
 DELETE FROM WorkoutTemplate WHERE id = ?;

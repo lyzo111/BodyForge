@@ -30,8 +30,19 @@ kotlin {
             implementation("app.cash.sqldelight:coroutines-extensions:2.0.0")
         }
 
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+        }
+
         androidMain.dependencies {
             implementation("app.cash.sqldelight:android-driver:2.0.0")
+        }
+
+        // JVM SQLite driver so repository logic can be unit-tested against an in-memory database.
+        // Referenced via getByName because androidUnitTest has no type-safe source-set accessor here.
+        getByName("androidUnitTest").dependencies {
+            implementation("app.cash.sqldelight:sqlite-driver:2.0.0")
         }
 
         // iOS Dependencies entfernt

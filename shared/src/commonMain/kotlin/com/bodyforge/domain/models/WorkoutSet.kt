@@ -10,11 +10,16 @@ data class WorkoutSet(
     val restTimeSeconds: Int,
     val completed: Boolean = false,
     val completedAt: Instant? = null,
-    val notes: String = ""
+    val notes: String = "",
+    val status: SetStatus = SetStatus.COMPLETED,
+    val originalExerciseId: String? = null
 ) {
+    val isSkipped: Boolean get() = status == SetStatus.SKIPPED
+    val isSubstituted: Boolean get() = status == SetStatus.SUBSTITUTED
+
     companion object {
         fun createEmpty(exerciseId: String, setNumber: Int, defaultRestTime: Int, workoutId: String? = null): WorkoutSet {
-            // FIXED: Always use timestamp to ensure unique IDs
+            // Always use timestamp plus a random suffix to ensure unique IDs
             val timestamp = Clock.System.now().epochSeconds
             val uniqueId = "set_${timestamp}_${exerciseId}_${setNumber}_${(0..9999).random()}"
 
@@ -31,6 +36,23 @@ data class WorkoutSet(
         return copy(
             completed = true,
             completedAt = Clock.System.now()
+        )
+    }
+
+    /** Marks this set as skipped for the current workout without deleting it. */
+    fun skip(): WorkoutSet {
+        return copy(
+            status = SetStatus.SKIPPED,
+            completed = false,
+            completedAt = null
+        )
+    }
+
+    /** Marks this set as substituted, remembering the exercise it replaced. */
+    fun substitute(originalExerciseId: String): WorkoutSet {
+        return copy(
+            status = SetStatus.SUBSTITUTED,
+            originalExerciseId = originalExerciseId
         )
     }
 }

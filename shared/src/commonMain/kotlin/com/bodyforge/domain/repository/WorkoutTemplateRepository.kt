@@ -5,6 +5,7 @@ import com.bodyforge.domain.models.WorkoutTemplate
 interface WorkoutTemplateRepository {
     suspend fun getAllTemplates(): List<WorkoutTemplate>
     suspend fun getTemplateById(id: String): WorkoutTemplate?
+    suspend fun getTemplatesByRoutine(routineId: String): List<WorkoutTemplate>
     suspend fun saveTemplate(template: WorkoutTemplate): WorkoutTemplate
     suspend fun updateTemplate(template: WorkoutTemplate): WorkoutTemplate
     suspend fun deleteTemplate(id: String): Boolean

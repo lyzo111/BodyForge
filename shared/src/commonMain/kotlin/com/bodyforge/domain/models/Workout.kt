@@ -11,7 +11,8 @@ data class Workout(
     val startedAt: Instant,
     val finishedAt: Instant? = null,
     val exercises: List<ExerciseInWorkout> = emptyList(),
-    val notes: String = ""
+    val notes: String = "",
+    val templateId: String? = null
 ) {
     val isActive: Boolean get() = finishedAt == null
     val isCompleted: Boolean get() = finishedAt != null
@@ -29,7 +30,7 @@ data class Workout(
     val startDate get() = startedAt.toLocalDateTime(TimeZone.currentSystemDefault()).date
 
     companion object {
-        fun create(name: String, exercises: List<Exercise>): Workout {
+        fun create(name: String, exercises: List<Exercise>, templateId: String? = null): Workout {
             val workoutId = "workout_${Clock.System.now().epochSeconds}"
 
             val exercisesInWorkout = exercises.mapIndexed { index, exercise ->
@@ -47,7 +48,8 @@ data class Workout(
                 id = workoutId,
                 name = name.ifBlank { generateWorkoutName(exercises) },
                 startedAt = Clock.System.now(),
-                exercises = exercisesInWorkout
+                exercises = exercisesInWorkout,
+                templateId = templateId
             )
         }
 

@@ -5,7 +5,9 @@ import com.bodyforge.domain.models.Workout
 import com.bodyforge.domain.models.Exercise
 import com.bodyforge.domain.models.ExerciseInWorkout
 import com.bodyforge.domain.models.WorkoutSet
+import com.bodyforge.domain.models.SetStatus
 import com.bodyforge.data.DatabaseFactory
+import com.bodyforge.database.BodyForgeDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Instant
@@ -17,9 +19,10 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.Clock
 import kotlinx.serialization.json.Json
 
-class WorkoutRepositoryImpl : WorkoutRepository {
+class WorkoutRepositoryImpl(
+    database: BodyForgeDatabase = DatabaseFactory.create()
+) : WorkoutRepository {
 
-    private val database = DatabaseFactory.create()
     private val queries = database.bodyForgeDatabaseQueries
 
     // Initialize: Clean up any orphaned "active" workouts from previous sessions
@@ -48,7 +51,8 @@ class WorkoutRepositoryImpl : WorkoutRepository {
             name = workout.name,
             started_at = workout.startedAt.epochSeconds,
             finished_at = workout.finishedAt?.epochSeconds,
-            notes = workout.notes
+            notes = workout.notes,
+            template_id = workout.templateId
         )
 
         // Save exercises and sets
@@ -65,7 +69,9 @@ class WorkoutRepositoryImpl : WorkoutRepository {
                     rest_time_seconds = set.restTimeSeconds.toLong(),
                     completed = if (set.completed) 1L else 0L,
                     completed_at = set.completedAt?.epochSeconds,
-                    notes = set.notes
+                    notes = set.notes,
+                    status = set.status.name,
+                    original_exercise_id = set.originalExerciseId
                 )
             }
         }
@@ -114,7 +120,9 @@ class WorkoutRepositoryImpl : WorkoutRepository {
                     restTimeSeconds = setEntity.rest_time_seconds.toInt(),
                     completed = setEntity.completed == 1L,
                     completedAt = setEntity.completed_at?.let { Instant.fromEpochSeconds(it) },
-                    notes = setEntity.notes
+                    notes = setEntity.notes,
+                    status = SetStatus.fromStorage(setEntity.status),
+                    originalExerciseId = setEntity.original_exercise_id
                 )
             }
 
@@ -131,7 +139,8 @@ class WorkoutRepositoryImpl : WorkoutRepository {
             startedAt = Instant.fromEpochSeconds(workoutEntity.started_at),
             finishedAt = workoutEntity.finished_at?.let { Instant.fromEpochSeconds(it) },
             exercises = exercisesInWorkout,
-            notes = workoutEntity.notes
+            notes = workoutEntity.notes,
+            templateId = workoutEntity.template_id
         )
     }
 
@@ -171,6 +180,7 @@ class WorkoutRepositoryImpl : WorkoutRepository {
             started_at = workout.startedAt.epochSeconds,
             finished_at = workout.finishedAt?.epochSeconds,
             notes = workout.notes,
+            template_id = workout.templateId,
             id = workout.id
         )
 
@@ -191,12 +201,20 @@ class WorkoutRepositoryImpl : WorkoutRepository {
                     rest_time_seconds = set.restTimeSeconds.toLong(),
                     completed = if (set.completed) 1L else 0L,
                     completed_at = set.completedAt?.epochSeconds,
-                    notes = set.notes
+                    notes = set.notes,
+                    status = set.status.name,
+                    original_exercise_id = set.originalExerciseId
                 )
             }
         }
 
         workout
+    }
+
+    override suspend fun getWorkoutsByTemplate(templateId: String): List<Workout> = withContext(Dispatchers.IO) {
+        queries.selectWorkoutsByTemplate(templateId).executeAsList().mapNotNull { workoutEntity ->
+            getWorkout(workoutEntity.id)
+        }
     }
 
     override suspend fun deleteWorkout(id: String): Boolean = withContext(Dispatchers.IO) {
