@@ -28,7 +28,7 @@ jobs:
       - name: Locate APK
         id: apk
         run: echo "path=$(find composeApp/build/outputs/apk/debug -name '*.apk' | head -n 1)" >> "$GITHUB_OUTPUT"
-      - name: Create GitHub Release
+      - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -38,6 +38,13 @@ jobs:
             git tag "$TAG"
             git push origin "$TAG"
           fi
-          gh release create "$TAG" "${{ steps.apk.outputs.path }}" \
-            --title "Debug APK $TAG" \
-            --notes "Automated debug build of BodyForge."
+          APK="${{ steps.apk.outputs.path }}"
+          # Idempotent: update the asset if the release already exists, otherwise create it,
+          # so re-running on an existing tag does not fail.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+          else
+            gh release create "$TAG" "$APK" \
+              --title "Debug APK $TAG" \
+              --notes "Automated debug build of BodyForge."
+          fi
