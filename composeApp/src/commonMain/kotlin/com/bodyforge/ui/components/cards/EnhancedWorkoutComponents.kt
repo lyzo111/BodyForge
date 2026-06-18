@@ -514,8 +514,9 @@ fun CreateExerciseDialog(
     var isBodyweight by remember { mutableStateOf(initialBodyweight) }
 
     val availableMuscleGroups = listOf(
-        "Chest", "Back", "Shoulders", "Biceps", "Triceps",
-        "Quadriceps", "Hamstrings", "Glutes", "Calves", "Core", "Upper Traps"
+        "Chest", "Back", "Shoulders", "Biceps", "Triceps", "Forearms",
+        "Quadriceps", "Hamstrings", "Glutes", "Calves", "Core", "Abs",
+        "Lower Back", "Upper Traps"
     )
 
     AlertDialog(

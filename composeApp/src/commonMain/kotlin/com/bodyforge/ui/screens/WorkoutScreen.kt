@@ -51,7 +51,7 @@ private val ButtonGreen = Color(0xFF2E7D32).copy(alpha = 0.8f)
 private val SelectedGreen = Color(0xFF065F46)
 
 @Composable
-fun WorkoutScreen() {
+fun WorkoutScreen(onGoToTemplates: () -> Unit = {}) {
     val viewModel: WorkoutViewModel = viewModel()
     val activeWorkout by SharedWorkoutState.activeWorkout.collectAsState()
     val bodyweight by SharedWorkoutState.bodyweight.collectAsState()
@@ -72,7 +72,8 @@ fun WorkoutScreen() {
         } else {
             QuickStartView(
                 isLoading = isLoading,
-                viewModel = viewModel
+                viewModel = viewModel,
+                onGoToTemplates = onGoToTemplates
             )
         }
     }
@@ -81,10 +82,10 @@ fun WorkoutScreen() {
 @Composable
 private fun QuickStartView(
     isLoading: Boolean,
-    viewModel: WorkoutViewModel
+    viewModel: WorkoutViewModel,
+    onGoToTemplates: () -> Unit
 ) {
     var showQuickWorkoutFlow by remember { mutableStateOf(false) }
-    var showTemplateSelection by remember { mutableStateOf(false) }
 
     if (showQuickWorkoutFlow) {
         QuickWorkoutFlow(
@@ -92,14 +93,6 @@ private fun QuickStartView(
             onStartWorkout = { selectedExercises ->
                 viewModel.startQuickWorkout(selectedExercises)
                 showQuickWorkoutFlow = false
-            }
-        )
-    } else if (showTemplateSelection) {
-        TemplateSelectionFlow(
-            onBack = { showTemplateSelection = false },
-            onStartFromTemplate = { template ->
-                viewModel.startWorkoutFromTemplate(template)
-                showTemplateSelection = false
             }
         )
     } else {
@@ -148,7 +141,7 @@ private fun QuickStartView(
                     title = "From Template",
                     subtitle = "Use existing routine",
                     color = AccentBlue,
-                    onClick = { showTemplateSelection = true },
+                    onClick = onGoToTemplates,
                     enabled = !isLoading
                 )
             }
@@ -558,6 +551,8 @@ private fun ActiveExerciseCard(
                     onClick = onAddSet
                 )
 
+                Spacer(modifier = Modifier.weight(1f))
+
                 ExerciseActionChip(
                     text = if (isSkipped) "Resume" else "Skip",
                     color = if (isSkipped) AccentGreen else AccentRed,
@@ -757,11 +752,13 @@ private fun SetRowWithButtons(
                 // Completion button
                 Button(
                     onClick = {
-                        if (!isCompleted && set.reps > 0) {
+                        if (isCompleted) {
+                            onUpdateSet(null, null, false)
+                        } else if (set.reps > 0) {
                             onUpdateSet(null, null, true)
                         }
                     },
-                    enabled = !isCompleted && set.reps > 0 && (set.weightKg > 0 || exercise.isBodyweight),
+                    enabled = isCompleted || (set.reps > 0 && (set.weightKg > 0 || exercise.isBodyweight)),
                     colors = ButtonDefaults.buttonColors(
                         backgroundColor = if (isCompleted) AccentGreen else SurfaceColor.copy(alpha = 0.5f),
                         disabledBackgroundColor = SurfaceColor.copy(alpha = 0.3f)
@@ -771,7 +768,7 @@ private fun SetRowWithButtons(
                     elevation = ButtonDefaults.elevation(0.dp)
                 ) {
                     Text(
-                        text = if (isCompleted) "✓ Done" else "Done",
+                        text = if (isCompleted) "✓ Done · tap to undo" else "Done",
                         color = if (isCompleted) Color.White else TextSecondary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold

@@ -1,6 +1,7 @@
 package com.bodyforge.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,6 +16,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bodyforge.domain.models.Workout
@@ -165,129 +168,196 @@ private fun WorkoutStat(icon: String, value: String, label: String) {
 private fun EditWorkoutDialog(workout: Workout, onDismiss: () -> Unit, onSave: (Workout) -> Unit) {
     var workoutName by remember { mutableStateOf(workout.name) }
     var editedWorkout by remember { mutableStateOf(workout) }
+    var editingRepsSetId by remember { mutableStateOf<String?>(null) }
+    var editingWeightSetId by remember { mutableStateOf<String?>(null) }
 
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Card(
+            backgroundColor = CardBackground,
+            shape = RoundedCornerShape(16.dp),
+            elevation = 0.dp,
+            modifier = Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.85f)
+        ) {
+            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                Text("Edit Workout", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 20.sp)
+                Spacer(modifier = Modifier.height(12.dp))
+
+                LazyColumn(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    item {
+                        Card(backgroundColor = SurfaceColor, shape = RoundedCornerShape(12.dp), elevation = 0.dp) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text("Workout Name", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary, modifier = Modifier.padding(bottom = 8.dp))
+                                BasicTextField(
+                                    value = workoutName,
+                                    onValueChange = { workoutName = it },
+                                    modifier = Modifier.fillMaxWidth().background(CardBackground, RoundedCornerShape(8.dp)).padding(12.dp),
+                                    textStyle = TextStyle(fontSize = 16.sp, color = TextPrimary, fontWeight = FontWeight.Medium),
+                                    singleLine = true,
+                                    decorationBox = { innerTextField -> if (workoutName.isEmpty()) Text("Enter workout name...", color = TextSecondary, fontSize = 16.sp); innerTextField() }
+                                )
+                            }
+                        }
+                    }
+
+                    items(editedWorkout.exercises) { exerciseInWorkout ->
+                        Card(backgroundColor = SurfaceColor, shape = RoundedCornerShape(12.dp), elevation = 0.dp, modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(exerciseInWorkout.exercise.name, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                                        Text(exerciseInWorkout.exercise.muscleGroups.joinToString(" • "), fontSize = 12.sp, color = TextSecondary)
+                                    }
+                                    if (exerciseInWorkout.exercise.isBodyweight) {
+                                        Text("BW", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = AccentGreen, modifier = Modifier.background(AccentGreen.copy(alpha = 0.2f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                    Text("Set", fontSize = 12.sp, color = TextSecondary, modifier = Modifier.width(40.dp))
+                                    Text("Reps", fontSize = 12.sp, color = TextSecondary, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                                    Text(if (exerciseInWorkout.exercise.isBodyweight) "Added kg" else "Weight", fontSize = 12.sp, color = TextSecondary, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                exerciseInWorkout.sets.forEachIndexed { index, set ->
+                                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                        Text("${index + 1}", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary, modifier = Modifier.width(40.dp), textAlign = TextAlign.Center)
+
+                                        Box(modifier = Modifier.weight(1f).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
+                                            Text(
+                                                text = "${set.reps}",
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = TextPrimary,
+                                                textAlign = TextAlign.Center,
+                                                modifier = Modifier.background(CardBackground, RoundedCornerShape(8.dp)).clickable { editingRepsSetId = set.id }.padding(horizontal = 20.dp, vertical = 8.dp)
+                                            )
+                                        }
+
+                                        Box(modifier = Modifier.weight(1f).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
+                                            Text(
+                                                text = if (set.weightKg > 0) formatWeight(set.weightKg) else if (exerciseInWorkout.exercise.isBodyweight) "BW" else "0",
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = TextPrimary,
+                                                textAlign = TextAlign.Center,
+                                                modifier = Modifier.background(CardBackground, RoundedCornerShape(8.dp)).clickable { editingWeightSetId = set.id }.padding(horizontal = 20.dp, vertical = 8.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = { onSave(editedWorkout.copy(name = workoutName.trim())) },
+                        colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen),
+                        shape = RoundedCornerShape(25.dp),
+                        enabled = workoutName.isNotBlank(),
+                        elevation = ButtonDefaults.elevation(0.dp)
+                    ) { Text("Save", color = Color.White, fontWeight = FontWeight.Bold) }
+                }
+            }
+        }
+    }
+
+    editingRepsSetId?.let { setId ->
+        val current = editedWorkout.exercises.flatMap { it.sets }.firstOrNull { it.id == setId }?.reps ?: 0
+        HistoryNumberInputDialog(
+            currentValue = current,
+            label = "Reps",
+            onDismiss = { editingRepsSetId = null },
+            onConfirm = { newReps ->
+                editedWorkout = updateSetValue(editedWorkout, setId) { it.copy(reps = newReps) }
+                editingRepsSetId = null
+            }
+        )
+    }
+
+    editingWeightSetId?.let { setId ->
+        val current = editedWorkout.exercises.flatMap { it.sets }.firstOrNull { it.id == setId }?.weightKg ?: 0.0
+        HistoryWeightInputDialog(
+            currentWeight = current,
+            onDismiss = { editingWeightSetId = null },
+            onConfirm = { newWeight ->
+                editedWorkout = updateSetValue(editedWorkout, setId) { it.copy(weightKg = newWeight) }
+                editingWeightSetId = null
+            }
+        )
+    }
+}
+
+// Applies a transform to the single set with the given id, returning the updated workout.
+private fun updateSetValue(
+    workout: Workout,
+    setId: String,
+    transform: (com.bodyforge.domain.models.WorkoutSet) -> com.bodyforge.domain.models.WorkoutSet
+): Workout {
+    val exercise = workout.exercises.firstOrNull { e -> e.sets.any { it.id == setId } } ?: return workout
+    val updatedSets = exercise.sets.map { if (it.id == setId) transform(it) else it }
+    return workout.updateExercise(exercise.exercise.id, exercise.copy(sets = updatedSets))
+}
+
+@Composable
+private fun HistoryNumberInputDialog(currentValue: Int, label: String, onDismiss: () -> Unit, onConfirm: (Int) -> Unit) {
+    var textValue by remember { mutableStateOf(currentValue.toString()) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit Workout", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 20.sp) },
         text = {
-            LazyColumn(modifier = Modifier.heightIn(max = 600.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                item {
-                    Card(backgroundColor = SurfaceColor, shape = RoundedCornerShape(12.dp), elevation = 0.dp) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Workout Name", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary, modifier = Modifier.padding(bottom = 8.dp))
-                            BasicTextField(
-                                value = workoutName,
-                                onValueChange = { workoutName = it },
-                                modifier = Modifier.fillMaxWidth().background(CardBackground, RoundedCornerShape(8.dp)).padding(12.dp),
-                                textStyle = TextStyle(fontSize = 16.sp, color = TextPrimary, fontWeight = FontWeight.Medium),
-                                singleLine = true,
-                                decorationBox = { innerTextField -> if (workoutName.isEmpty()) Text("Enter workout name...", color = TextSecondary, fontSize = 16.sp); innerTextField() }
-                            )
-                        }
-                    }
-                }
-
-                items(editedWorkout.exercises) { exerciseInWorkout ->
-                    Card(backgroundColor = SurfaceColor, shape = RoundedCornerShape(12.dp), elevation = 0.dp, modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(exerciseInWorkout.exercise.name, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                                    Text(exerciseInWorkout.exercise.muscleGroups.joinToString(" • "), fontSize = 12.sp, color = TextSecondary)
-                                }
-                                if (exerciseInWorkout.exercise.isBodyweight) {
-                                    Text("BW", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = AccentGreen, modifier = Modifier.background(AccentGreen.copy(alpha = 0.2f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Set", fontSize = 12.sp, color = TextSecondary, modifier = Modifier.width(40.dp))
-                                Text("Reps", fontSize = 12.sp, color = TextSecondary, modifier = Modifier.width(60.dp))
-                                Text("Weight", fontSize = 12.sp, color = TextSecondary, modifier = Modifier.width(80.dp))
-                                Text("Done", fontSize = 12.sp, color = TextSecondary, modifier = Modifier.width(50.dp))
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            exerciseInWorkout.sets.forEachIndexed { index, set ->
-                                var repsText by remember { mutableStateOf(set.reps.toString()) }
-                                var weightText by remember { mutableStateOf(if (set.weightKg > 0) formatWeight(set.weightKg) else "") }
-                                var isCompleted by remember { mutableStateOf(set.completed) }
-
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                    Text("${index + 1}", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = if (isCompleted) AccentGreen else TextPrimary, modifier = Modifier.width(40.dp), textAlign = TextAlign.Center)
-
-                                    BasicTextField(
-                                        value = repsText,
-                                        onValueChange = { newText ->
-                                            val filtered = newText.filter { it.isDigit() }
-                                            if (filtered.length <= 3) {
-                                                repsText = filtered
-                                                val newReps = filtered.toIntOrNull() ?: 0
-                                                val updatedSet = set.copy(reps = newReps)
-                                                val updatedSets = exerciseInWorkout.sets.toMutableList()
-                                                updatedSets[index] = updatedSet
-                                                val updatedExercise = exerciseInWorkout.copy(sets = updatedSets)
-                                                editedWorkout = editedWorkout.updateExercise(exerciseInWorkout.exercise.id, updatedExercise)
-                                            }
-                                        },
-                                        modifier = Modifier.width(60.dp).background(CardBackground, RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 6.dp),
-                                        textStyle = TextStyle(fontSize = 14.sp, textAlign = TextAlign.Center, color = TextPrimary, fontWeight = FontWeight.Medium),
-                                        singleLine = true
-                                    )
-
-                                    Row(modifier = Modifier.width(80.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        BasicTextField(
-                                            value = weightText,
-                                            onValueChange = { newText ->
-                                                val filtered = newText.filter { it.isDigit() || it == '.' }
-                                                if (filtered.count { it == '.' } <= 1 && filtered.length <= 6) {
-                                                    weightText = filtered
-                                                    val newWeight = filtered.toDoubleOrNull() ?: 0.0
-                                                    val updatedSet = set.copy(weightKg = newWeight)
-                                                    val updatedSets = exerciseInWorkout.sets.toMutableList()
-                                                    updatedSets[index] = updatedSet
-                                                    val updatedExercise = exerciseInWorkout.copy(sets = updatedSets)
-                                                    editedWorkout = editedWorkout.updateExercise(exerciseInWorkout.exercise.id, updatedExercise)
-                                                }
-                                            },
-                                            modifier = Modifier.weight(1f).background(CardBackground, RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 6.dp),
-                                            textStyle = TextStyle(fontSize = 14.sp, textAlign = TextAlign.Center, color = TextPrimary, fontWeight = FontWeight.Medium),
-                                            singleLine = true,
-                                            decorationBox = { innerTextField -> if (weightText.isEmpty()) Text(if (exerciseInWorkout.exercise.isBodyweight) "BW" else "0", color = TextSecondary, fontSize = 14.sp, textAlign = TextAlign.Center); innerTextField() }
-                                        )
-                                        if (!exerciseInWorkout.exercise.isBodyweight) Text("kg", fontSize = 10.sp, color = TextSecondary)
-                                    }
-
-                                    Switch(
-                                        checked = isCompleted,
-                                        onCheckedChange = { completed ->
-                                            isCompleted = completed
-                                            val updatedSet = if (completed) set.copy(completed = true, completedAt = kotlinx.datetime.Clock.System.now()) else set.copy(completed = false, completedAt = null)
-                                            val updatedSets = exerciseInWorkout.sets.toMutableList()
-                                            updatedSets[index] = updatedSet
-                                            val updatedExercise = exerciseInWorkout.copy(sets = updatedSets)
-                                            editedWorkout = editedWorkout.updateExercise(exerciseInWorkout.exercise.id, updatedExercise)
-                                        },
-                                        colors = SwitchDefaults.colors(checkedThumbColor = AccentGreen, checkedTrackColor = AccentGreen.copy(alpha = 0.5f), uncheckedThumbColor = TextSecondary, uncheckedTrackColor = SurfaceColor),
-                                        modifier = Modifier.width(50.dp).scale(0.8f)
-                                    )
-                                }
-                                if (index < exerciseInWorkout.sets.size - 1) Spacer(modifier = Modifier.height(6.dp))
-                            }
-                        }
-                    }
-                }
+            Column {
+                Text("Edit $label", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Spacer(modifier = Modifier.height(16.dp))
+                BasicTextField(
+                    value = textValue,
+                    onValueChange = { newText -> val f = newText.filter { it.isDigit() }; if (f.length <= 4) textValue = f },
+                    modifier = Modifier.fillMaxWidth().background(SurfaceColor, RoundedCornerShape(8.dp)).padding(16.dp),
+                    textStyle = TextStyle(fontSize = 24.sp, color = TextPrimary, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold),
+                    singleLine = true
+                )
             }
         },
         confirmButton = {
-            Button(
-                onClick = { onSave(editedWorkout.copy(name = workoutName.trim())) },
-                colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen),
-                shape = RoundedCornerShape(25.dp),
-                enabled = workoutName.isNotBlank(),
-                elevation = ButtonDefaults.elevation(0.dp)
-            ) { Text("Save", color = Color.White, fontWeight = FontWeight.Bold) }
+            Button(onClick = { onConfirm(textValue.toIntOrNull() ?: 0) }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange)) {
+                Text("OK", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) } },
+        backgroundColor = CardBackground
+    )
+}
+
+@Composable
+private fun HistoryWeightInputDialog(currentWeight: Double, onDismiss: () -> Unit, onConfirm: (Double) -> Unit) {
+    var textValue by remember { mutableStateOf(if (currentWeight > 0) formatWeight(currentWeight) else "") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        text = {
+            Column {
+                Text("Edit Weight (kg)", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Spacer(modifier = Modifier.height(16.dp))
+                BasicTextField(
+                    value = textValue,
+                    onValueChange = { newText -> val f = newText.filter { it.isDigit() || it == '.' }; if (f.count { it == '.' } <= 1 && f.length <= 7) textValue = f },
+                    modifier = Modifier.fillMaxWidth().background(SurfaceColor, RoundedCornerShape(8.dp)).padding(16.dp),
+                    textStyle = TextStyle(fontSize = 24.sp, color = TextPrimary, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold),
+                    singleLine = true
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(textValue.toDoubleOrNull() ?: 0.0) }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange)) {
+                Text("OK", color = Color.White, fontWeight = FontWeight.Bold)
+            }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) } },
         backgroundColor = CardBackground

@@ -119,7 +119,7 @@ INSERT INTO Exercise (id, name, muscle_groups, instructions, equipment_needed, i
 ('dumbbell_press', 'Dumbbell Press', '["Chest", "Triceps"]', 'Press dumbbells from chest', 'Dumbbells', 0, 0, 90, 0),
 ('shrugs', 'Shrugs', '["Traps"]', 'Lift shoulders up and back down with weight', 'Dumbbells', 0, 0, 60, 0),
 ('kelso_shrugs', 'Kelso Shrugs', '["Traps"]', 'Let your shoulder blades get pulled forward horizontally, then pull shoulder blades back', 'Cable Machine', 0, 0, 60, 0),
-('bicep_curls', 'Bicep Curls', '["Biceps"]', 'Curl dumbbells up to shoulders', 'Dumbbells', 0, 0, 60, 0),
+('bicep_curls', 'Bicep Curls (Dumbbell)', '["Biceps"]', 'Curl dumbbells up to shoulders', 'Dumbbells', 0, 0, 60, 0),
 ('tricep_pushdowns', 'Tricep Pushdowns', '["Triceps"]', 'Push cable down with triceps', 'Cable Machine', 0, 0, 60, 0),
 ('calf_raises', 'Calf Raises', '["Calves"]', 'Raise up onto toes', 'None', 0, 1, 45, 0),
 
@@ -135,7 +135,22 @@ INSERT INTO Exercise (id, name, muscle_groups, instructions, equipment_needed, i
 ('face_pulls', 'Face Pulls', '["Shoulders", "Back"]', 'Pull the rope towards your face, flaring the elbows out', 'Cable Machine', 0, 0, 60, 0),
 ('hammer_curls', 'Hammer Curls', '["Biceps"]', 'Curl dumbbells with a neutral grip', 'Dumbbells', 0, 0, 60, 0),
 ('hip_thrust', 'Hip Thrust', '["Glutes", "Hamstrings"]', 'Drive the hips up with the bar across the hips, back on a bench', 'Barbell', 0, 0, 120, 0),
-('bulgarian_split_squat', 'Bulgarian Split Squat', '["Quadriceps", "Glutes"]', 'Rear foot elevated, lower into a lunge and drive back up', 'Dumbbells', 0, 0, 120, 0);
+('bulgarian_split_squat', 'Bulgarian Split Squat', '["Quadriceps", "Glutes"]', 'Rear foot elevated, lower into a lunge and drive back up', 'Dumbbells', 0, 0, 120, 0),
+
+-- Arms, core and accessory movements (with equipment variations)
+('bicep_curls_bb', 'Bicep Curls (Barbell)', '["Biceps"]', 'Curl a barbell up to the shoulders', 'Barbell', 0, 0, 60, 0),
+('preacher_curls_db', 'Preacher Curls (Dumbbell)', '["Biceps"]', 'Curl a dumbbell over a preacher bench, keeping the upper arm fixed', 'Dumbbells', 0, 0, 60, 0),
+('preacher_curls_bb', 'Preacher Curls (Barbell)', '["Biceps"]', 'Curl an EZ/straight bar over a preacher bench, keeping the upper arms fixed', 'Barbell', 0, 0, 60, 0),
+('reverse_curls_db', 'Reverse Curls (Dumbbell)', '["Forearms", "Biceps"]', 'Curl dumbbells with a pronated (overhand) grip', 'Dumbbells', 0, 0, 60, 0),
+('reverse_curls_bb', 'Reverse Curls (Barbell)', '["Forearms", "Biceps"]', 'Curl a barbell with a pronated (overhand) grip', 'Barbell', 0, 0, 60, 0),
+('bayesian_curls', 'Bayesian Curls', '["Biceps"]', 'Cable curl with the arm behind the body for constant tension', 'Cable Machine', 0, 0, 60, 0),
+('incline_curls', 'Incline Curls', '["Biceps"]', 'Curl dumbbells while lying back on an incline bench for a deep stretch', 'Dumbbells', 0, 0, 60, 0),
+('jefferson_curls', 'Jefferson Curls', '["Lower Back", "Hamstrings"]', 'Slowly round down through the spine with a light weight, then roll back up', 'Dumbbells', 0, 0, 90, 0),
+('overhead_extensions', 'Overhead Triceps Extension', '["Triceps"]', 'Extend the weight overhead, keeping the elbows pointed up', 'Dumbbells', 0, 0, 60, 0),
+('calf_raises_machine', 'Calf Raises (Machine)', '["Calves"]', 'Raise up onto the toes against the machine resistance', 'Calf Raise Machine', 0, 0, 45, 0),
+('cable_crunches', 'Cable Crunches', '["Abs"]', 'Kneel and crunch down against a high cable, contracting the abs', 'Cable Machine', 0, 0, 45, 0),
+('ab_crunch_machine', 'Ab Crunch Machine', '["Abs"]', 'Crunch against the machine resistance, focusing on the abs', 'Ab Crunch Machine', 0, 0, 45, 0),
+('leg_raises', 'Leg Raises', '["Abs"]', 'Raise the legs while hanging or lying, keeping the core tight', 'None', 0, 1, 45, 0);
 
 -- EXERCISE QUERIES
 

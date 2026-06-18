@@ -63,8 +63,20 @@ android {
         applicationId = "com.bodyforge"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.6"
+    }
+
+    // Stable signing key checked into the repo so every CI build is signed identically.
+    // This lets new APKs install over older ones as in-place updates (keeping all data)
+    // instead of forcing an uninstall. It is a debug-grade key, not a Play release key.
+    signingConfigs {
+        create("shared") {
+            storeFile = file("bodyforge-debug.keystore")
+            storePassword = "android"
+            keyAlias = "bodyforge"
+            keyPassword = "android"
+        }
     }
 
     packaging {
@@ -74,8 +86,12 @@ android {
     }
 
     buildTypes {
+        getByName("debug") {
+            signingConfig = signingConfigs.getByName("shared")
+        }
         getByName("release") {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("shared")
         }
     }
 

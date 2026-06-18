@@ -188,7 +188,9 @@ private fun MainContent(hasActiveWorkout: Boolean) {
             modifier = Modifier.fillMaxSize()
         ) { page ->
             when (page) {
-                0 -> WorkoutScreen()
+                0 -> WorkoutScreen(onGoToTemplates = {
+                    coroutineScope.launch { pagerState.animateScrollToPage(1) }
+                })
                 1 -> TemplatesScreen(onStartWorkout = {
                     coroutineScope.launch { pagerState.animateScrollToPage(0) }
                 })
