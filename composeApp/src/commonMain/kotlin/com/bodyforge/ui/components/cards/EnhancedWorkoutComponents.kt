@@ -498,14 +498,20 @@ fun NoExercisesFoundCard(
 fun CreateExerciseDialog(
     showDialog: Boolean,
     onDismiss: () -> Unit,
-    onCreateExercise: (String, List<String>, String, Boolean) -> Unit
+    onCreateExercise: (String, List<String>, String, Boolean) -> Unit,
+    title: String = "Create Custom Exercise",
+    confirmLabel: String = "Create",
+    initialName: String = "",
+    initialMuscleGroups: Set<String> = emptySet(),
+    initialEquipment: String = "",
+    initialBodyweight: Boolean = false
 ) {
     if (!showDialog) return
 
-    var exerciseName by remember { mutableStateOf("") }
-    var selectedMuscleGroups by remember { mutableStateOf(setOf<String>()) }
-    var equipment by remember { mutableStateOf("") }
-    var isBodyweight by remember { mutableStateOf(false) }
+    var exerciseName by remember { mutableStateOf(initialName) }
+    var selectedMuscleGroups by remember { mutableStateOf(initialMuscleGroups) }
+    var equipment by remember { mutableStateOf(initialEquipment) }
+    var isBodyweight by remember { mutableStateOf(initialBodyweight) }
 
     val availableMuscleGroups = listOf(
         "Chest", "Back", "Shoulders", "Biceps", "Triceps",
@@ -516,7 +522,7 @@ fun CreateExerciseDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "Create Custom Exercise",
+                text = title,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
             )
@@ -688,7 +694,7 @@ fun CreateExerciseDialog(
                 enabled = exerciseName.isNotBlank() && selectedMuscleGroups.isNotEmpty(),
                 elevation = ButtonDefaults.elevation(0.dp)
             ) {
-                Text("Create", color = Color.White, fontWeight = FontWeight.Bold)
+                Text(confirmLabel, color = Color.White, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {

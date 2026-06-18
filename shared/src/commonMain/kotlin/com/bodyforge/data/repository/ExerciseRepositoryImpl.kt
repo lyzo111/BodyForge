@@ -14,7 +14,7 @@ class ExerciseRepositoryImpl : ExerciseRepository {
     private val queries = database.bodyForgeDatabaseQueries
 
     override suspend fun getAllExercises(): List<Exercise> = withContext(Dispatchers.IO) {
-        queries.selectAllExercises().executeAsList().map { entity ->
+        queries.selectAllExercisesActive().executeAsList().map { entity ->
             Exercise(
                 id = entity.id,
                 name = entity.name,
@@ -89,9 +89,22 @@ class ExerciseRepositoryImpl : ExerciseRepository {
         customExercise
     }
 
+    override suspend fun updateCustomExercise(exercise: Exercise): Exercise = withContext(Dispatchers.IO) {
+        queries.updateCustomExercise(
+            name = exercise.name,
+            muscle_groups = Json.encodeToString(exercise.muscleGroups),
+            instructions = exercise.instructions,
+            equipment_needed = exercise.equipmentNeeded,
+            is_bodyweight = if (exercise.isBodyweight) 1L else 0L,
+            default_rest_time_seconds = exercise.defaultRestTimeSeconds.toLong(),
+            id = exercise.id
+        )
+        exercise
+    }
+
     override suspend fun deleteCustomExercise(id: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            queries.deleteCustomExercise(id)
+            queries.softDeleteCustomExercise(id)
             true
         } catch (e: Exception) {
             false
@@ -99,7 +112,7 @@ class ExerciseRepositoryImpl : ExerciseRepository {
     }
 
     override suspend fun getCustomExercises(): List<Exercise> = withContext(Dispatchers.IO) {
-        queries.selectCustomExercises().executeAsList().map { entity ->
+        queries.selectCustomExercisesActive().executeAsList().map { entity ->
             Exercise(
                 id = entity.id,
                 name = entity.name,

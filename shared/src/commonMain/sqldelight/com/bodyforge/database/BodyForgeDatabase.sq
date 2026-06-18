@@ -170,6 +170,9 @@ DELETE FROM Exercise WHERE id = ? AND is_custom = 1;
 softDeleteCustomExercise:
 UPDATE Exercise SET deleted = 1 WHERE id = ? AND is_custom = 1;
 
+updateCustomExercise:
+UPDATE Exercise SET name = ?, muscle_groups = ?, instructions = ?, equipment_needed = ?, is_bodyweight = ?, default_rest_time_seconds = ? WHERE id = ? AND is_custom = 1;
+
 -- WORKOUT QUERIES
 
 insertWorkout:

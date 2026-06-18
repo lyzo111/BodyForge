@@ -169,6 +169,16 @@ object SharedWorkoutState {
         return created
     }
 
+    suspend fun updateCustomExercise(exercise: Exercise) {
+        exerciseRepo.updateCustomExercise(exercise)
+        loadExercises()
+    }
+
+    suspend fun deleteCustomExercise(id: String) {
+        exerciseRepo.deleteCustomExercise(id)
+        loadExercises()
+    }
+
     // Builds a unique, readable id, e.g. "custom_cable_lateral_raises_1718611200000".
     private fun generateCustomExerciseId(name: String): String {
         val slug = buildString {

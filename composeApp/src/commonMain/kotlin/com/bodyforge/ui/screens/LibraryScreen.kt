@@ -43,6 +43,8 @@ fun LibraryScreen() {
     var selectedEquipmentFilters by remember { mutableStateOf(setOf<String>()) }
     var showFilters by remember { mutableStateOf(false) }
     var showCreateExerciseDialog by remember { mutableStateOf(false) }
+    var editingExercise by remember { mutableStateOf<com.bodyforge.domain.models.Exercise?>(null) }
+    var pendingDeleteExercise by remember { mutableStateOf<com.bodyforge.domain.models.Exercise?>(null) }
     val scope = rememberCoroutineScope()
 
     // Initialize exercises
@@ -175,8 +177,11 @@ fun LibraryScreen() {
             items(filteredExercises) { exercise ->
                 ExerciseLibraryCard(
                     exercise = exercise,
+                    onEdit = if (exercise.isCustom) {
+                        { editingExercise = exercise }
+                    } else null,
                     onDelete = if (exercise.isCustom) {
-                        { /* TODO: Delete exercise */ }
+                        { pendingDeleteExercise = exercise }
                     } else null
                 )
             }
@@ -193,6 +198,67 @@ fun LibraryScreen() {
             }
         }
     )
+
+    // Edit Exercise Dialog (reuses the create dialog, pre-filled)
+    editingExercise?.let { ex ->
+        key(ex.id) {
+            CreateExerciseDialog(
+                showDialog = true,
+                title = "Edit Exercise",
+                confirmLabel = "Save",
+                initialName = ex.name,
+                initialMuscleGroups = ex.muscleGroups.toSet(),
+                initialEquipment = ex.equipmentNeeded,
+                initialBodyweight = ex.isBodyweight,
+                onDismiss = { editingExercise = null },
+                onCreateExercise = { name, muscleGroups, equipment, isBodyweight ->
+                    scope.launch {
+                        SharedWorkoutState.updateCustomExercise(
+                            ex.copy(
+                                name = name,
+                                muscleGroups = muscleGroups,
+                                equipmentNeeded = equipment,
+                                isBodyweight = isBodyweight
+                            )
+                        )
+                    }
+                    editingExercise = null
+                }
+            )
+        }
+    }
+
+    // Delete confirmation
+    pendingDeleteExercise?.let { ex ->
+        AlertDialog(
+            onDismissRequest = { pendingDeleteExercise = null },
+            title = { Text("Delete Exercise", fontWeight = FontWeight.Bold, color = TextPrimary) },
+            text = {
+                Text(
+                    "Remove \"${ex.name}\" from your library? Past workouts that used it stay intact.",
+                    color = TextSecondary
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch { SharedWorkoutState.deleteCustomExercise(ex.id) }
+                        pendingDeleteExercise = null
+                    },
+                    colors = ButtonDefaults.buttonColors(backgroundColor = AccentRed),
+                    elevation = ButtonDefaults.elevation(0.dp)
+                ) {
+                    Text("Delete", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeleteExercise = null }) {
+                    Text("Cancel", color = TextSecondary)
+                }
+            },
+            backgroundColor = CardBackground
+        )
+    }
 }
 
 @Composable
@@ -423,6 +489,7 @@ private fun NoExercisesFoundCard(
 @Composable
 private fun ExerciseLibraryCard(
     exercise: com.bodyforge.domain.models.Exercise,
+    onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null
 ) {
     Card(
@@ -490,9 +557,18 @@ private fun ExerciseLibraryCard(
                 )
             }
 
-            if (onDelete != null) {
-                TextButton(onClick = onDelete) {
-                    Text("🗑️", fontSize = 16.sp)
+            if (onEdit != null || onDelete != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (onEdit != null) {
+                        TextButton(onClick = onEdit) {
+                            Text("✏️", fontSize = 16.sp)
+                        }
+                    }
+                    if (onDelete != null) {
+                        TextButton(onClick = onDelete) {
+                            Text("🗑️", fontSize = 16.sp)
+                        }
+                    }
                 }
             }
         }

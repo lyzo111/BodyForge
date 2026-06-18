@@ -8,6 +8,7 @@ interface ExerciseRepository {
     suspend fun getExercisesByMuscleGroup(muscleGroup: String): List<Exercise>
     suspend fun searchExercises(query: String): List<Exercise>
     suspend fun saveCustomExercise(exercise: Exercise): Exercise
+    suspend fun updateCustomExercise(exercise: Exercise): Exercise
     suspend fun deleteCustomExercise(id: String): Boolean
     suspend fun getCustomExercises(): List<Exercise>
 }
