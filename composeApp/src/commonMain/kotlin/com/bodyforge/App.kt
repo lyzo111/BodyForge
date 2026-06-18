@@ -1,6 +1,7 @@
 package com.bodyforge
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
@@ -22,6 +23,9 @@ import com.bodyforge.ui.screens.WorkoutScreen
 import com.bodyforge.ui.screens.TemplatesScreen
 import com.bodyforge.ui.screens.AnalyticsScreen
 import com.bodyforge.ui.screens.HistoryScreen
+import com.bodyforge.resources.Res
+import com.bodyforge.resources.bodyforge_logo
+import org.jetbrains.compose.resources.painterResource
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -100,11 +104,12 @@ private fun HeaderSection() {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "🏋️",
-                    fontSize = 32.sp,
-                    modifier = Modifier.padding(end = 12.dp)
+                Image(
+                    painter = painterResource(Res.drawable.bodyforge_logo),
+                    contentDescription = "BodyForge logo",
+                    modifier = Modifier.size(40.dp)
                 )
+                Spacer(modifier = Modifier.width(12.dp))
                 Text(
                     text = "BodyForge",
                     fontSize = 24.sp,

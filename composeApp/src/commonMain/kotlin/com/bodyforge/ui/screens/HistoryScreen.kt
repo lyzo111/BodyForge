@@ -151,6 +151,11 @@ private fun HistoryWorkoutCard(workout: Workout, onDelete: () -> Unit, onEdit: (
                     if (workout.exercises.size > 3) Text("... and ${workout.exercises.size - 3} more", fontSize = 12.sp, color = TextSecondary, modifier = Modifier.padding(start = 8.dp, top = 2.dp))
                 }
             }
+
+            if (workout.notes.isNotBlank()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text("📝 ${workout.notes}", fontSize = 12.sp, color = TextSecondary)
+            }
         }
     }
 }
@@ -167,6 +172,7 @@ private fun WorkoutStat(icon: String, value: String, label: String) {
 @Composable
 private fun EditWorkoutDialog(workout: Workout, onDismiss: () -> Unit, onSave: (Workout) -> Unit) {
     var workoutName by remember { mutableStateOf(workout.name) }
+    var workoutNotes by remember { mutableStateOf(workout.notes) }
     var editedWorkout by remember { mutableStateOf(workout) }
     var editingRepsSetId by remember { mutableStateOf<String?>(null) }
     var editingWeightSetId by remember { mutableStateOf<String?>(null) }
@@ -197,6 +203,21 @@ private fun EditWorkoutDialog(workout: Workout, onDismiss: () -> Unit, onSave: (
                                     textStyle = TextStyle(fontSize = 16.sp, color = TextPrimary, fontWeight = FontWeight.Medium),
                                     singleLine = true,
                                     decorationBox = { innerTextField -> if (workoutName.isEmpty()) Text("Enter workout name...", color = TextSecondary, fontSize = 16.sp); innerTextField() }
+                                )
+                            }
+                        }
+                    }
+
+                    item {
+                        Card(backgroundColor = SurfaceColor, shape = RoundedCornerShape(12.dp), elevation = 0.dp) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text("Notes", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary, modifier = Modifier.padding(bottom = 8.dp))
+                                BasicTextField(
+                                    value = workoutNotes,
+                                    onValueChange = { workoutNotes = it },
+                                    modifier = Modifier.fillMaxWidth().background(CardBackground, RoundedCornerShape(8.dp)).padding(12.dp),
+                                    textStyle = TextStyle(fontSize = 15.sp, color = TextPrimary),
+                                    decorationBox = { innerTextField -> if (workoutNotes.isEmpty()) Text("How it felt, injuries, PRs…", color = TextSecondary, fontSize = 15.sp); innerTextField() }
                                 )
                             }
                         }
@@ -260,7 +281,7 @@ private fun EditWorkoutDialog(workout: Workout, onDismiss: () -> Unit, onSave: (
                     TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
-                        onClick = { onSave(editedWorkout.copy(name = workoutName.trim())) },
+                        onClick = { onSave(editedWorkout.copy(name = workoutName.trim(), notes = workoutNotes.trim())) },
                         colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen),
                         shape = RoundedCornerShape(25.dp),
                         enabled = workoutName.isNotBlank(),

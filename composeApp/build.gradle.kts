@@ -63,8 +63,8 @@ android {
         applicationId = "com.bodyforge"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 2
-        versionName = "1.6"
+        versionCode = 3
+        versionName = "1.7"
     }
 
     // Stable signing key checked into the repo so every CI build is signed identically.
@@ -107,6 +107,11 @@ android {
     dependencies {
         debugImplementation(compose.uiTooling)
     }
+}
+
+// Generate the Compose resources accessor (Res) in a fixed package.
+compose.resources {
+    packageOfResClass = "com.bodyforge.resources"
 }
 
 // Desktop Build Config entfernt
