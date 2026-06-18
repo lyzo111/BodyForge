@@ -51,6 +51,12 @@ fun App() {
     val activeWorkout by SharedWorkoutState.activeWorkout.collectAsState()
     val error by SharedWorkoutState.error.collectAsState()
 
+    var showSplash by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(1600)
+        showSplash = false
+    }
+
     MaterialTheme(
         colors = darkColors(
             primary = AccentOrange,
@@ -79,6 +85,39 @@ fun App() {
                 // Main Content with 4 Tabs + HorizontalPager
                 MainContent(hasActiveWorkout = activeWorkout != null)
             }
+
+            if (showSplash) {
+                SplashScreen()
+            }
+        }
+    }
+}
+
+@Composable
+private fun SplashScreen() {
+    Box(
+        modifier = Modifier.fillMaxSize().background(DarkBackground),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Image(
+                painter = painterResource(Res.drawable.bodyforge_logo),
+                contentDescription = "BodyForge",
+                modifier = Modifier.size(140.dp)
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+            Text(
+                text = "BodyForge",
+                fontSize = 40.sp,
+                fontWeight = FontWeight.Bold,
+                color = AccentOrange
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Forge your body",
+                fontSize = 14.sp,
+                color = TextSecondary
+            )
         }
     }
 }

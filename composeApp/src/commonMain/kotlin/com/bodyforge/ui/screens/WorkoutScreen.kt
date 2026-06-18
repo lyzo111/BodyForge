@@ -247,25 +247,10 @@ private fun ActiveWorkoutView(
     val scope = rememberCoroutineScope()
     val baseOffset = (if (hasBodyweightExercises) 1 else 0) + 1
 
-    // Rest timer: started when a set is marked done, counts down once per second until skipped or zero.
-    var restTotal by remember { mutableStateOf(0) }
-    var restRemaining by remember { mutableStateOf(0) }
-    var restSession by remember { mutableStateOf(0) }
-
-    LaunchedEffect(restSession) {
-        if (restSession == 0) return@LaunchedEffect
-        while (restRemaining > 0) {
-            kotlinx.coroutines.delay(1000L)
-            restRemaining = (restRemaining - 1).coerceAtLeast(0)
-        }
-    }
-
-    fun startRest(seconds: Int) {
-        if (seconds <= 0) return
-        restTotal = seconds
-        restRemaining = seconds
-        restSession += 1
-    }
+    // Rest timer state is owned by SharedWorkoutState so it keeps running and stays visible when
+    // the user leaves the Workout tab and returns.
+    val restRemaining by SharedWorkoutState.restRemainingSeconds.collectAsState()
+    val restTotal by SharedWorkoutState.restTotalSeconds.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {
         if (workout.exercises.size > 1) {
@@ -310,7 +295,7 @@ private fun ActiveWorkoutView(
                     if (completed == true) {
                         val rest = exerciseInWorkout.sets.firstOrNull { it.id == setId }?.restTimeSeconds
                             ?: exerciseInWorkout.exercise.defaultRestTimeSeconds
-                        startRest(rest)
+                        SharedWorkoutState.startRest(rest)
                     }
                 },
                 onAddSet = {
@@ -339,8 +324,8 @@ private fun ActiveWorkoutView(
             RestTimerBar(
                 remaining = restRemaining,
                 total = restTotal,
-                onAddTime = { restTotal += 15; restRemaining += 15 },
-                onSkip = { restRemaining = 0 }
+                onAddTime = { SharedWorkoutState.addRestTime(15) },
+                onSkip = { SharedWorkoutState.skipRest() }
             )
         }
     }

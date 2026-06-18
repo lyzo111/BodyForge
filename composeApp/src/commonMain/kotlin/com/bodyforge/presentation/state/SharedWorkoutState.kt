@@ -10,9 +10,16 @@ import com.bodyforge.domain.models.TrainingPhase
 import com.bodyforge.domain.models.Workout
 import com.bodyforge.domain.models.WorkoutSet
 import com.bodyforge.domain.models.WorkoutTemplate
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
@@ -51,6 +58,41 @@ object SharedWorkoutState {
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+
+    // Rest timer lives here (not in a screen) so it keeps running and stays visible when the
+    // user leaves the Workout tab and comes back.
+    private val timerScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var restJob: Job? = null
+
+    private val _restTotalSeconds = MutableStateFlow(0)
+    val restTotalSeconds: StateFlow<Int> = _restTotalSeconds.asStateFlow()
+
+    private val _restRemainingSeconds = MutableStateFlow(0)
+    val restRemainingSeconds: StateFlow<Int> = _restRemainingSeconds.asStateFlow()
+
+    fun startRest(seconds: Int) {
+        if (seconds <= 0) return
+        restJob?.cancel()
+        _restTotalSeconds.value = seconds
+        _restRemainingSeconds.value = seconds
+        restJob = timerScope.launch {
+            while (isActive && _restRemainingSeconds.value > 0) {
+                delay(1000)
+                _restRemainingSeconds.value = (_restRemainingSeconds.value - 1).coerceAtLeast(0)
+            }
+        }
+    }
+
+    fun addRestTime(seconds: Int) {
+        if (_restRemainingSeconds.value <= 0) return
+        _restTotalSeconds.value += seconds
+        _restRemainingSeconds.value += seconds
+    }
+
+    fun skipRest() {
+        restJob?.cancel()
+        _restRemainingSeconds.value = 0
+    }
 
     // Update functions
     suspend fun loadExercises() {

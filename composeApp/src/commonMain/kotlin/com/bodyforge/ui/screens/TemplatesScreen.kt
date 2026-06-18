@@ -253,7 +253,7 @@ private fun EmptyTemplatesCard(onCreateClick: () -> Unit) {
 
 @Composable
 private fun TemplateCard(template: WorkoutTemplate, exercises: List<com.bodyforge.domain.models.Exercise>, onStart: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
-    val templateExercises = remember(template, exercises) { exercises.filter { template.exerciseIds.contains(it.id) } }
+    val templateExercises = remember(template, exercises) { template.exerciseIds.mapNotNull { id -> exercises.firstOrNull { it.id == id } } }
 
     Card(backgroundColor = CardBackground, elevation = 2.dp, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -363,13 +363,57 @@ private fun NewExerciseButton(onClick: () -> Unit) {
     }
 }
 
+// Selected exercises shown in their saved order, with up/down controls to change the sequence.
+@Composable
+private fun SelectedOrderSection(
+    selected: List<com.bodyforge.domain.models.Exercise>,
+    onReorder: (List<com.bodyforge.domain.models.Exercise>) -> Unit
+) {
+    if (selected.size < 2) return
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Order (use arrows to reorder)", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
+        selected.forEachIndexed { index, exercise ->
+            Row(
+                modifier = Modifier.fillMaxWidth().background(SurfaceColor, RoundedCornerShape(8.dp)).padding(start = 12.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("${index + 1}. ${exercise.name}", fontSize = 13.sp, color = TextPrimary, modifier = Modifier.weight(1f))
+                TextButton(
+                    onClick = {
+                        if (index > 0) {
+                            val list = selected.toMutableList()
+                            list[index] = list[index - 1]
+                            list[index - 1] = exercise
+                            onReorder(list)
+                        }
+                    },
+                    enabled = index > 0,
+                    contentPadding = PaddingValues(horizontal = 6.dp)
+                ) { Text("↑", color = if (index > 0) AccentOrange else TextSecondary, fontSize = 18.sp) }
+                TextButton(
+                    onClick = {
+                        if (index < selected.size - 1) {
+                            val list = selected.toMutableList()
+                            list[index] = list[index + 1]
+                            list[index + 1] = exercise
+                            onReorder(list)
+                        }
+                    },
+                    enabled = index < selected.size - 1,
+                    contentPadding = PaddingValues(horizontal = 6.dp)
+                ) { Text("↓", color = if (index < selected.size - 1) AccentOrange else TextSecondary, fontSize = 18.sp) }
+            }
+        }
+    }
+}
+
 @Composable
 fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exercise>, onCreateExercise: suspend (String, List<String>, String, Boolean) -> Exercise, onDismiss: () -> Unit, onCreateTemplate: (String, List<com.bodyforge.domain.models.Exercise>, String, String, String) -> Unit) {
     var templateName by remember { mutableStateOf("") }
     var templateDescription by remember { mutableStateOf("") }
     var routineName by remember { mutableStateOf("") }
     var variationLabel by remember { mutableStateOf("") }
-    var selectedExercises by remember { mutableStateOf(setOf<com.bodyforge.domain.models.Exercise>()) }
+    var selectedExercises by remember { mutableStateOf(emptyList<com.bodyforge.domain.models.Exercise>()) }
     var searchQuery by remember { mutableStateOf("") }
     var showCreateExerciseDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -391,6 +435,7 @@ fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exercise>, 
                     Text("Select Exercises (${selectedExercises.size})", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
                     NewExerciseButton(onClick = { showCreateExerciseDialog = true })
                 }
+                SelectedOrderSection(selectedExercises) { selectedExercises = it }
                 OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, label = { Text("Search") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth())
                 filteredExercises.forEach { exercise ->
                     val isSelected = selectedExercises.contains(exercise)
@@ -438,7 +483,7 @@ private fun EditTemplateDialog(template: WorkoutTemplate, exercises: List<com.bo
     var templateDescription by remember { mutableStateOf(template.description) }
     var routineName by remember { mutableStateOf(template.routineName) }
     var variationLabel by remember { mutableStateOf(template.variationLabel) }
-    var selectedExercises by remember { mutableStateOf(exercises.filter { template.exerciseIds.contains(it.id) }.toSet()) }
+    var selectedExercises by remember { mutableStateOf(template.exerciseIds.mapNotNull { id -> exercises.firstOrNull { it.id == id } }) }
     var searchQuery by remember { mutableStateOf("") }
     var showCreateExerciseDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -460,6 +505,7 @@ private fun EditTemplateDialog(template: WorkoutTemplate, exercises: List<com.bo
                     Text("Select Exercises (${selectedExercises.size})", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
                     NewExerciseButton(onClick = { showCreateExerciseDialog = true })
                 }
+                SelectedOrderSection(selectedExercises) { selectedExercises = it }
                 OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, label = { Text("Search") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth())
                 filteredExercises.forEach { exercise ->
                     val isSelected = selectedExercises.contains(exercise)
