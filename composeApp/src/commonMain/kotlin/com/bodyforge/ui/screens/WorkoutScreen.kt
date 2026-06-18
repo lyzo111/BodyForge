@@ -426,63 +426,61 @@ private fun ActiveExerciseCard(
         Column(
             modifier = Modifier.padding(20.dp)
         ) {
-            // Exercise Header with +/- set buttons
+            // Exercise name on its own line so long names never push the controls off-screen
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                Text(
+                    text = exercise.name,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+
+                if (exercise.isBodyweight) {
                     Text(
-                        text = exercise.name,
-                        fontSize = 18.sp,
+                        text = "BW",
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-
-                    if (exercise.isBodyweight) {
-                        Text(
-                            text = "BW",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = AccentGreen,
-                            modifier = Modifier
-                                .background(
-                                    color = AccentGreen.copy(alpha = 0.2f),
-                                    shape = RoundedCornerShape(4.dp)
-                                )
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                }
-
-                // Set count with +/- buttons
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    SmallControlButton(
-                        text = "−",
-                        color = AccentRed,
-                        onClick = onRemoveSet,
-                        enabled = exerciseInWorkout.sets.size > 1
-                    )
-
-                    Text(
-                        text = "${exerciseInWorkout.sets.size} sets",
-                        fontSize = 14.sp,
-                        color = TextSecondary
-                    )
-
-                    SmallControlButton(
-                        text = "+",
                         color = AccentGreen,
-                        onClick = onAddSet
+                        modifier = Modifier
+                            .background(
+                                color = AccentGreen.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(4.dp)
+                            )
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Set count with +/- buttons, placed below the name
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                SmallControlButton(
+                    text = "−",
+                    color = AccentRed,
+                    onClick = onRemoveSet,
+                    enabled = exerciseInWorkout.sets.size > 1
+                )
+
+                Text(
+                    text = "${exerciseInWorkout.sets.size} sets",
+                    fontSize = 14.sp,
+                    color = TextSecondary
+                )
+
+                SmallControlButton(
+                    text = "+",
+                    color = AccentGreen,
+                    onClick = onAddSet
+                )
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -704,9 +702,10 @@ private fun SetRowWithButtons(
                     elevation = ButtonDefaults.elevation(0.dp)
                 ) {
                     Text(
-                        text = if (isCompleted) "✓" else "○",
+                        text = if (isCompleted) "✓ Done" else "Done",
                         color = if (isCompleted) Color.White else TextSecondary,
-                        fontSize = 16.sp
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
@@ -1216,7 +1215,7 @@ private fun QuickWorkoutFlow(
                 colors = ButtonDefaults.buttonColors(backgroundColor = SurfaceColor),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text("← Back", color = TextPrimary)
+                Text("⬅️ Back", color = TextPrimary)
             }
 
             Text(
@@ -1524,7 +1523,7 @@ private fun TemplateSelectionFlow(
                 colors = ButtonDefaults.buttonColors(backgroundColor = SurfaceColor),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text("← Back", color = TextPrimary)
+                Text("⬅️ Back", color = TextPrimary)
             }
 
             Text(
