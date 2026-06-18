@@ -11,4 +11,7 @@ interface ExerciseRepository {
     suspend fun updateCustomExercise(exercise: Exercise): Exercise
     suspend fun deleteCustomExercise(id: String): Boolean
     suspend fun getCustomExercises(): List<Exercise>
+    // Idempotently adds stock exercises shipped after the user's DB was first seeded, and
+    // applies current stock names. Needed because in-place updates don't re-run the seed.
+    suspend fun ensureStockExercises()
 }

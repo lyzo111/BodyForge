@@ -188,6 +188,13 @@ UPDATE Exercise SET deleted = 1 WHERE id = ? AND is_custom = 1;
 updateCustomExercise:
 UPDATE Exercise SET name = ?, muscle_groups = ?, instructions = ?, equipment_needed = ?, is_bodyweight = ?, default_rest_time_seconds = ? WHERE id = ? AND is_custom = 1;
 
+insertOrIgnoreExercise:
+INSERT OR IGNORE INTO Exercise (id, name, muscle_groups, instructions, equipment_needed, is_custom, is_bodyweight, default_rest_time_seconds, deleted)
+VALUES (?, ?, ?, ?, ?, 0, ?, ?, 0);
+
+renameStockExercise:
+UPDATE Exercise SET name = ? WHERE id = ? AND is_custom = 0;
+
 -- WORKOUT QUERIES
 
 insertWorkout:

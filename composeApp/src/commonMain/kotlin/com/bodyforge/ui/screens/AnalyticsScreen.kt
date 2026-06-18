@@ -531,6 +531,28 @@ private fun AchievementsCard(workouts: List<com.bodyforge.domain.models.Workout>
                         description = "${totalVolume.roundToInt()}kg total volume moved"
                     )
                 }
+
+                if (workouts.size >= 10) AchievementItem("🔥", "Double Digits", "10+ workouts completed")
+                if (workouts.size >= 25) AchievementItem("⭐", "Quarter Century", "25+ workouts completed")
+                if (workouts.size >= 50) AchievementItem("👑", "Half Centurion", "50+ workouts completed")
+                if (totalVolume >= 50000) AchievementItem("🏋️", "Heavy Lifter", "50,000kg+ total volume")
+                if (totalVolume >= 100000) AchievementItem("🦾", "Iron Titan", "100,000kg+ total volume")
+
+                val totalSets = workouts.sumOf { it.performedSets }
+                if (totalSets >= 100) AchievementItem("🎚️", "Century of Sets", "$totalSets sets logged")
+                if (totalSets >= 500) AchievementItem("🧱", "Set Machine", "$totalSets sets logged")
+
+                val totalReps = workouts.sumOf { w -> w.exercises.sumOf { e -> e.sets.sumOf { it.reps } } }
+                if (totalReps >= 1000) AchievementItem("🔁", "Rep Grinder", "$totalReps total reps performed")
+
+                val heaviestSet = workouts.flatMap { it.exercises }.flatMap { it.sets }.maxOfOrNull { it.weightKg } ?: 0.0
+                if (heaviestSet >= 100) AchievementItem("🥇", "Triple Digits", "Moved ${heaviestSet.roundToInt()}kg in a single set")
+
+                val distinctExercises = workouts.flatMap { it.exercises }.map { it.exercise.id }.distinct().size
+                if (distinctExercises >= 15) AchievementItem("🧭", "Explorer", "$distinctExercises different exercises trained")
+
+                val longestMinutes = workouts.maxOfOrNull { it.durationMinutes ?: 0L } ?: 0L
+                if (longestMinutes >= 90) AchievementItem("⏳", "Marathoner", "$longestMinutes-minute session")
             }
         }
     }

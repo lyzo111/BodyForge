@@ -11,6 +11,8 @@ object DatabaseFactory {
         appContext = context.applicationContext
     }
 
+    fun context(): Context = appContext
+
     fun create(): BodyForgeDatabase {
         val driver = AndroidSqliteDriver(
             schema = BodyForgeDatabase.Schema,

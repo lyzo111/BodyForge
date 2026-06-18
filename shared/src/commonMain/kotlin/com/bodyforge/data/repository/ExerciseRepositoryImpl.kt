@@ -111,6 +111,22 @@ class ExerciseRepositoryImpl : ExerciseRepository {
         }
     }
 
+    override suspend fun ensureStockExercises() = withContext(Dispatchers.IO) {
+        fun add(id: String, name: String, groups: List<String>, equipment: String, bodyweight: Boolean, rest: Int) {
+            queries.insertOrIgnoreExercise(id, name, Json.encodeToString(groups), "", equipment, if (bodyweight) 1L else 0L, rest.toLong())
+        }
+        add("cable_pullovers", "Cable Pullovers", listOf("Back"), "Cable Machine", false, 90)
+        add("db_pullovers", "DB Pullovers", listOf("Back", "Chest"), "Dumbbells", false, 90)
+        add("hammer_preacher_curls", "Hammer Preacher Curls", listOf("Biceps", "Forearms"), "Dumbbells", false, 60)
+        add("db_chest_flyes", "Dumbbell Chest Flyes", listOf("Chest"), "Dumbbells", false, 60)
+        add("spider_curls", "Spider Curls", listOf("Biceps"), "Dumbbells", false, 60)
+        add("bench_press_db", "Bench Press (Dumbbell)", listOf("Chest", "Triceps"), "Dumbbells", false, 120)
+        add("incline_bench_press_db", "Incline Bench Press (Dumbbell)", listOf("Chest", "Triceps"), "Dumbbells", false, 120)
+        queries.renameStockExercise("Bench Press (Barbell)", "bench_press")
+        queries.renameStockExercise("Incline Bench Press (Barbell)", "incline_bench_press")
+        queries.renameStockExercise("DB Lateral Raises", "lateral_raises")
+    }
+
     override suspend fun getCustomExercises(): List<Exercise> = withContext(Dispatchers.IO) {
         queries.selectCustomExercisesActive().executeAsList().map { entity ->
             Exercise(

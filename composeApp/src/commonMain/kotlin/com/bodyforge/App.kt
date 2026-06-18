@@ -18,6 +18,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import com.bodyforge.data.AppSettings
 import com.bodyforge.presentation.state.SharedWorkoutState
 import com.bodyforge.ui.screens.WorkoutScreen
 import com.bodyforge.ui.screens.TemplatesScreen
@@ -52,6 +53,7 @@ fun App() {
     val error by SharedWorkoutState.error.collectAsState()
 
     var showSplash by remember { mutableStateOf(true) }
+    var showSettings by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(1600)
         showSplash = false
@@ -72,7 +74,7 @@ fun App() {
                 .background(DarkBackground)
         ) {
             Column {
-                HeaderSection()
+                HeaderSection(onSettings = { showSettings = true })
 
                 // Error Display
                 error?.let { errorMessage ->
@@ -88,6 +90,10 @@ fun App() {
 
             if (showSplash) {
                 SplashScreen()
+            }
+
+            if (showSettings) {
+                SettingsDialog(onDismiss = { showSettings = false })
             }
         }
     }
@@ -123,7 +129,87 @@ private fun SplashScreen() {
 }
 
 @Composable
-private fun HeaderSection() {
+private fun SettingsDialog(onDismiss: () -> Unit) {
+    var isolationRest by remember { mutableStateOf(AppSettings.isolationRestSeconds) }
+    var compoundRest by remember { mutableStateOf(AppSettings.compoundRestSeconds) }
+    var vibrate by remember { mutableStateOf(AppSettings.vibrateOnTimerEnd) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("⚙️ Settings", fontWeight = FontWeight.Bold, color = TextPrimary) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("Rest timer", fontWeight = FontWeight.Bold, color = TextSecondary, fontSize = 13.sp)
+                RestSetting("Isolation rest", isolationRest) { isolationRest = it.coerceIn(15, 600) }
+                RestSetting("Compound rest", compoundRest) { compoundRest = it.coerceIn(15, 600) }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Vibrate when timer ends", color = TextPrimary, fontSize = 14.sp)
+                    Switch(
+                        checked = vibrate,
+                        onCheckedChange = { vibrate = it },
+                        colors = SwitchDefaults.colors(checkedThumbColor = AccentOrange, checkedTrackColor = AccentOrange.copy(alpha = 0.5f))
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    AppSettings.isolationRestSeconds = isolationRest
+                    AppSettings.compoundRestSeconds = compoundRest
+                    AppSettings.vibrateOnTimerEnd = vibrate
+                    onDismiss()
+                },
+                colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange),
+                elevation = ButtonDefaults.elevation(0.dp)
+            ) { Text("Save", color = Color.White, fontWeight = FontWeight.Bold) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) } },
+        backgroundColor = CardBackground
+    )
+}
+
+@Composable
+private fun RestSetting(label: String, seconds: Int, onChange: (Int) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, color = TextPrimary, fontSize = 14.sp)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { onChange(seconds - 15) },
+                colors = ButtonDefaults.buttonColors(backgroundColor = SurfaceColor),
+                contentPadding = PaddingValues(0.dp),
+                modifier = Modifier.size(34.dp),
+                elevation = ButtonDefaults.elevation(0.dp)
+            ) { Text("−", color = Color.White, fontSize = 18.sp) }
+            Text(
+                text = "${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}",
+                color = TextPrimary,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(52.dp)
+            )
+            Button(
+                onClick = { onChange(seconds + 15) },
+                colors = ButtonDefaults.buttonColors(backgroundColor = SurfaceColor),
+                contentPadding = PaddingValues(0.dp),
+                modifier = Modifier.size(34.dp),
+                elevation = ButtonDefaults.elevation(0.dp)
+            ) { Text("+", color = Color.White, fontSize = 18.sp) }
+        }
+    }
+}
+
+@Composable
+private fun HeaderSection(onSettings: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -157,11 +243,9 @@ private fun HeaderSection() {
                 )
             }
 
-            Text(
-                text = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(Date()),
-                fontSize = 14.sp,
-                color = TextSecondary
-            )
+            IconButton(onClick = onSettings) {
+                Text(text = "⚙️", fontSize = 22.sp)
+            }
         }
     }
 }

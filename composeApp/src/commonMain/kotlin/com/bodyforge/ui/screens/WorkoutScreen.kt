@@ -293,8 +293,10 @@ private fun ActiveWorkoutView(
                 onUpdateSet = { setId, reps, weight, completed ->
                     viewModel.updateSet(exerciseInWorkout.exercise.id, setId, reps, weight, completed)
                     if (completed == true) {
-                        val rest = exerciseInWorkout.sets.firstOrNull { it.id == setId }?.restTimeSeconds
-                            ?: exerciseInWorkout.exercise.defaultRestTimeSeconds
+                        // Compound lifts (>= 2 muscle groups) rest longer than isolation work.
+                        val isCompound = exerciseInWorkout.exercise.muscleGroups.size >= 2
+                        val rest = if (isCompound) com.bodyforge.data.AppSettings.compoundRestSeconds
+                                   else com.bodyforge.data.AppSettings.isolationRestSeconds
                         SharedWorkoutState.startRest(rest)
                     }
                 },

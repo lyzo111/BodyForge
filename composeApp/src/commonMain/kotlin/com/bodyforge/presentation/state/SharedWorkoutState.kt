@@ -10,6 +10,7 @@ import com.bodyforge.domain.models.TrainingPhase
 import com.bodyforge.domain.models.Workout
 import com.bodyforge.domain.models.WorkoutSet
 import com.bodyforge.domain.models.WorkoutTemplate
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -80,6 +81,10 @@ object SharedWorkoutState {
                 delay(1000)
                 _restRemainingSeconds.value = (_restRemainingSeconds.value - 1).coerceAtLeast(0)
             }
+            // Reached zero on its own (not skipped/cancelled) -> buzz.
+            if (isActive && _restRemainingSeconds.value == 0 && com.bodyforge.data.AppSettings.vibrateOnTimerEnd) {
+                com.bodyforge.data.vibrateDevice()
+            }
         }
     }
 
@@ -100,6 +105,8 @@ object SharedWorkoutState {
         try {
             val exerciseList = exerciseRepo.getAllExercises()
             _exercises.value = exerciseList
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             _error.value = "Failed to load exercises: ${e.message}"
         } finally {
@@ -111,6 +118,8 @@ object SharedWorkoutState {
         try {
             val workout = workoutRepo.getActiveWorkout()
             _activeWorkout.value = workout
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             _error.value = "Failed to load active workout: ${e.message}"
         }
@@ -120,6 +129,8 @@ object SharedWorkoutState {
         try {
             val workouts = workoutRepo.getCompletedWorkouts()
             _completedWorkouts.value = workouts
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             _error.value = "Failed to load workout history: ${e.message}"
         }
@@ -129,6 +140,8 @@ object SharedWorkoutState {
         try {
             val templateList = templateRepo.getAllTemplates()
             _templates.value = templateList
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             _error.value = "Failed to load templates: ${e.message}"
         }
@@ -138,6 +151,8 @@ object SharedWorkoutState {
         try {
             _phases.value = phaseRepo.getAllPhases()
             _activePhase.value = phaseRepo.getActivePhase()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             _error.value = "Failed to load training phases: ${e.message}"
         }
@@ -320,6 +335,13 @@ object SharedWorkoutState {
 
     // Refresh all data
     suspend fun refreshAll() {
+        try {
+            exerciseRepo.ensureStockExercises()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Non-fatal: keep startup going even if the stock-exercise sync fails.
+        }
         loadExercises()
         loadActiveWorkout()
         loadCompletedWorkouts()
