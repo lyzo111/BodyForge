@@ -8,6 +8,7 @@ import com.bodyforge.domain.models.Exercise
 import com.bodyforge.domain.models.PhaseType
 import com.bodyforge.domain.models.TrainingPhase
 import com.bodyforge.domain.models.Workout
+import com.bodyforge.domain.models.WorkoutSet
 import com.bodyforge.domain.models.WorkoutTemplate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -196,6 +197,30 @@ object SharedWorkoutState {
         return "custom_${slug}_${Clock.System.now().toEpochMilliseconds()}"
     }
 
+    // Pre-fills each exercise's sets with the reps/weight logged the last time that exercise was
+    // performed, so a template-started workout opens with last session's numbers instead of blanks.
+    private suspend fun prefillFromHistory(workout: Workout): Workout {
+        val history = workoutRepo.getCompletedWorkouts()
+        if (history.isEmpty()) return workout
+        val updatedExercises = workout.exercises.map { exerciseInWorkout ->
+            val lastPerformed = history.firstNotNullOfOrNull { completed ->
+                completed.exercises.firstOrNull { it.exercise.id == exerciseInWorkout.exercise.id }
+                    ?.takeIf { previous -> previous.sets.any { it.reps > 0 } }
+            } ?: return@map exerciseInWorkout
+            val previousSets = lastPerformed.sets.filter { it.reps > 0 }
+            val prefilledSets = previousSets.mapIndexed { index, source ->
+                WorkoutSet.createEmpty(
+                    exerciseId = exerciseInWorkout.exercise.id,
+                    setNumber = index + 1,
+                    defaultRestTime = exerciseInWorkout.exercise.defaultRestTimeSeconds,
+                    workoutId = workout.id
+                ).copy(reps = source.reps, weightKg = source.weightKg)
+            }
+            exerciseInWorkout.copy(sets = prefilledSets)
+        }
+        return workout.copy(exercises = updatedExercises)
+    }
+
     // Starts a workout from a template: resolves its exercises, records the template origin
     // (so workouts can be compared per template / variation) and makes it the active workout.
     // Returns the started workout, or null if the template has no resolvable exercises.
@@ -207,10 +232,12 @@ object SharedWorkoutState {
                 setError("Template contains no valid exercises")
                 null
             } else {
-                val workout = Workout.create(
-                    template.name.ifEmpty { "Template Workout" },
-                    exercises,
-                    templateId = template.id
+                val workout = prefillFromHistory(
+                    Workout.create(
+                        template.name.ifEmpty { "Template Workout" },
+                        exercises,
+                        templateId = template.id
+                    )
                 )
                 val saved = workoutRepo.saveWorkout(workout)
                 updateActiveWorkout(saved)

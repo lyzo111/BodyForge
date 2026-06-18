@@ -254,6 +254,26 @@ private fun ActiveWorkoutView(
     val scope = rememberCoroutineScope()
     val baseOffset = (if (hasBodyweightExercises) 1 else 0) + 1
 
+    // Rest timer: started when a set is marked done, counts down once per second until skipped or zero.
+    var restTotal by remember { mutableStateOf(0) }
+    var restRemaining by remember { mutableStateOf(0) }
+    var restSession by remember { mutableStateOf(0) }
+
+    LaunchedEffect(restSession) {
+        if (restSession == 0) return@LaunchedEffect
+        while (restRemaining > 0) {
+            kotlinx.coroutines.delay(1000L)
+            restRemaining = (restRemaining - 1).coerceAtLeast(0)
+        }
+    }
+
+    fun startRest(seconds: Int) {
+        if (seconds <= 0) return
+        restTotal = seconds
+        restRemaining = seconds
+        restSession += 1
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         if (workout.exercises.size > 1) {
             ExerciseJumpBar(
@@ -264,7 +284,8 @@ private fun ActiveWorkoutView(
         LazyColumn(
             state = listState,
             modifier = Modifier
-                .fillMaxSize()
+                .weight(1f)
+                .fillMaxWidth()
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -293,6 +314,11 @@ private fun ActiveWorkoutView(
                 availableExercises = availableExercises,
                 onUpdateSet = { setId, reps, weight, completed ->
                     viewModel.updateSet(exerciseInWorkout.exercise.id, setId, reps, weight, completed)
+                    if (completed == true) {
+                        val rest = exerciseInWorkout.sets.firstOrNull { it.id == setId }?.restTimeSeconds
+                            ?: exerciseInWorkout.exercise.defaultRestTimeSeconds
+                        startRest(rest)
+                    }
                 },
                 onAddSet = {
                     viewModel.addSetToExercise(exerciseInWorkout.exercise.id)
@@ -314,6 +340,55 @@ private fun ActiveWorkoutView(
                 }
             )
             }
+        }
+
+        if (restRemaining > 0) {
+            RestTimerBar(
+                remaining = restRemaining,
+                total = restTotal,
+                onAddTime = { restTotal += 15; restRemaining += 15 },
+                onSkip = { restRemaining = 0 }
+            )
+        }
+    }
+}
+
+@Composable
+private fun RestTimerBar(
+    remaining: Int,
+    total: Int,
+    onAddTime: () -> Unit,
+    onSkip: () -> Unit
+) {
+    val minutes = remaining / 60
+    val seconds = remaining % 60
+    val progress = if (total > 0) remaining.toFloat() / total.toFloat() else 0f
+
+    Surface(color = SurfaceColor, elevation = 8.dp) {
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "⏱️ Rest  $minutes:${seconds.toString().padStart(2, '0')}",
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ExerciseActionChip(text = "+15s", color = AccentBlue, onClick = onAddTime)
+                    ExerciseActionChip(text = "Skip", color = AccentRed, onClick = onSkip)
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            LinearProgressIndicator(
+                progress = progress,
+                modifier = Modifier.fillMaxWidth().height(6.dp),
+                color = AccentOrange,
+                backgroundColor = CardBackground
+            )
         }
     }
 }
@@ -458,8 +533,9 @@ private fun ActiveExerciseCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Set count with +/- buttons, placed below the name
+            // Set count controls with skip / substitute actions on the same row
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -481,16 +557,7 @@ private fun ActiveExerciseCard(
                     color = AccentGreen,
                     onClick = onAddSet
                 )
-            }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Skip / Substitute actions
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
                 ExerciseActionChip(
                     text = if (isSkipped) "Resume" else "Skip",
                     color = if (isSkipped) AccentGreen else AccentRed,
@@ -501,13 +568,15 @@ private fun ActiveExerciseCard(
                     color = AccentBlue,
                     onClick = { showSubstitutePicker = true }
                 )
-                if (substitutedFromName != null) {
-                    Text(
-                        text = "↔ from $substitutedFromName",
-                        fontSize = 11.sp,
-                        color = TextSecondary
-                    )
-                }
+            }
+
+            if (substitutedFromName != null) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "↔ from $substitutedFromName",
+                    fontSize = 11.sp,
+                    color = TextSecondary
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))

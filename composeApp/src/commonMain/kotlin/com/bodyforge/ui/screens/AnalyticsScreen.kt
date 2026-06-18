@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bodyforge.presentation.state.SharedWorkoutState
 import com.bodyforge.ui.components.cards.PhaseSection
+import com.bodyforge.ui.components.cards.ExerciseProgressCard
 import com.bodyforge.ui.components.cards.VariationProgressCard
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
@@ -92,6 +93,11 @@ fun AnalyticsScreen() {
             // Quick Stats Row
             item {
                 QuickStatsRow(completedWorkouts)
+            }
+
+            // Progress per exercise (Est. 1RM / top weight / volume), any logged exercise
+            item {
+                ExerciseProgressCard(completedWorkouts)
             }
 
             // Per-variation progress (volume / est. 1RM, selectable per exercise)
