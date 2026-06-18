@@ -66,6 +66,7 @@ fun TemplatesScreen(onStartWorkout: () -> Unit = {}) {
     var editingTemplate by remember { mutableStateOf<WorkoutTemplate?>(null) }
     var deleteConfirmationTemplate by remember { mutableStateOf<WorkoutTemplate?>(null) }
     var startConfirmTemplate by remember { mutableStateOf<WorkoutTemplate?>(null) }
+    var showImportDialog by remember { mutableStateOf(false) }
 
     // Persists a new custom exercise via shared state and returns it so the template dialog
     // can select it immediately without navigating away.
@@ -98,15 +99,20 @@ fun TemplatesScreen(onStartWorkout: () -> Unit = {}) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("📋 My Templates", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-            Button(
-                onClick = { showCreateTemplateDialog = true },
-                colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen),
-                shape = RoundedCornerShape(25.dp),
-                elevation = ButtonDefaults.elevation(0.dp)
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White)
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Create", color = Color.White, fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { showImportDialog = true }) {
+                    Text("Import", color = AccentBlue, fontWeight = FontWeight.Bold)
+                }
+                Button(
+                    onClick = { showCreateTemplateDialog = true },
+                    colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen),
+                    shape = RoundedCornerShape(25.dp),
+                    elevation = ButtonDefaults.elevation(0.dp)
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Create", color = Color.White, fontWeight = FontWeight.Bold)
+                }
             }
         }
 
@@ -135,7 +141,8 @@ fun TemplatesScreen(onStartWorkout: () -> Unit = {}) {
                             exercises = exercises,
                             onStart = { requestStart(template) },
                             onEdit = { editingTemplate = template },
-                            onDelete = { deleteConfirmationTemplate = template }
+                            onDelete = { deleteConfirmationTemplate = template },
+                            onShare = { SharedWorkoutState.shareTemplate(template) }
                         )
                     }
                 }
@@ -146,7 +153,8 @@ fun TemplatesScreen(onStartWorkout: () -> Unit = {}) {
                         exercises = exercises,
                         onStart = { requestStart(template) },
                         onEdit = { editingTemplate = template },
-                        onDelete = { deleteConfirmationTemplate = template }
+                        onDelete = { deleteConfirmationTemplate = template },
+                        onShare = { SharedWorkoutState.shareTemplate(template) }
                     )
                 }
             }
@@ -235,6 +243,60 @@ fun TemplatesScreen(onStartWorkout: () -> Unit = {}) {
             backgroundColor = CardBackground
         )
     }
+
+    if (showImportDialog) {
+        ImportTemplateDialog(
+            onDismiss = { showImportDialog = false },
+            onImport = { text ->
+                val shared = com.bodyforge.data.TemplateSharing.decode(text)
+                if (shared != null) {
+                    coroutineScope.launch { SharedWorkoutState.importSharedTemplate(shared) }
+                    true
+                } else {
+                    false
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun ImportTemplateDialog(onDismiss: () -> Unit, onImport: (String) -> Boolean) {
+    var text by remember { mutableStateOf("") }
+    var showError by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Import Template", fontWeight = FontWeight.Bold, color = TextPrimary) },
+        text = {
+            Column {
+                Text("Paste a shared BodyForge template code.", color = TextSecondary, fontSize = 13.sp)
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it; showError = false },
+                    label = { Text("Template code") },
+                    colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor),
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    maxLines = 6
+                )
+                if (showError) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Couldn't read a template from that text.", color = AccentRed, fontSize = 12.sp)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { if (onImport(text)) onDismiss() else showError = true },
+                enabled = text.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen),
+                elevation = ButtonDefaults.elevation(0.dp)
+            ) { Text("Import", color = Color.White, fontWeight = FontWeight.Bold) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) } },
+        backgroundColor = CardBackground
+    )
 }
 
 @Composable
@@ -252,7 +314,7 @@ private fun EmptyTemplatesCard(onCreateClick: () -> Unit) {
 }
 
 @Composable
-private fun TemplateCard(template: WorkoutTemplate, exercises: List<com.bodyforge.domain.models.Exercise>, onStart: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun TemplateCard(template: WorkoutTemplate, exercises: List<com.bodyforge.domain.models.Exercise>, onStart: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit, onShare: () -> Unit) {
     val templateExercises = remember(template, exercises) { template.exerciseIds.mapNotNull { id -> exercises.firstOrNull { it.id == id } } }
 
     Card(backgroundColor = CardBackground, elevation = 2.dp, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
@@ -275,6 +337,7 @@ private fun TemplateCard(template: WorkoutTemplate, exercises: List<com.bodyforg
                     if (template.description.isNotEmpty()) Text(template.description, fontSize = 12.sp, color = TextSecondary, modifier = Modifier.padding(top = 4.dp))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = onShare) { Text("Share", color = AccentBlue, fontSize = 12.sp) }
                     TextButton(onClick = onEdit) { Text("Edit", color = TextSecondary, fontSize = 12.sp) }
                     TextButton(onClick = onDelete) { Text("Delete", color = AccentRed, fontSize = 12.sp) }
                 }

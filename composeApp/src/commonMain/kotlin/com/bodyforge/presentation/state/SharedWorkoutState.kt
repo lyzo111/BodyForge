@@ -1,5 +1,8 @@
 package com.bodyforge.presentation.state
 
+import com.bodyforge.data.SharedExercise
+import com.bodyforge.data.SharedTemplate
+import com.bodyforge.data.TemplateSharing
 import com.bodyforge.data.repository.ExerciseRepositoryImpl
 import com.bodyforge.data.repository.TrainingPhaseRepositoryImpl
 import com.bodyforge.data.repository.WorkoutRepositoryImpl
@@ -310,6 +313,55 @@ object SharedWorkoutState {
             null
         } finally {
             setLoading(false)
+        }
+    }
+
+    // Builds a portable representation of a template and opens the system share sheet.
+    fun shareTemplate(template: WorkoutTemplate) {
+        val resolved = template.exerciseIds.mapNotNull { id -> _exercises.value.firstOrNull { it.id == id } }
+        val shared = SharedTemplate(
+            name = template.name,
+            description = template.description,
+            exercises = resolved.map { SharedExercise(it.id, it.name, it.muscleGroups, it.equipmentNeeded, it.isBodyweight) }
+        )
+        TemplateSharing.share(TemplateSharing.encode(shared), "BodyForge: ${template.name}")
+    }
+
+    // Rebuilds a shared template locally: reuses matching exercises (by id, then name) and creates
+    // custom ones for anything the user doesn't have yet, then saves the template.
+    suspend fun importSharedTemplate(shared: SharedTemplate): Boolean {
+        return try {
+            val existing = exerciseRepo.getAllExercises()
+            val resolved = shared.exercises.map { se ->
+                existing.firstOrNull { it.id == se.id }
+                    ?: existing.firstOrNull { it.name.equals(se.name, ignoreCase = true) }
+                    ?: exerciseRepo.saveCustomExercise(
+                        Exercise(
+                            id = generateCustomExerciseId(se.name),
+                            name = se.name,
+                            muscleGroups = se.muscleGroups,
+                            equipmentNeeded = se.equipment,
+                            isCustom = true,
+                            isBodyweight = se.isBodyweight
+                        )
+                    )
+            }
+            val template = WorkoutTemplate(
+                id = "template_${Clock.System.now().epochSeconds}",
+                name = shared.name,
+                exerciseIds = resolved.map { it.id },
+                createdAt = Clock.System.now(),
+                description = shared.description
+            )
+            templateRepo.saveTemplate(template)
+            loadExercises()
+            loadTemplates()
+            true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            setError("Failed to import template: ${e.message}")
+            false
         }
     }
 
