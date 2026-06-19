@@ -137,6 +137,21 @@ class WorkoutViewModel : ViewModel() {
         }
     }
 
+    fun updateExerciseNotes(exerciseId: String, notes: String) {
+        val currentWorkout = sharedState.activeWorkout.value ?: return
+        viewModelScope.launch {
+            try {
+                val exerciseInWorkout = currentWorkout.exercises.find { it.exercise.id == exerciseId } ?: return@launch
+                val updated = exerciseInWorkout.copy(notes = notes)
+                val newWorkout = currentWorkout.updateExercise(exerciseId, updated)
+                sharedState.workoutRepo.updateWorkout(newWorkout)
+                sharedState.updateActiveWorkout(newWorkout)
+            } catch (e: Exception) {
+                sharedState.setError("Failed to save notes: ${e.message ?: "Unknown error"}")
+            }
+        }
+    }
+
     fun addSetToExercise(exerciseId: String) {
         val currentWorkout = sharedState.activeWorkout.value ?: return
 

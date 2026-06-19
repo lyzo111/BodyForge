@@ -124,6 +124,11 @@ fun AnalyticsScreen() {
                 AchievementsCard(completedWorkouts)
             }
 
+            // Plateau detection
+            item {
+                PlateauDetectionCard(completedWorkouts)
+            }
+
             // Training Frequency Heatmap (Placeholder)
             item {
                 TrainingFrequencyCard(completedWorkouts)
@@ -592,6 +597,68 @@ private fun AchievementItem(
                 fontSize = 12.sp,
                 color = TextSecondary
             )
+        }
+    }
+}
+
+private data class PlateauInfo(val name: String, val sessionsSince: Int, val best: Double)
+
+@Composable
+private fun PlateauDetectionCard(workouts: List<com.bodyforge.domain.models.Workout>) {
+    val plateaus = remember(workouts) {
+        val sorted = workouts.sortedBy { it.startedAt }
+        // exercise id -> chronological list of (name, best estimated 1RM that session)
+        val byExercise = LinkedHashMap<String, MutableList<Pair<String, Double>>>()
+        sorted.forEach { w ->
+            w.exercises.forEach { eiw ->
+                val best1rm = eiw.sets
+                    .filter { !it.isSkipped && it.reps > 0 && it.weightKg > 0.0 }
+                    .maxOfOrNull { it.weightKg * (1.0 + it.reps / 30.0) }
+                if (best1rm != null && best1rm > 0.0) {
+                    byExercise.getOrPut(eiw.exercise.id) { mutableListOf() }.add(eiw.exercise.name to best1rm)
+                }
+            }
+        }
+        byExercise.values.mapNotNull { sessions ->
+            if (sessions.size < 4) return@mapNotNull null
+            val series = sessions.map { it.second }
+            val best = series.maxOrNull() ?: return@mapNotNull null
+            val lastBestIndex = series.indexOfLast { it >= best - 0.001 }
+            val since = series.size - 1 - lastBestIndex
+            if (since >= 3) PlateauInfo(sessions.last().first, since, best) else null
+        }.sortedByDescending { it.sessionsSince }
+    }
+
+    if (plateaus.isEmpty()) return
+
+    Card(
+        backgroundColor = CardBackground,
+        elevation = 2.dp,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("🧗 Plateau Watch", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                "No new estimated-1RM PR in a while — consider a deload, a rep-range change, or a variation.",
+                fontSize = 12.sp,
+                color = TextSecondary
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            plateaus.take(6).forEach { p ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(p.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
+                        Text("best ${p.best.roundToInt()} kg est. 1RM", fontSize = 11.sp, color = TextSecondary)
+                    }
+                    Text("${p.sessionsSince} sessions", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AccentOrange)
+                }
+            }
         }
     }
 }

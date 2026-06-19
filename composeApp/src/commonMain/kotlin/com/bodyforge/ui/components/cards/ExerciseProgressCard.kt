@@ -3,6 +3,7 @@ package com.bodyforge.ui.components.cards
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -13,16 +14,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bodyforge.domain.models.Exercise
 import com.bodyforge.domain.models.ExerciseInWorkout
 import com.bodyforge.domain.models.Workout
+import kotlinx.datetime.LocalDate
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 private val AccentOrange = Color(0xFFFF6B35)
 private val AccentBlue = Color(0xFF3B82F6)
+private val AccentGreen = Color(0xFF10B981)
 private val TextPrimary = Color(0xFFE2E8F0)
 private val TextSecondary = Color(0xFF94A3B8)
 private val CardBackground = Color(0xFF1E293B)
@@ -34,12 +39,17 @@ private enum class ExerciseMetric(val label: String, val unit: String) {
     VOLUME("Volume", "kg")
 }
 
+private data class ProgressPoint(
+    val value: Double,
+    val date: LocalDate,
+    val exerciseNote: String,
+    val workoutNote: String
+)
+
 // Epley estimated one-rep-max for a single set.
 private fun epley(weightKg: Double, reps: Int): Double =
     if (reps <= 0 || weightKg <= 0.0) 0.0 else weightKg * (1.0 + reps / 30.0)
 
-// Per-workout value for the selected metric, or null when the exercise has no usable data
-// (e.g. it was skipped) so that workout simply drops out of the line.
 private fun metricValue(exercise: ExerciseInWorkout, metric: ExerciseMetric): Double? {
     val sets = exercise.sets.filter { !it.isSkipped && it.reps > 0 }
     if (sets.isEmpty()) return null
@@ -50,9 +60,11 @@ private fun metricValue(exercise: ExerciseInWorkout, metric: ExerciseMetric): Do
     }
 }
 
+private fun formatDate(d: LocalDate): String =
+    "${d.dayOfMonth.toString().padStart(2, '0')}.${d.monthNumber.toString().padStart(2, '0')}.${d.year}"
+
 @Composable
 fun ExerciseProgressCard(workouts: List<Workout>) {
-    // Exercises that appear in completed workouts, most recently trained first.
     val exercises = remember(workouts) {
         workouts.sortedByDescending { it.startedAt }
             .flatMap { w -> w.exercises.map { it.exercise } }
@@ -82,12 +94,16 @@ private fun ExerciseProgressContent(workouts: List<Workout>, exercises: List<Exe
     var selectedExerciseId by remember(exercises) { mutableStateOf(exercises.first().id) }
     var metric by remember { mutableStateOf(ExerciseMetric.EST_1RM) }
 
-    val values = remember(workouts, selectedExerciseId, metric) {
+    val points = remember(workouts, selectedExerciseId, metric) {
         workouts.sortedBy { it.startedAt }.mapNotNull { w ->
-            val exercise = w.exercises.firstOrNull { it.exercise.id == selectedExerciseId } ?: return@mapNotNull null
-            metricValue(exercise, metric)
+            val eiw = w.exercises.firstOrNull { it.exercise.id == selectedExerciseId } ?: return@mapNotNull null
+            val value = metricValue(eiw, metric) ?: return@mapNotNull null
+            ProgressPoint(value, w.startDate, eiw.notes, w.notes)
         }
     }
+
+    // Reset any tapped node when the exercise or metric changes.
+    var selectedIndex by remember(selectedExerciseId, metric) { mutableStateOf<Int?>(null) }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         ChipRow(label = "Exercise") {
@@ -103,23 +119,54 @@ private fun ExerciseProgressContent(workouts: List<Workout>, exercises: List<Exe
 
         Spacer(Modifier.height(4.dp))
 
-        if (values.size < 2) {
+        if (points.size < 2) {
             Text(
                 "Not enough data yet — log this exercise in at least two workouts.",
                 fontSize = 13.sp,
                 color = TextSecondary
             )
         } else {
-            ExerciseLineChart(values)
+            ExerciseLineChart(points, selectedIndex) { selectedIndex = it }
             Spacer(Modifier.height(8.dp))
-            val change = values.last() - values.first()
-            val sign = if (change >= 0) "+" else ""
-            val best = values.maxOrNull() ?: 0.0
+
+            val selected = selectedIndex?.let { points.getOrNull(it) }
+            if (selected != null) {
+                SelectedPointCard(selected, metric.unit)
+            } else {
+                val values = points.map { it.value }
+                val change = values.last() - values.first()
+                val sign = if (change >= 0) "+" else ""
+                val best = values.maxOrNull() ?: 0.0
+                Text(
+                    "${points.size} sessions · latest ${values.last().roundToInt()} ${metric.unit} · best ${best.roundToInt()} ${metric.unit} · $sign${change.roundToInt()} ${metric.unit} overall",
+                    fontSize = 12.sp,
+                    color = TextSecondary
+                )
+                Text("Tap a point to read that day's notes.", fontSize = 11.sp, color = TextSecondary.copy(alpha = 0.7f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelectedPointCard(point: ProgressPoint, unit: String) {
+    Card(backgroundColor = SurfaceColor, shape = RoundedCornerShape(8.dp), elevation = 0.dp, modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
-                "${values.size} sessions · latest ${values.last().roundToInt()} ${metric.unit} · best ${best.roundToInt()} ${metric.unit} · $sign${change.roundToInt()} ${metric.unit} overall",
-                fontSize = 12.sp,
-                color = TextSecondary
+                "${formatDate(point.date)} · ${point.value.roundToInt()} $unit",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = AccentGreen
             )
+            if (point.exerciseNote.isNotBlank()) {
+                Text("📝 ${point.exerciseNote}", fontSize = 13.sp, color = TextPrimary)
+            }
+            if (point.workoutNote.isNotBlank()) {
+                Text("Workout: ${point.workoutNote}", fontSize = 12.sp, color = TextSecondary)
+            }
+            if (point.exerciseNote.isBlank() && point.workoutNote.isBlank()) {
+                Text("No notes recorded for this day.", fontSize = 12.sp, color = TextSecondary)
+            }
         }
     }
 }
@@ -154,8 +201,27 @@ private fun SelectChip(text: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ExerciseLineChart(values: List<Double>) {
-    Canvas(modifier = Modifier.fillMaxWidth().height(180.dp)) {
+private fun ExerciseLineChart(points: List<ProgressPoint>, selectedIndex: Int?, onSelect: (Int) -> Unit) {
+    val values = points.map { it.value }
+    Canvas(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(180.dp)
+            .pointerInput(points.size) {
+                detectTapGestures { tap ->
+                    val n = points.size
+                    if (n == 0) return@detectTapGestures
+                    val leftPad = 8.dp.toPx()
+                    val rightPad = 8.dp.toPx()
+                    val chartW = size.width - leftPad - rightPad
+                    val nearest = (0 until n).minByOrNull { i ->
+                        val x = leftPad + if (n == 1) chartW / 2f else chartW * i / (n - 1)
+                        abs(tap.x - x)
+                    } ?: 0
+                    onSelect(nearest)
+                }
+            }
+    ) {
         val n = values.size
         val leftPad = 8.dp.toPx()
         val rightPad = 8.dp.toPx()
@@ -170,22 +236,18 @@ private fun ExerciseLineChart(values: List<Double>) {
         fun xAt(i: Int): Float = leftPad + if (n == 1) chartW / 2f else chartW * i / (n - 1)
         fun yAt(v: Double): Float = topPad + chartH * (1f - ((v - minV) / range).toFloat())
 
-        drawLine(
-            color = SurfaceColor,
-            start = Offset(leftPad, topPad + chartH),
-            end = Offset(leftPad + chartW, topPad + chartH),
-            strokeWidth = 1.dp.toPx()
-        )
+        drawLine(SurfaceColor, Offset(leftPad, topPad + chartH), Offset(leftPad + chartW, topPad + chartH), strokeWidth = 1.dp.toPx())
         for (i in 0 until n - 1) {
-            drawLine(
-                color = AccentBlue,
-                start = Offset(xAt(i), yAt(values[i])),
-                end = Offset(xAt(i + 1), yAt(values[i + 1])),
-                strokeWidth = 3.dp.toPx()
-            )
+            drawLine(AccentBlue, Offset(xAt(i), yAt(values[i])), Offset(xAt(i + 1), yAt(values[i + 1])), strokeWidth = 3.dp.toPx())
         }
         values.forEachIndexed { i, v ->
-            drawCircle(color = AccentOrange, radius = 5.dp.toPx(), center = Offset(xAt(i), yAt(v)))
+            if (i == selectedIndex) {
+                drawLine(TextSecondary, Offset(xAt(i), topPad), Offset(xAt(i), topPad + chartH), strokeWidth = 1.dp.toPx())
+                drawCircle(Color.White, radius = 8.dp.toPx(), center = Offset(xAt(i), yAt(v)))
+                drawCircle(AccentOrange, radius = 5.dp.toPx(), center = Offset(xAt(i), yAt(v)))
+            } else {
+                drawCircle(AccentOrange, radius = 5.dp.toPx(), center = Offset(xAt(i), yAt(v)))
+            }
         }
     }
 }

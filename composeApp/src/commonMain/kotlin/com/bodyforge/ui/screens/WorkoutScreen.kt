@@ -317,7 +317,8 @@ private fun ActiveWorkoutView(
                 },
                 onSubstitute = { newExercise ->
                     viewModel.substituteExercise(exerciseInWorkout.exercise.id, newExercise)
-                }
+                },
+                onNotesChange = { viewModel.updateExerciseNotes(exerciseInWorkout.exercise.id, it) }
             )
             }
         }
@@ -464,7 +465,8 @@ private fun ActiveExerciseCard(
     onAddSet: () -> Unit,
     onRemoveSet: () -> Unit,
     onSkipToggle: () -> Unit,
-    onSubstitute: (Exercise) -> Unit
+    onSubstitute: (Exercise) -> Unit,
+    onNotesChange: (String) -> Unit
 ) {
     val exercise = exerciseInWorkout.exercise
     val isSkipped = exerciseInWorkout.sets.isNotEmpty() && exerciseInWorkout.sets.all { it.isSkipped }
@@ -586,6 +588,13 @@ private fun ActiveExerciseCard(
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            ExerciseNotesField(
+                exerciseId = exercise.id,
+                notes = exerciseInWorkout.notes,
+                onNotesChange = onNotesChange
+            )
         }
     }
 
@@ -597,6 +606,32 @@ private fun ActiveExerciseCard(
             onPick = { picked ->
                 onSubstitute(picked)
                 showSubstitutePicker = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun ExerciseNotesField(exerciseId: String, notes: String, onNotesChange: (String) -> Unit) {
+    var text by remember(exerciseId) { mutableStateOf(notes) }
+    // Debounce persistence so the workout isn't rewritten on every keystroke.
+    LaunchedEffect(exerciseId, text) {
+        if (text != notes) {
+            kotlinx.coroutines.delay(700L)
+            onNotesChange(text)
+        }
+    }
+    Column {
+        Text("📝 Notes", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = TextSecondary)
+        Spacer(modifier = Modifier.height(4.dp))
+        BasicTextField(
+            value = text,
+            onValueChange = { text = it },
+            modifier = Modifier.fillMaxWidth().background(SurfaceColor, RoundedCornerShape(8.dp)).padding(10.dp),
+            textStyle = TextStyle(fontSize = 13.sp, color = TextPrimary),
+            decorationBox = { inner ->
+                if (text.isEmpty()) Text("How it felt, form cues, sleep, etc.", color = TextSecondary.copy(alpha = 0.7f), fontSize = 13.sp)
+                inner()
             }
         )
     }

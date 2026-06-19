@@ -69,7 +69,7 @@ class WorkoutRepositoryImpl(
                     rest_time_seconds = set.restTimeSeconds.toLong(),
                     completed = if (set.completed) 1L else 0L,
                     completed_at = set.completedAt?.epochSeconds,
-                    notes = set.notes,
+                    notes = if (setIndex == 0) exerciseInWorkout.notes else set.notes,
                     status = set.status.name,
                     original_exercise_id = set.originalExerciseId
                 )
@@ -129,7 +129,8 @@ class WorkoutRepositoryImpl(
             ExerciseInWorkout(
                 exercise = exercise,
                 sets = sets,
-                orderInWorkout = setEntities.firstOrNull()?.order_in_workout?.toInt() ?: 0
+                orderInWorkout = setEntities.firstOrNull()?.order_in_workout?.toInt() ?: 0,
+                notes = sets.firstOrNull()?.notes ?: ""
             )
         }
 
@@ -201,7 +202,7 @@ class WorkoutRepositoryImpl(
                     rest_time_seconds = set.restTimeSeconds.toLong(),
                     completed = if (set.completed) 1L else 0L,
                     completed_at = set.completedAt?.epochSeconds,
-                    notes = set.notes,
+                    notes = if (setIndex == 0) exerciseInWorkout.notes else set.notes,
                     status = set.status.name,
                     original_exercise_id = set.originalExerciseId
                 )
