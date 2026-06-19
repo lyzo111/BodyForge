@@ -39,7 +39,7 @@ private enum class ExerciseMetric(val label: String, val unit: String) {
     VOLUME("Volume", "kg")
 }
 
-private data class ProgressPoint(
+private data class ExercisePoint(
     val value: Double,
     val date: LocalDate,
     val exerciseNote: String,
@@ -98,7 +98,7 @@ private fun ExerciseProgressContent(workouts: List<Workout>, exercises: List<Exe
         workouts.sortedBy { it.startedAt }.mapNotNull { w ->
             val eiw = w.exercises.firstOrNull { it.exercise.id == selectedExerciseId } ?: return@mapNotNull null
             val value = metricValue(eiw, metric) ?: return@mapNotNull null
-            ProgressPoint(value, w.startDate, eiw.notes, w.notes)
+            ExercisePoint(value, w.startDate, eiw.notes, w.notes)
         }
     }
 
@@ -149,7 +149,7 @@ private fun ExerciseProgressContent(workouts: List<Workout>, exercises: List<Exe
 }
 
 @Composable
-private fun SelectedPointCard(point: ProgressPoint, unit: String) {
+private fun SelectedPointCard(point: ExercisePoint, unit: String) {
     Card(backgroundColor = SurfaceColor, shape = RoundedCornerShape(8.dp), elevation = 0.dp, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
@@ -201,7 +201,7 @@ private fun SelectChip(text: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ExerciseLineChart(points: List<ProgressPoint>, selectedIndex: Int?, onSelect: (Int) -> Unit) {
+private fun ExerciseLineChart(points: List<ExercisePoint>, selectedIndex: Int?, onSelect: (Int) -> Unit) {
     val values = points.map { it.value }
     Canvas(
         modifier = Modifier
