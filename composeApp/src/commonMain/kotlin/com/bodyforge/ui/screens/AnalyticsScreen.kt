@@ -25,9 +25,10 @@ import com.bodyforge.ui.components.cards.PhaseSection
 import com.bodyforge.ui.components.cards.ExerciseProgressCard
 import com.bodyforge.ui.components.cards.VariationProgressCard
 import kotlinx.datetime.Clock
-import kotlinx.datetime.DatePeriod
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.isoDayNumber
+import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
 import kotlinx.datetime.toLocalDateTime
 import java.text.SimpleDateFormat
@@ -619,11 +620,11 @@ private fun TrainingFrequencyCard(workouts: List<com.bodyforge.domain.models.Wor
             val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
             val counts = remember(workouts) { workouts.groupingBy { it.startDate }.eachCount() }
             val startMonday = remember(today) {
-                val mondayThisWeek = today.minus(DatePeriod(days = today.dayOfWeek.isoDayNumber - 1))
-                mondayThisWeek.minus(DatePeriod(days = (weeks - 1) * 7))
+                val mondayThisWeek = today.plus(-(today.dayOfWeek.isoDayNumber - 1), DateTimeUnit.DAY)
+                mondayThisWeek.plus(-((weeks - 1) * 7), DateTimeUnit.DAY)
             }
             val last30 = remember(counts, today) {
-                val from = today.minus(DatePeriod(days = 29))
+                val from = today.plus(-29, DateTimeUnit.DAY)
                 counts.filterKeys { it >= from }.values.sum()
             }
 
@@ -640,7 +641,7 @@ private fun TrainingFrequencyCard(workouts: List<com.bodyforge.domain.models.Wor
                 for (col in 0 until weeks) {
                     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         for (row in 0..6) {
-                            val date = startMonday.plus(DatePeriod(days = col * 7 + row))
+                            val date = startMonday.plus(col * 7 + row, DateTimeUnit.DAY)
                             val count = if (date > today) -1 else (counts[date] ?: 0)
                             val cellColor = when {
                                 count < 0 -> Color.Transparent
