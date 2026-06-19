@@ -249,49 +249,22 @@ private fun CurrentPhaseCard() {
 
 @Composable
 private fun QuickStatsRow(workouts: List<com.bodyforge.domain.models.Workout>) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        // Total Workouts
-        QuickStatCard(
-            value = "${workouts.size}",
-            label = "Workouts",
-            color = AccentBlue,
-            modifier = Modifier.weight(1f)
-        )
+    val totalVolume = workouts.sumOf { it.totalVolumePerformed }.roundToInt()
+    val avgDuration = workouts.mapNotNull { it.durationMinutes }.average().takeIf { !it.isNaN() } ?: 0.0
+    val thisWeekWorkouts = workouts.filter {
+        val workoutDate = it.startDate
+        val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+        val daysDiff = today.toEpochDays() - workoutDate.toEpochDays()
+        daysDiff <= 7
+    }.size
 
-        // Total Volume
-        val totalVolume = workouts.sumOf { it.totalVolumePerformed }.roundToInt()
-        QuickStatCard(
-            value = "${totalVolume}kg",
-            label = "Total Volume",
-            color = AccentGreen,
-            modifier = Modifier.weight(1f)
-        )
-
-        // Avg Duration
-        val avgDuration = workouts.mapNotNull { it.durationMinutes }.average().takeIf { !it.isNaN() } ?: 0.0
-        QuickStatCard(
-            value = "${avgDuration.roundToInt()}m",
-            label = "Avg Duration",
-            color = AccentOrange,
-            modifier = Modifier.weight(1f)
-        )
-
-        // This Week
-        val thisWeekWorkouts = workouts.filter {
-            val workoutDate = it.startDate
-            val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
-            val daysDiff = today.toEpochDays() - workoutDate.toEpochDays()
-            daysDiff <= 7
-        }.size
-        QuickStatCard(
-            value = "$thisWeekWorkouts",
-            label = "This Week",
-            color = AccentPurple,
-            modifier = Modifier.weight(1f)
-        )
+    // Wider fixed-width cards in a horizontally scrollable row so labels like "Total Volume" and
+    // "Avg Duration" are shown in full instead of being squeezed and clipped.
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        item { QuickStatCard(value = "${workouts.size}", label = "Workouts", color = AccentBlue) }
+        item { QuickStatCard(value = "${totalVolume}kg", label = "Total Volume", color = AccentGreen) }
+        item { QuickStatCard(value = "${avgDuration.roundToInt()}m", label = "Avg Duration", color = AccentOrange) }
+        item { QuickStatCard(value = "$thisWeekWorkouts", label = "This Week", color = AccentPurple) }
     }
 }
 
@@ -304,9 +277,9 @@ private fun QuickStatCard(
 ) {
     Card(
         backgroundColor = color.copy(alpha = 0.1f),
-        elevation = 1.dp,
+        elevation = 0.dp,
         shape = RoundedCornerShape(8.dp),
-        modifier = modifier
+        modifier = modifier.width(120.dp)
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
@@ -322,8 +295,10 @@ private fun QuickStatCard(
             )
             Text(
                 text = label,
-                fontSize = 10.sp,
-                color = TextSecondary
+                fontSize = 12.sp,
+                color = TextSecondary,
+                maxLines = 1,
+                softWrap = false
             )
         }
     }

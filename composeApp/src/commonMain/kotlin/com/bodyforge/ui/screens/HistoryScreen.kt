@@ -119,6 +119,7 @@ private fun EmptyHistoryCard() {
 
 @Composable
 private fun HistoryWorkoutCard(workout: Workout, onDelete: () -> Unit, onEdit: () -> Unit) {
+    var showAllExercises by remember { mutableStateOf(false) }
     Card(backgroundColor = CardBackground, elevation = 2.dp, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
@@ -146,10 +147,19 @@ private fun HistoryWorkoutCard(workout: Workout, onDelete: () -> Unit, onEdit: (
                 Spacer(modifier = Modifier.height(12.dp))
                 Column {
                     Text("Exercises:", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = TextSecondary)
-                    workout.exercises.take(3).forEach { exerciseInWorkout ->
+                    val shownExercises = if (showAllExercises) workout.exercises else workout.exercises.take(3)
+                    shownExercises.forEach { exerciseInWorkout ->
                         Text("• ${exerciseInWorkout.exercise.name} (${exerciseInWorkout.performedSets} sets)", fontSize = 12.sp, color = TextSecondary, modifier = Modifier.padding(start = 8.dp, top = 2.dp))
                     }
-                    if (workout.exercises.size > 3) Text("... and ${workout.exercises.size - 3} more", fontSize = 12.sp, color = TextSecondary, modifier = Modifier.padding(start = 8.dp, top = 2.dp))
+                    if (workout.exercises.size > 3) {
+                        Text(
+                            if (showAllExercises) "Show less" else "Show more",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentBlue,
+                            modifier = Modifier.padding(start = 8.dp, top = 4.dp).clickable { showAllExercises = !showAllExercises }
+                        )
+                    }
                 }
             }
 
@@ -166,7 +176,7 @@ private fun WorkoutStat(icon: String, value: String, label: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(icon, fontSize = 16.sp)
         Text(value, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-        Text(label, fontSize = 10.sp, color = TextSecondary)
+        Text(label, fontSize = 12.sp, color = TextSecondary)
     }
 }
 
