@@ -63,8 +63,8 @@ android {
         applicationId = "com.bodyforge"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 18
-        versionName = "3.2"
+        versionCode = 19
+        versionName = "3.3"
     }
 
     // Stable signing key checked into the repo so every CI build is signed identically.

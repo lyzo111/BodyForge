@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -24,6 +25,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.bodyforge.presentation.state.SharedWorkoutState
 import com.bodyforge.domain.models.TrainingPhase
 import com.bodyforge.domain.models.analyzePhase
@@ -183,6 +186,9 @@ fun AnalyticsScreen(listState: LazyListState) {
             item {
                 TrainingFrequencyCard(
                     completedWorkouts,
+                    templates,
+                    phases,
+                    splitAssignments,
                     expandedSections["frequency"] == true
                 ) { expandedSections["frequency"] = !(expandedSections["frequency"] == true) }
             }
@@ -689,7 +695,15 @@ private fun PlateauDetectionCard(plateaus: List<PlateauInfo>, expanded: Boolean,
 }
 
 @Composable
-private fun TrainingFrequencyCard(workouts: List<com.bodyforge.domain.models.Workout>, expanded: Boolean, onToggle: () -> Unit) {
+private fun TrainingFrequencyCard(
+    workouts: List<com.bodyforge.domain.models.Workout>,
+    templates: List<com.bodyforge.domain.models.WorkoutTemplate>,
+    phases: List<TrainingPhase>,
+    splitAssignments: Map<String, String>,
+    expanded: Boolean,
+    onToggle: () -> Unit
+) {
+    var showFreqDialog by remember { mutableStateOf(false) }
     CollapsibleCard("Training Frequency", expanded, onToggle) {
         val weeks = 16
         val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
@@ -712,7 +726,7 @@ private fun TrainingFrequencyCard(workouts: List<com.bodyforge.domain.models.Wor
         Spacer(modifier = Modifier.height(12.dp))
 
         // GitHub-style heatmap: one column per week, one cell per day, shaded by workout count.
-        Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        Row(modifier = Modifier.clickable { showFreqDialog = true }, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
             for (col in 0 until weeks) {
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     for (row in 0..6) {
@@ -738,6 +752,117 @@ private fun TrainingFrequencyCard(workouts: List<com.bodyforge.domain.models.Wor
             Box(modifier = Modifier.size(10.dp).background(AccentGreen.copy(alpha = 0.55f), RoundedCornerShape(2.dp)))
             Box(modifier = Modifier.size(10.dp).background(AccentGreen, RoundedCornerShape(2.dp)))
             Text("More", fontSize = 10.sp, color = TextSecondary)
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+        Button(
+            onClick = { showFreqDialog = true },
+            colors = ButtonDefaults.buttonColors(backgroundColor = SurfaceColor),
+            shape = RoundedCornerShape(8.dp),
+            elevation = ButtonDefaults.elevation(0.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Count by range, phase, template or split", color = TextPrimary, fontWeight = FontWeight.Medium)
+        }
+    }
+
+    if (showFreqDialog) {
+        FrequencyDialog(
+            workouts = workouts,
+            templates = templates,
+            phases = phases,
+            splitAssignments = splitAssignments,
+            onDismiss = { showFreqDialog = false }
+        )
+    }
+}
+
+private enum class FreqRange(val label: String, val days: Int?) {
+    W7("7 days", 7), D30("30 days", 30), D90("90 days", 90), Y365("1 year", 365), ALL("All time", null)
+}
+
+@Composable
+private fun FreqChipRow(label: String, content: @Composable RowScope.() -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, fontSize = 12.sp, color = TextSecondary)
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            content = content
+        )
+    }
+}
+
+// Tap-through from the Training Frequency card: how many workouts fall in a chosen window,
+// optionally narrowed to a phase, template or split.
+@Composable
+private fun FrequencyDialog(
+    workouts: List<com.bodyforge.domain.models.Workout>,
+    templates: List<com.bodyforge.domain.models.WorkoutTemplate>,
+    phases: List<TrainingPhase>,
+    splitAssignments: Map<String, String>,
+    onDismiss: () -> Unit
+) {
+    var range by remember { mutableStateOf(FreqRange.D30) }
+    var phaseId by remember { mutableStateOf<String?>(null) }
+    var templateId by remember { mutableStateOf<String?>(null) }
+    var split by remember { mutableStateOf<String?>(null) }
+
+    val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
+    val splitNames = remember(splitAssignments) { splitAssignments.values.filter { it.isNotBlank() }.distinct().sorted() }
+
+    val from = range.days?.let { today.plus(-it, DateTimeUnit.DAY) }
+    val phase = phases.firstOrNull { it.id == phaseId }
+    val matched = workouts.filter { w ->
+        (from == null || w.startDate >= from) &&
+        (phase == null || (w.startDate >= phase.startDate && (phase.endDate?.let { e -> w.startDate <= e } ?: true))) &&
+        (templateId == null || w.templateId == templateId) &&
+        (split == null || (w.templateId != null && splitAssignments[w.templateId] == split))
+    }
+    val count = matched.size
+
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(shape = RoundedCornerShape(16.dp), color = CardBackground, modifier = Modifier.fillMaxWidth(0.95f).fillMaxHeight(0.85f)) {
+            Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
+                Text("Workout frequency", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 20.sp)
+                Spacer(modifier = Modifier.height(12.dp))
+                Column(
+                    modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("$count", fontSize = 40.sp, fontWeight = FontWeight.Bold, color = AccentOrange)
+                        Text(if (count == 1) "workout" else "workouts", fontSize = 16.sp, color = TextSecondary, modifier = Modifier.padding(bottom = 6.dp))
+                    }
+                    FreqChipRow("Time range") {
+                        FreqRange.values().forEach { r -> FilterChip(r.label, r == range) { range = r } }
+                    }
+                    if (phases.isNotEmpty()) {
+                        FreqChipRow("Phase") {
+                            FilterChip("Any", phaseId == null) { phaseId = null }
+                            phases.forEach { p -> FilterChip("${p.phaseType.emoji} ${p.name}", phaseId == p.id) { phaseId = p.id } }
+                        }
+                    }
+                    if (templates.isNotEmpty()) {
+                        FreqChipRow("Template") {
+                            FilterChip("Any", templateId == null) { templateId = null }
+                            templates.forEach { t -> FilterChip(t.name, templateId == t.id) { templateId = t.id } }
+                        }
+                    }
+                    if (splitNames.isNotEmpty()) {
+                        FreqChipRow("Split") {
+                            FilterChip("Any", split == null) { split = null }
+                            splitNames.forEach { s -> FilterChip(s, split == s) { split = s } }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange), elevation = ButtonDefaults.elevation(0.dp)) {
+                        Text("Done", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
         }
     }
 }
