@@ -14,6 +14,7 @@ import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -274,10 +275,10 @@ private fun BreakOverBanner(
 @Composable
 private fun MainContent(hasActiveWorkout: Boolean, onSettings: () -> Unit) {
     val tabs = listOf(
-        TabItem("workout", "🏋️💪", "Workout"),
+        TabItem("workout", "🏋️", "Workout"),
         TabItem("templates", "📋", "Templates"),
         TabItem("analytics", "📈", "Analytics"),
-        TabItem("history", "📊", "History")
+        TabItem("history", "🕘", "History")
     )
 
     val pagerState = rememberPagerState(
@@ -385,38 +386,30 @@ private fun TabButton(
     modifier: Modifier = Modifier,
     showBadge: Boolean = false
 ) {
-    Box(
-        modifier = modifier.padding(4.dp)
-    ) {
-        TextButton(
-            onClick = onClick,
+    Box(modifier = modifier.padding(horizontal = 2.dp)) {
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    color = if (isActive) AccentOrange.copy(alpha = 0.2f) else Color.Transparent,
-                    shape = RoundedCornerShape(8.dp)
-                ),
-            colors = ButtonDefaults.textButtonColors(
-                contentColor = if (isActive) AccentOrange else TextSecondary
-            )
+                .clip(RoundedCornerShape(10.dp))
+                .clickable(onClick = onClick)
+                .background(if (isActive) AccentOrange.copy(alpha = 0.15f) else Color.Transparent)
+                .padding(vertical = 7.dp, horizontal = 2.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                Text(
-                    text = tab.icon,
-                    fontSize = 18.sp
-                )
-                Text(
-                    text = tab.title,
-                    fontSize = 11.sp,
-                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    softWrap = false
-                )
-            }
+            Text(
+                text = tab.icon,
+                fontSize = 16.sp
+            )
+            Text(
+                text = tab.title,
+                fontSize = 11.sp,
+                fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                color = if (isActive) AccentOrange else TextSecondary,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                softWrap = false
+            )
         }
 
         if (showBadge) {

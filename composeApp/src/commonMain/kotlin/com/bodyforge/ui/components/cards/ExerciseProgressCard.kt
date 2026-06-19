@@ -71,20 +71,30 @@ fun ExerciseProgressCard(workouts: List<Workout>) {
             .flatMap { w -> w.exercises.map { it.exercise } }
             .distinctBy { it.id }
     }
+    var expanded by remember { mutableStateOf(false) }
 
     Card(
         backgroundColor = CardBackground,
-        elevation = 2.dp,
+        elevation = 0.dp,
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Exercise Progress", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-            Spacer(Modifier.height(12.dp))
-            if (exercises.isEmpty()) {
-                Text("Complete a workout to track progress per exercise.", fontSize = 13.sp, color = TextSecondary)
-            } else {
-                ExerciseProgressContent(workouts, exercises)
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Exercise Progress", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Text(if (expanded) "▾" else "▸", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AccentBlue)
+            }
+            if (expanded) {
+                Spacer(Modifier.height(12.dp))
+                if (exercises.isEmpty()) {
+                    Text("Complete a workout to track progress per exercise.", fontSize = 13.sp, color = TextSecondary)
+                } else {
+                    ExerciseProgressContent(workouts, exercises)
+                }
             }
         }
     }

@@ -1,6 +1,7 @@
 package com.bodyforge.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -53,9 +54,10 @@ fun AnalyticsScreen(listState: LazyListState) {
     val templates by SharedWorkoutState.templates.collectAsState()
     val isLoading by SharedWorkoutState.isLoading.collectAsState()
 
-    // Initialize data
+    // Completed workouts already stay fresh through app start and workout completion. Re-fetching
+    // on every visit swapped the list reference out and bounced the scroll position to the top.
     LaunchedEffect(Unit) {
-        SharedWorkoutState.loadCompletedWorkouts()
+        if (completedWorkouts.isEmpty()) SharedWorkoutState.loadCompletedWorkouts()
         SharedWorkoutState.loadTemplates()
         SharedWorkoutState.loadPhases()
     }
@@ -137,6 +139,37 @@ fun AnalyticsScreen(listState: LazyListState) {
             // Training Frequency Heatmap (Placeholder)
             item {
                 TrainingFrequencyCard(completedWorkouts)
+            }
+        }
+    }
+}
+
+// Section card whose body stays hidden until the header is tapped — turns each graph into a
+// dropdown so the Analytics page reads as a short list of sections by default.
+@Composable
+private fun CollapsibleCard(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Card(
+        backgroundColor = CardBackground,
+        elevation = 0.dp,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Text(if (expanded) "▾" else "▸", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AccentBlue)
+            }
+            if (expanded) {
+                Spacer(modifier = Modifier.height(16.dp))
+                content()
             }
         }
     }
@@ -298,33 +331,8 @@ private fun QuickStatCard(
 
 @Composable
 private fun VolumeProgressionCard(workouts: List<com.bodyforge.domain.models.Workout>) {
-    Card(
-        backgroundColor = CardBackground,
-        elevation = 2.dp,
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Volume Progression",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Simple volume chart (placeholder)
-            VolumeChart(workouts)
-        }
+    CollapsibleCard(title = "Volume Progression") {
+        VolumeChart(workouts)
     }
 }
 
@@ -381,53 +389,35 @@ private fun VolumeChart(workouts: List<com.bodyforge.domain.models.Workout>) {
 
 @Composable
 private fun MuscleGroupBalanceCard(workouts: List<com.bodyforge.domain.models.Workout>) {
-    Card(
-        backgroundColor = CardBackground,
-        elevation = 2.dp,
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(
-                text = "Muscle Group Balance",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Calculate muscle group frequencies
-            val muscleGroupCounts = mutableMapOf<String, Int>()
-            workouts.forEach { workout ->
-                workout.exercises.forEach { exerciseInWorkout ->
-                    exerciseInWorkout.exercise.muscleGroups.forEach { muscleGroup ->
-                        muscleGroupCounts[muscleGroup] = muscleGroupCounts.getOrDefault(muscleGroup, 0) + 1
-                    }
+    CollapsibleCard(title = "Muscle Group Balance") {
+        // Calculate muscle group frequencies
+        val muscleGroupCounts = mutableMapOf<String, Int>()
+        workouts.forEach { workout ->
+            workout.exercises.forEach { exerciseInWorkout ->
+                exerciseInWorkout.exercise.muscleGroups.forEach { muscleGroup ->
+                    muscleGroupCounts[muscleGroup] = muscleGroupCounts.getOrDefault(muscleGroup, 0) + 1
                 }
             }
+        }
 
-            val maxCount = muscleGroupCounts.values.maxOrNull() ?: 1
-            val topMuscleGroups = muscleGroupCounts.toList().sortedByDescending { it.second }.take(6)
+        val maxCount = muscleGroupCounts.values.maxOrNull() ?: 1
+        val topMuscleGroups = muscleGroupCounts.toList().sortedByDescending { it.second }.take(6)
 
-            if (topMuscleGroups.isEmpty()) {
-                Text(
-                    text = "No muscle group data available",
-                    color = TextSecondary,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
+        if (topMuscleGroups.isEmpty()) {
+            Text(
+                text = "No muscle group data available",
+                color = TextSecondary,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+        } else {
+            topMuscleGroups.forEach { (muscleGroup, count) ->
+                MuscleGroupBar(
+                    muscleGroup = muscleGroup,
+                    count = count,
+                    maxCount = maxCount
                 )
-            } else {
-                topMuscleGroups.forEach { (muscleGroup, count) ->
-                    MuscleGroupBar(
-                        muscleGroup = muscleGroup,
-                        count = count,
-                        maxCount = maxCount
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
+                Spacer(modifier = Modifier.height(8.dp))
             }
         }
     }
@@ -483,75 +473,57 @@ private fun MuscleGroupBar(
 
 @Composable
 private fun AchievementsCard(workouts: List<com.bodyforge.domain.models.Workout>) {
-    Card(
-        backgroundColor = CardBackground,
-        elevation = 2.dp,
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
+    CollapsibleCard(title = "Recent Achievements") {
+        if (workouts.isEmpty()) {
             Text(
-                text = "Recent Achievements",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary
+                text = "Complete workouts to unlock achievements!",
+                color = TextSecondary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        } else {
+            // Milestones derived from logged data
+            AchievementItem(
+                title = "Consistency King",
+                description = "${workouts.size} workouts completed"
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            if (workouts.isEmpty()) {
-                Text(
-                    text = "Complete workouts to unlock achievements!",
-                    color = TextSecondary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            } else {
-                // Milestones derived from logged data
+            if (workouts.size >= 5) {
                 AchievementItem(
-                    title = "Consistency King",
-                    description = "${workouts.size} workouts completed"
+                    title = "Dedication Unlocked",
+                    description = "5+ workouts completed"
                 )
-
-                if (workouts.size >= 5) {
-                    AchievementItem(
-                        title = "Dedication Unlocked",
-                        description = "5+ workouts completed"
-                    )
-                }
-
-                val totalVolume = workouts.sumOf { it.totalVolumePerformed }
-                if (totalVolume >= 10000) {
-                    AchievementItem(
-                        title = "Volume Monster",
-                        description = "${totalVolume.roundToInt()}kg total volume moved"
-                    )
-                }
-
-                if (workouts.size >= 10) AchievementItem("Double Digits", "10+ workouts completed")
-                if (workouts.size >= 25) AchievementItem("Quarter Century", "25+ workouts completed")
-                if (workouts.size >= 50) AchievementItem("Half Centurion", "50+ workouts completed")
-                if (totalVolume >= 50000) AchievementItem("Heavy Lifter", "50,000kg+ total volume")
-                if (totalVolume >= 100000) AchievementItem("Iron Titan", "100,000kg+ total volume")
-
-                val totalSets = workouts.sumOf { it.performedSets }
-                if (totalSets >= 100) AchievementItem("Century of Sets", "$totalSets sets logged")
-                if (totalSets >= 500) AchievementItem("Set Machine", "$totalSets sets logged")
-
-                val totalReps = workouts.sumOf { w -> w.exercises.sumOf { e -> e.sets.sumOf { it.reps } } }
-                if (totalReps >= 1000) AchievementItem("Rep Grinder", "$totalReps total reps performed")
-
-                val heaviestSet = workouts.flatMap { it.exercises }.flatMap { it.sets }.maxOfOrNull { it.weightKg } ?: 0.0
-                if (heaviestSet >= 100) AchievementItem("Triple Digits", "Moved ${heaviestSet.roundToInt()}kg in a single set")
-
-                val distinctExercises = workouts.flatMap { it.exercises }.map { it.exercise.id }.distinct().size
-                if (distinctExercises >= 15) AchievementItem("Explorer", "$distinctExercises different exercises trained")
-
-                val longestMinutes = workouts.maxOfOrNull { it.durationMinutes ?: 0L } ?: 0L
-                if (longestMinutes >= 90) AchievementItem("Marathoner", "$longestMinutes-minute session")
             }
+
+            val totalVolume = workouts.sumOf { it.totalVolumePerformed }
+            if (totalVolume >= 10000) {
+                AchievementItem(
+                    title = "Volume Monster",
+                    description = "${totalVolume.roundToInt()}kg total volume moved"
+                )
+            }
+
+            if (workouts.size >= 10) AchievementItem("Double Digits", "10+ workouts completed")
+            if (workouts.size >= 25) AchievementItem("Quarter Century", "25+ workouts completed")
+            if (workouts.size >= 50) AchievementItem("Half Centurion", "50+ workouts completed")
+            if (totalVolume >= 50000) AchievementItem("Heavy Lifter", "50,000kg+ total volume")
+            if (totalVolume >= 100000) AchievementItem("Iron Titan", "100,000kg+ total volume")
+
+            val totalSets = workouts.sumOf { it.performedSets }
+            if (totalSets >= 100) AchievementItem("Century of Sets", "$totalSets sets logged")
+            if (totalSets >= 500) AchievementItem("Set Machine", "$totalSets sets logged")
+
+            val totalReps = workouts.sumOf { w -> w.exercises.sumOf { e -> e.sets.sumOf { it.reps } } }
+            if (totalReps >= 1000) AchievementItem("Rep Grinder", "$totalReps total reps performed")
+
+            val heaviestSet = workouts.flatMap { it.exercises }.flatMap { it.sets }.maxOfOrNull { it.weightKg } ?: 0.0
+            if (heaviestSet >= 100) AchievementItem("Triple Digits", "Moved ${heaviestSet.roundToInt()}kg in a single set")
+
+            val distinctExercises = workouts.flatMap { it.exercises }.map { it.exercise.id }.distinct().size
+            if (distinctExercises >= 15) AchievementItem("Explorer", "$distinctExercises different exercises trained")
+
+            val longestMinutes = workouts.maxOfOrNull { it.durationMinutes ?: 0L } ?: 0L
+            if (longestMinutes >= 90) AchievementItem("Marathoner", "$longestMinutes-minute session")
         }
     }
 }
@@ -611,33 +583,24 @@ private fun computePlateaus(workouts: List<com.bodyforge.domain.models.Workout>)
 
 @Composable
 private fun PlateauDetectionCard(plateaus: List<PlateauInfo>) {
-    Card(
-        backgroundColor = CardBackground,
-        elevation = 2.dp,
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("Plateau Watch", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                "No new estimated-1RM PR in a while — consider a deload, a rep-range change, or a variation.",
-                fontSize = 12.sp,
-                color = TextSecondary
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            plateaus.take(6).forEach { p ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(p.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
-                        Text("best ${p.best.roundToInt()} kg est. 1RM", fontSize = 11.sp, color = TextSecondary)
-                    }
-                    Text("${p.sessionsSince} sessions", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AccentOrange)
+    CollapsibleCard(title = "Plateau Watch") {
+        Text(
+            "No new estimated-1RM PR in a while — consider a deload, a rep-range change, or a variation.",
+            fontSize = 12.sp,
+            color = TextSecondary
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        plateaus.take(6).forEach { p ->
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(p.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
+                    Text("best ${p.best.roundToInt()} kg est. 1RM", fontSize = 11.sp, color = TextSecondary)
                 }
+                Text("${p.sessionsSince} sessions", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AccentOrange)
             }
         }
     }
@@ -645,72 +608,54 @@ private fun PlateauDetectionCard(plateaus: List<PlateauInfo>) {
 
 @Composable
 private fun TrainingFrequencyCard(workouts: List<com.bodyforge.domain.models.Workout>) {
-    Card(
-        backgroundColor = CardBackground,
-        elevation = 2.dp,
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(
-                text = "Training Frequency",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary
-            )
+    CollapsibleCard(title = "Training Frequency") {
+        val weeks = 16
+        val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
+        val counts = remember(workouts) { workouts.groupingBy { it.startDate }.eachCount() }
+        val startMonday = remember(today) {
+            val mondayThisWeek = today.plus(-(today.dayOfWeek.isoDayNumber - 1), DateTimeUnit.DAY)
+            mondayThisWeek.plus(-((weeks - 1) * 7), DateTimeUnit.DAY)
+        }
+        val last30 = remember(counts, today) {
+            val from = today.plus(-29, DateTimeUnit.DAY)
+            counts.filterKeys { it >= from }.values.sum()
+        }
 
-            Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "$last30 ${if (last30 == 1) "session" else "sessions"} in the last 30 days",
+            fontSize = 13.sp,
+            color = TextSecondary
+        )
 
-            val weeks = 16
-            val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
-            val counts = remember(workouts) { workouts.groupingBy { it.startDate }.eachCount() }
-            val startMonday = remember(today) {
-                val mondayThisWeek = today.plus(-(today.dayOfWeek.isoDayNumber - 1), DateTimeUnit.DAY)
-                mondayThisWeek.plus(-((weeks - 1) * 7), DateTimeUnit.DAY)
-            }
-            val last30 = remember(counts, today) {
-                val from = today.plus(-29, DateTimeUnit.DAY)
-                counts.filterKeys { it >= from }.values.sum()
-            }
+        Spacer(modifier = Modifier.height(12.dp))
 
-            Text(
-                text = "$last30 ${if (last30 == 1) "session" else "sessions"} in the last 30 days",
-                fontSize = 13.sp,
-                color = TextSecondary
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // GitHub-style heatmap: one column per week, one cell per day, shaded by workout count.
-            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                for (col in 0 until weeks) {
-                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        for (row in 0..6) {
-                            val date = startMonday.plus(col * 7 + row, DateTimeUnit.DAY)
-                            val count = if (date > today) -1 else (counts[date] ?: 0)
-                            val cellColor = when {
-                                count < 0 -> Color.Transparent
-                                count == 0 -> SurfaceColor.copy(alpha = 0.5f)
-                                count == 1 -> AccentGreen.copy(alpha = 0.55f)
-                                else -> AccentGreen
-                            }
-                            Box(modifier = Modifier.size(11.dp).background(cellColor, RoundedCornerShape(2.dp)))
+        // GitHub-style heatmap: one column per week, one cell per day, shaded by workout count.
+        Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+            for (col in 0 until weeks) {
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    for (row in 0..6) {
+                        val date = startMonday.plus(col * 7 + row, DateTimeUnit.DAY)
+                        val count = if (date > today) -1 else (counts[date] ?: 0)
+                        val cellColor = when {
+                            count < 0 -> Color.Transparent
+                            count == 0 -> SurfaceColor.copy(alpha = 0.5f)
+                            count == 1 -> AccentGreen.copy(alpha = 0.55f)
+                            else -> AccentGreen
                         }
+                        Box(modifier = Modifier.size(11.dp).background(cellColor, RoundedCornerShape(2.dp)))
                     }
                 }
             }
+        }
 
-            Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Less", fontSize = 10.sp, color = TextSecondary)
-                Box(modifier = Modifier.size(10.dp).background(SurfaceColor.copy(alpha = 0.5f), RoundedCornerShape(2.dp)))
-                Box(modifier = Modifier.size(10.dp).background(AccentGreen.copy(alpha = 0.55f), RoundedCornerShape(2.dp)))
-                Box(modifier = Modifier.size(10.dp).background(AccentGreen, RoundedCornerShape(2.dp)))
-                Text("More", fontSize = 10.sp, color = TextSecondary)
-            }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Less", fontSize = 10.sp, color = TextSecondary)
+            Box(modifier = Modifier.size(10.dp).background(SurfaceColor.copy(alpha = 0.5f), RoundedCornerShape(2.dp)))
+            Box(modifier = Modifier.size(10.dp).background(AccentGreen.copy(alpha = 0.55f), RoundedCornerShape(2.dp)))
+            Box(modifier = Modifier.size(10.dp).background(AccentGreen, RoundedCornerShape(2.dp)))
+            Text("More", fontSize = 10.sp, color = TextSecondary)
         }
     }
 }

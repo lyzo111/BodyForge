@@ -66,24 +66,34 @@ fun VariationProgressCard(
             .map { (id, group) -> RoutineRef(id, group.first().routineName.ifBlank { "Routine" }) }
             .sortedBy { it.name }
     }
+    var expanded by remember { mutableStateOf(false) }
 
     Card(
         backgroundColor = CardBackground,
-        elevation = 2.dp,
+        elevation = 0.dp,
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Variation Progress", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-            Spacer(Modifier.height(12.dp))
-            if (routines.isEmpty()) {
-                Text(
-                    "Group templates into a routine with variations (e.g. Upper A / Upper B) and train them to compare progress here.",
-                    fontSize = 13.sp,
-                    color = TextSecondary
-                )
-            } else {
-                VariationProgressContent(workouts, templates, routines)
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Variation Progress", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Text(if (expanded) "▾" else "▸", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AccentBlue)
+            }
+            if (expanded) {
+                Spacer(Modifier.height(12.dp))
+                if (routines.isEmpty()) {
+                    Text(
+                        "Group templates into a routine with variations (e.g. Upper A / Upper B) and train them to compare progress here.",
+                        fontSize = 13.sp,
+                        color = TextSecondary
+                    )
+                } else {
+                    VariationProgressContent(workouts, templates, routines)
+                }
             }
         }
     }

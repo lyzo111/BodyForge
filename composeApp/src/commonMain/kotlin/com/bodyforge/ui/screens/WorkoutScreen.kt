@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.*
@@ -133,10 +134,9 @@ private fun QuickStartView(
 
             item {
                 QuickStartCard(
-                    icon = "🏋️",
                     title = "Quick Workout",
                     subtitle = "Select exercises & go",
-                    color = AccentOrange,
+                    accent = AccentOrange,
                     onClick = { showQuickWorkoutFlow = true },
                     enabled = !isLoading
                 )
@@ -144,10 +144,9 @@ private fun QuickStartView(
 
             item {
                 QuickStartCard(
-                    icon = "📋",
                     title = "From Template",
                     subtitle = "Use existing routine",
-                    color = AccentBlue,
+                    accent = AccentBlue,
                     onClick = onGoToTemplates,
                     enabled = !isLoading
                 )
@@ -177,64 +176,52 @@ private fun QuickStartView(
 
 @Composable
 private fun QuickStartCard(
-    icon: String,
     title: String,
     subtitle: String,
-    color: Color,
+    accent: Color,
     onClick: () -> Unit,
     enabled: Boolean = true
 ) {
     Card(
-        backgroundColor = color.copy(alpha = 0.9f),
-        elevation = 8.dp,
+        backgroundColor = CardBackground,
+        elevation = 0.dp,
         shape = RoundedCornerShape(16.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(120.dp)
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Button(
-            onClick = onClick,
-            enabled = enabled,
-            colors = ButtonDefaults.buttonColors(
-                backgroundColor = Color.Transparent,
-                contentColor = Color.White
-            ),
-            elevation = ButtonDefaults.elevation(0.dp),
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.fillMaxSize()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(enabled = enabled, onClick = onClick)
+                .padding(20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    horizontalAlignment = Alignment.Start
-                ) {
-                    Text(
-                        text = icon,
-                        fontSize = 32.sp,
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
-                    Text(
-                        text = title,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Text(
-                        text = subtitle,
-                        fontSize = 14.sp,
-                        color = Color.White.copy(alpha = 0.8f)
-                    )
-                }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = subtitle,
+                    fontSize = 13.sp,
+                    color = TextSecondary
+                )
+            }
 
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(accent.copy(alpha = 0.15f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
                 Icon(
                     Icons.Filled.PlayArrow,
                     contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp)
+                    tint = accent,
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }
