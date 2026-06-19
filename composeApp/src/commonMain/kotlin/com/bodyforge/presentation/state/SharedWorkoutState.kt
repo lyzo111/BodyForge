@@ -322,7 +322,7 @@ object SharedWorkoutState {
         val shared = SharedTemplate(
             name = template.name,
             description = template.description,
-            exercises = resolved.map { SharedExercise(it.id, it.name, it.muscleGroups, it.equipmentNeeded, it.isBodyweight) }
+            exercises = resolved.map { SharedExercise(it.name, it.muscleGroups, it.equipmentNeeded, it.isBodyweight) }
         )
         TemplateSharing.share(TemplateSharing.encode(shared), "BodyForge: ${template.name}")
     }
@@ -333,8 +333,7 @@ object SharedWorkoutState {
         return try {
             val existing = exerciseRepo.getAllExercises()
             val resolved = shared.exercises.map { se ->
-                existing.firstOrNull { it.id == se.id }
-                    ?: existing.firstOrNull { it.name.equals(se.name, ignoreCase = true) }
+                existing.firstOrNull { it.name.equals(se.name, ignoreCase = true) }
                     ?: exerciseRepo.saveCustomExercise(
                         Exercise(
                             id = generateCustomExerciseId(se.name),

@@ -99,24 +99,26 @@ fun TemplatesScreen(onStartWorkout: () -> Unit = {}) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("📋 My Templates", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { showImportDialog = true }) {
-                    Text("Import", color = AccentBlue, fontWeight = FontWeight.Bold)
-                }
-                Button(
-                    onClick = { showCreateTemplateDialog = true },
-                    colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen),
-                    shape = RoundedCornerShape(25.dp),
-                    elevation = ButtonDefaults.elevation(0.dp)
-                ) {
-                    Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Create", color = Color.White, fontWeight = FontWeight.Bold)
-                }
+            Button(
+                onClick = { showCreateTemplateDialog = true },
+                colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen),
+                shape = RoundedCornerShape(25.dp),
+                elevation = ButtonDefaults.elevation(0.dp)
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White)
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Create", color = Color.White, fontWeight = FontWeight.Bold)
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        TextButton(
+            onClick = { showImportDialog = true },
+            contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp)
+        ) {
+            Text("📥  Import a shared template", color = AccentBlue, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
 
         when {
             isLoading -> Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {

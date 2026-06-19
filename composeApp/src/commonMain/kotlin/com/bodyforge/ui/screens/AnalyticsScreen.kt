@@ -25,7 +25,10 @@ import com.bodyforge.ui.components.cards.PhaseSection
 import com.bodyforge.ui.components.cards.ExerciseProgressCard
 import com.bodyforge.ui.components.cards.VariationProgressCard
 import kotlinx.datetime.Clock
+import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.isoDayNumber
+import kotlinx.datetime.todayIn
 import kotlinx.datetime.toLocalDateTime
 import java.text.SimpleDateFormat
 import java.util.*
@@ -610,27 +613,56 @@ private fun TrainingFrequencyCard(workouts: List<com.bodyforge.domain.models.Wor
                 color = TextPrimary
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(4.dp))
+
+            val weeks = 16
+            val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
+            val counts = remember(workouts) { workouts.groupingBy { it.startDate }.eachCount() }
+            val startMonday = remember(today) {
+                val mondayThisWeek = today.minus(DatePeriod(days = today.dayOfWeek.isoDayNumber - 1))
+                mondayThisWeek.minus(DatePeriod(days = (weeks - 1) * 7))
+            }
+            val last30 = remember(counts, today) {
+                val from = today.minus(DatePeriod(days = 29))
+                counts.filterKeys { it >= from }.values.sum()
+            }
 
             Text(
-                text = "Weekly average: ${(workouts.size.toFloat() / 4).let { "%.1f".format(it) }} workouts",
-                fontSize = 14.sp,
+                text = "$last30 ${if (last30 == 1) "session" else "sessions"} in the last 30 days",
+                fontSize = 13.sp,
                 color = TextSecondary
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // Simple frequency visualization (placeholder)
-            Text(
-                text = "🟩🟩🟨⬜🟩🟩⬜ This week",
-                fontSize = 12.sp,
-                color = TextSecondary
-            )
-            Text(
-                text = "🟩 = Workout, 🟨 = Light, ⬜ = Rest",
-                fontSize = 10.sp,
-                color = TextSecondary.copy(alpha = 0.7f)
-            )
+            // GitHub-style heatmap: one column per week, one cell per day, shaded by workout count.
+            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                for (col in 0 until weeks) {
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        for (row in 0..6) {
+                            val date = startMonday.plus(DatePeriod(days = col * 7 + row))
+                            val count = if (date > today) -1 else (counts[date] ?: 0)
+                            val cellColor = when {
+                                count < 0 -> Color.Transparent
+                                count == 0 -> SurfaceColor.copy(alpha = 0.5f)
+                                count == 1 -> AccentGreen.copy(alpha = 0.55f)
+                                else -> AccentGreen
+                            }
+                            Box(modifier = Modifier.size(11.dp).background(cellColor, RoundedCornerShape(2.dp)))
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Less", fontSize = 10.sp, color = TextSecondary)
+                Box(modifier = Modifier.size(10.dp).background(SurfaceColor.copy(alpha = 0.5f), RoundedCornerShape(2.dp)))
+                Box(modifier = Modifier.size(10.dp).background(AccentGreen.copy(alpha = 0.55f), RoundedCornerShape(2.dp)))
+                Box(modifier = Modifier.size(10.dp).background(AccentGreen, RoundedCornerShape(2.dp)))
+                Text("More", fontSize = 10.sp, color = TextSecondary)
+            }
         }
     }
 }
