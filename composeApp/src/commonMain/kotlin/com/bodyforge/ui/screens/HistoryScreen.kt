@@ -153,10 +153,10 @@ private fun HistoryWorkoutCard(workout: Workout, onDelete: () -> Unit, onEdit: (
                     }
                     if (workout.exercises.size > 3) {
                         Text(
-                            if (showAllExercises) "Show less" else "Show more",
+                            if (showAllExercises) "Show less..." else "Show more...",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White,
+                            color = TextSecondary,
                             modifier = Modifier.padding(start = 8.dp, top = 4.dp).clickable { showAllExercises = !showAllExercises }
                         )
                     }

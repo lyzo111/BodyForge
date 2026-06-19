@@ -1345,26 +1345,28 @@ private fun QuickWorkoutFlow(
         modifier = Modifier.fillMaxSize()
     ) {
         // Header
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(16.dp)
         ) {
             Button(
                 onClick = onBack,
                 colors = ButtonDefaults.buttonColors(backgroundColor = SurfaceColor),
-                shape = RoundedCornerShape(8.dp)
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                elevation = ButtonDefaults.elevation(0.dp),
+                modifier = Modifier.align(Alignment.CenterStart)
             ) {
-                Text("⬅️ Back", color = TextPrimary)
+                Text("<", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
 
             Text(
                 text = "Select Exercises",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = TextPrimary
+                color = TextPrimary,
+                modifier = Modifier.align(Alignment.Center)
             )
 
             Button(
@@ -1372,7 +1374,8 @@ private fun QuickWorkoutFlow(
                 colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen),
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                elevation = ButtonDefaults.elevation(0.dp)
+                elevation = ButtonDefaults.elevation(0.dp),
+                modifier = Modifier.align(Alignment.CenterEnd)
             ) {
                 Text("+ New", color = Color.White, fontWeight = FontWeight.Bold)
             }
@@ -1660,26 +1663,28 @@ private fun TemplateSelectionFlow(
         modifier = Modifier.fillMaxSize()
     ) {
         // Header
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(16.dp)
         ) {
             Button(
                 onClick = onBack,
                 colors = ButtonDefaults.buttonColors(backgroundColor = SurfaceColor),
-                shape = RoundedCornerShape(8.dp)
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                elevation = ButtonDefaults.elevation(0.dp),
+                modifier = Modifier.align(Alignment.CenterStart)
             ) {
-                Text("⬅️ Back", color = TextPrimary)
+                Text("<", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
 
             Text(
                 text = "Select Template",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = TextPrimary
+                color = TextPrimary,
+                modifier = Modifier.align(Alignment.Center)
             )
 
             Button(
@@ -1687,7 +1692,8 @@ private fun TemplateSelectionFlow(
                 colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen),
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                elevation = ButtonDefaults.elevation(0.dp)
+                elevation = ButtonDefaults.elevation(0.dp),
+                modifier = Modifier.align(Alignment.CenterEnd)
             ) {
                 Text("+ New", color = Color.White, fontWeight = FontWeight.Bold)
             }

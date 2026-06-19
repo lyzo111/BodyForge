@@ -17,9 +17,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -329,6 +326,7 @@ private fun EmptyTemplatesCard(onCreateClick: () -> Unit) {
 @Composable
 private fun TemplateCard(template: WorkoutTemplate, exercises: List<com.bodyforge.domain.models.Exercise>, onStart: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit, onShare: () -> Unit) {
     val templateExercises = remember(template, exercises) { template.exerciseIds.mapNotNull { id -> exercises.firstOrNull { it.id == id } } }
+    var showAllExercises by remember { mutableStateOf(false) }
 
     Card(backgroundColor = CardBackground, elevation = 2.dp, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -357,18 +355,21 @@ private fun TemplateCard(template: WorkoutTemplate, exercises: List<com.bodyforg
             }
             if (templateExercises.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
+                val shownExercises = if (showAllExercises) templateExercises else templateExercises.take(3)
                 Text(
-                    buildAnnotatedString {
-                        append(templateExercises.take(3).joinToString(", ") { it.name })
-                        if (templateExercises.size > 3) {
-                            withStyle(SpanStyle(color = Color.White)) {
-                                append(" +${templateExercises.size - 3} more")
-                            }
-                        }
-                    },
+                    shownExercises.joinToString(", ") { it.name },
                     fontSize = 12.sp,
                     color = TextSecondary.copy(alpha = 0.7f)
                 )
+                if (templateExercises.size > 3) {
+                    Text(
+                        if (showAllExercises) "Show less..." else "Show more...",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(top = 4.dp).clickable { showAllExercises = !showAllExercises }
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(12.dp))
             Button(
