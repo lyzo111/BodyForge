@@ -17,6 +17,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -105,7 +108,7 @@ fun TemplatesScreen(listState: LazyListState, onStartWorkout: () -> Unit = {}) {
             Text("My Templates", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
             Button(
                 onClick = { showCreateTemplateDialog = true },
-                colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen),
+                colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange),
                 shape = RoundedCornerShape(25.dp),
                 elevation = ButtonDefaults.elevation(0.dp)
             ) {
@@ -354,7 +357,18 @@ private fun TemplateCard(template: WorkoutTemplate, exercises: List<com.bodyforg
             }
             if (templateExercises.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(templateExercises.take(3).joinToString(", ") { it.name } + if (templateExercises.size > 3) " +${templateExercises.size - 3} more" else "", fontSize = 12.sp, color = TextSecondary.copy(alpha = 0.7f))
+                Text(
+                    buildAnnotatedString {
+                        append(templateExercises.take(3).joinToString(", ") { it.name })
+                        if (templateExercises.size > 3) {
+                            withStyle(SpanStyle(color = Color.White)) {
+                                append(" +${templateExercises.size - 3} more")
+                            }
+                        }
+                    },
+                    fontSize = 12.sp,
+                    color = TextSecondary.copy(alpha = 0.7f)
+                )
             }
             Spacer(modifier = Modifier.height(12.dp))
             Button(
@@ -545,16 +559,22 @@ fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exercise>, 
                     Text("Select Exercises (${selectedExercises.size})", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
                     NewExerciseButton(onClick = { showCreateExerciseDialog = true })
                 }
-                if (selectedExercises.size >= 2) {
-                    Button(
-                        onClick = { showOrderDialog = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(backgroundColor = SurfaceColor),
-                        shape = RoundedCornerShape(8.dp),
-                        elevation = ButtonDefaults.elevation(0.dp)
-                    ) {
-                        Text("↕ Reorder Exercises", color = TextPrimary, fontWeight = FontWeight.Medium)
-                    }
+                Button(
+                    onClick = { showOrderDialog = true },
+                    enabled = selectedExercises.size >= 2,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        backgroundColor = SurfaceColor,
+                        disabledBackgroundColor = SurfaceColor.copy(alpha = 0.4f)
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    elevation = ButtonDefaults.elevation(0.dp)
+                ) {
+                    Text(
+                        "↕ Reorder Exercises",
+                        color = if (selectedExercises.size >= 2) TextPrimary else TextSecondary,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
                 OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, label = { Text("Search") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth())
                 filteredExercises.forEach { exercise ->
@@ -634,16 +654,22 @@ private fun EditTemplateDialog(template: WorkoutTemplate, exercises: List<com.bo
                     Text("Select Exercises (${selectedExercises.size})", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
                     NewExerciseButton(onClick = { showCreateExerciseDialog = true })
                 }
-                if (selectedExercises.size >= 2) {
-                    Button(
-                        onClick = { showOrderDialog = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(backgroundColor = SurfaceColor),
-                        shape = RoundedCornerShape(8.dp),
-                        elevation = ButtonDefaults.elevation(0.dp)
-                    ) {
-                        Text("↕ Reorder Exercises", color = TextPrimary, fontWeight = FontWeight.Medium)
-                    }
+                Button(
+                    onClick = { showOrderDialog = true },
+                    enabled = selectedExercises.size >= 2,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        backgroundColor = SurfaceColor,
+                        disabledBackgroundColor = SurfaceColor.copy(alpha = 0.4f)
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    elevation = ButtonDefaults.elevation(0.dp)
+                ) {
+                    Text(
+                        "↕ Reorder Exercises",
+                        color = if (selectedExercises.size >= 2) TextPrimary else TextSecondary,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
                 OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, label = { Text("Search") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth())
                 filteredExercises.forEach { exercise ->

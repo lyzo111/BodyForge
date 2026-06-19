@@ -327,9 +327,12 @@ private fun MainContent(hasActiveWorkout: Boolean, onSettings: () -> Unit) {
             )
         }
 
-        // Horizontal Pager for Tab Content
+        // Horizontal Pager for Tab Content. Keep every page composed (there are only four) so a
+        // tab never gets torn down and rebuilt — that is what reset each screen's scroll position
+        // (most visibly Analytics) when switching away and back.
         HorizontalPager(
             state = pagerState,
+            beyondBoundsPageCount = 3,
             modifier = Modifier.fillMaxSize()
         ) { page ->
             when (page) {
