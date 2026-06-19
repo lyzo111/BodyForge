@@ -74,9 +74,15 @@ object SharedWorkoutState {
     private val _restRemainingSeconds = MutableStateFlow(0)
     val restRemainingSeconds: StateFlow<Int> = _restRemainingSeconds.asStateFlow()
 
+    // Goes true the moment a rest timer counts down to zero on its own. Drives a closeable
+    // "break is over" banner that shows even when the user is on another tab.
+    private val _restJustEnded = MutableStateFlow(false)
+    val restJustEnded: StateFlow<Boolean> = _restJustEnded.asStateFlow()
+
     fun startRest(seconds: Int) {
         if (seconds <= 0) return
         restJob?.cancel()
+        _restJustEnded.value = false
         _restTotalSeconds.value = seconds
         _restRemainingSeconds.value = seconds
         restJob = timerScope.launch {
@@ -84,9 +90,12 @@ object SharedWorkoutState {
                 delay(1000)
                 _restRemainingSeconds.value = (_restRemainingSeconds.value - 1).coerceAtLeast(0)
             }
-            // Reached zero on its own (not skipped/cancelled) -> buzz.
-            if (isActive && _restRemainingSeconds.value == 0 && com.bodyforge.data.AppSettings.vibrateOnTimerEnd) {
-                com.bodyforge.data.vibrateDevice()
+            // Reached zero on its own (not skipped/cancelled) -> buzz and raise the banner.
+            if (isActive && _restRemainingSeconds.value == 0) {
+                _restJustEnded.value = true
+                if (com.bodyforge.data.AppSettings.vibrateOnTimerEnd) {
+                    com.bodyforge.data.vibrateDevice()
+                }
             }
         }
     }
@@ -100,6 +109,11 @@ object SharedWorkoutState {
     fun skipRest() {
         restJob?.cancel()
         _restRemainingSeconds.value = 0
+        _restJustEnded.value = false
+    }
+
+    fun dismissRestEndedNotice() {
+        _restJustEnded.value = false
     }
 
     // Update functions

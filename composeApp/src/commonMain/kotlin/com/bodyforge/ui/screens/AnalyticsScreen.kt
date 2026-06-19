@@ -3,6 +3,7 @@ package com.bodyforge.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -47,7 +48,7 @@ private val CardBackground = Color(0xFF1E293B)
 private val SurfaceColor = Color(0xFF334155)
 
 @Composable
-fun AnalyticsScreen() {
+fun AnalyticsScreen(listState: LazyListState) {
     val completedWorkouts by SharedWorkoutState.completedWorkouts.collectAsState()
     val templates by SharedWorkoutState.templates.collectAsState()
     val isLoading by SharedWorkoutState.isLoading.collectAsState()
@@ -60,6 +61,7 @@ fun AnalyticsScreen() {
     }
 
     LazyColumn(
+        state = listState,
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
@@ -68,7 +70,7 @@ fun AnalyticsScreen() {
         // Header
         item {
             Text(
-                text = "📈 Analytics",
+                text = "Analytics",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
@@ -124,9 +126,12 @@ fun AnalyticsScreen() {
                 AchievementsCard(completedWorkouts)
             }
 
-            // Plateau detection
-            item {
-                PlateauDetectionCard(completedWorkouts)
+            // Plateau detection (only shown when something is actually plateaued)
+            val plateaus = computePlateaus(completedWorkouts)
+            if (plateaus.isNotEmpty()) {
+                item {
+                    PlateauDetectionCard(plateaus)
+                }
             }
 
             // Training Frequency Heatmap (Placeholder)
@@ -152,7 +157,6 @@ private fun EmptyAnalyticsCard() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("📈", fontSize = 48.sp)
             Text(
                 text = "No Data Yet",
                 fontSize = 20.sp,
@@ -188,7 +192,7 @@ private fun CurrentPhaseCard() {
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "🎯 Current Phase",
+                        text = "Current Phase",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -218,7 +222,6 @@ private fun QuickStatsRow(workouts: List<com.bodyforge.domain.models.Workout>) {
     ) {
         // Total Workouts
         QuickStatCard(
-            icon = "🏋️",
             value = "${workouts.size}",
             label = "Workouts",
             color = AccentBlue,
@@ -228,7 +231,6 @@ private fun QuickStatsRow(workouts: List<com.bodyforge.domain.models.Workout>) {
         // Total Volume
         val totalVolume = workouts.sumOf { it.totalVolumePerformed }.roundToInt()
         QuickStatCard(
-            icon = "📊",
             value = "${totalVolume}kg",
             label = "Total Volume",
             color = AccentGreen,
@@ -238,7 +240,6 @@ private fun QuickStatsRow(workouts: List<com.bodyforge.domain.models.Workout>) {
         // Avg Duration
         val avgDuration = workouts.mapNotNull { it.durationMinutes }.average().takeIf { !it.isNaN() } ?: 0.0
         QuickStatCard(
-            icon = "⏱️",
             value = "${avgDuration.roundToInt()}m",
             label = "Avg Duration",
             color = AccentOrange,
@@ -253,7 +254,6 @@ private fun QuickStatsRow(workouts: List<com.bodyforge.domain.models.Workout>) {
             daysDiff <= 7
         }.size
         QuickStatCard(
-            icon = "📅",
             value = "$thisWeekWorkouts",
             label = "This Week",
             color = AccentPurple,
@@ -264,7 +264,6 @@ private fun QuickStatsRow(workouts: List<com.bodyforge.domain.models.Workout>) {
 
 @Composable
 private fun QuickStatCard(
-    icon: String,
     value: String,
     label: String,
     color: Color,
@@ -281,14 +280,12 @@ private fun QuickStatCard(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = icon,
-                fontSize = 20.sp
-            )
-            Text(
                 text = value,
-                fontSize = 16.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = color
+                color = color,
+                maxLines = 1,
+                softWrap = false
             )
             Text(
                 text = label,
@@ -316,15 +313,10 @@ private fun VolumeProgressionCard(workouts: List<com.bodyforge.domain.models.Wor
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "📈 Volume Progression",
+                    text = "Volume Progression",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
-                )
-                Text(
-                    text = "📈",
-                    fontSize = 20.sp,
-                    color = AccentGreen
                 )
             }
 
@@ -399,7 +391,7 @@ private fun MuscleGroupBalanceCard(workouts: List<com.bodyforge.domain.models.Wo
             modifier = Modifier.padding(16.dp)
         ) {
             Text(
-                text = "💪 Muscle Group Balance",
+                text = "Muscle Group Balance",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
@@ -501,7 +493,7 @@ private fun AchievementsCard(workouts: List<com.bodyforge.domain.models.Workout>
             modifier = Modifier.padding(16.dp)
         ) {
             Text(
-                text = "🏆 Recent Achievements",
+                text = "Recent Achievements",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
@@ -517,16 +509,14 @@ private fun AchievementsCard(workouts: List<com.bodyforge.domain.models.Workout>
                     modifier = Modifier.fillMaxWidth()
                 )
             } else {
-                // Mock achievements based on data
+                // Milestones derived from logged data
                 AchievementItem(
-                    icon = "🎯",
                     title = "Consistency King",
                     description = "${workouts.size} workouts completed"
                 )
 
                 if (workouts.size >= 5) {
                     AchievementItem(
-                        icon = "💪",
                         title = "Dedication Unlocked",
                         description = "5+ workouts completed"
                     )
@@ -535,33 +525,32 @@ private fun AchievementsCard(workouts: List<com.bodyforge.domain.models.Workout>
                 val totalVolume = workouts.sumOf { it.totalVolumePerformed }
                 if (totalVolume >= 10000) {
                     AchievementItem(
-                        icon = "📊",
                         title = "Volume Monster",
                         description = "${totalVolume.roundToInt()}kg total volume moved"
                     )
                 }
 
-                if (workouts.size >= 10) AchievementItem("🔥", "Double Digits", "10+ workouts completed")
-                if (workouts.size >= 25) AchievementItem("⭐", "Quarter Century", "25+ workouts completed")
-                if (workouts.size >= 50) AchievementItem("👑", "Half Centurion", "50+ workouts completed")
-                if (totalVolume >= 50000) AchievementItem("🏋️", "Heavy Lifter", "50,000kg+ total volume")
-                if (totalVolume >= 100000) AchievementItem("🦾", "Iron Titan", "100,000kg+ total volume")
+                if (workouts.size >= 10) AchievementItem("Double Digits", "10+ workouts completed")
+                if (workouts.size >= 25) AchievementItem("Quarter Century", "25+ workouts completed")
+                if (workouts.size >= 50) AchievementItem("Half Centurion", "50+ workouts completed")
+                if (totalVolume >= 50000) AchievementItem("Heavy Lifter", "50,000kg+ total volume")
+                if (totalVolume >= 100000) AchievementItem("Iron Titan", "100,000kg+ total volume")
 
                 val totalSets = workouts.sumOf { it.performedSets }
-                if (totalSets >= 100) AchievementItem("🎚️", "Century of Sets", "$totalSets sets logged")
-                if (totalSets >= 500) AchievementItem("🧱", "Set Machine", "$totalSets sets logged")
+                if (totalSets >= 100) AchievementItem("Century of Sets", "$totalSets sets logged")
+                if (totalSets >= 500) AchievementItem("Set Machine", "$totalSets sets logged")
 
                 val totalReps = workouts.sumOf { w -> w.exercises.sumOf { e -> e.sets.sumOf { it.reps } } }
-                if (totalReps >= 1000) AchievementItem("🔁", "Rep Grinder", "$totalReps total reps performed")
+                if (totalReps >= 1000) AchievementItem("Rep Grinder", "$totalReps total reps performed")
 
                 val heaviestSet = workouts.flatMap { it.exercises }.flatMap { it.sets }.maxOfOrNull { it.weightKg } ?: 0.0
-                if (heaviestSet >= 100) AchievementItem("🥇", "Triple Digits", "Moved ${heaviestSet.roundToInt()}kg in a single set")
+                if (heaviestSet >= 100) AchievementItem("Triple Digits", "Moved ${heaviestSet.roundToInt()}kg in a single set")
 
                 val distinctExercises = workouts.flatMap { it.exercises }.map { it.exercise.id }.distinct().size
-                if (distinctExercises >= 15) AchievementItem("🧭", "Explorer", "$distinctExercises different exercises trained")
+                if (distinctExercises >= 15) AchievementItem("Explorer", "$distinctExercises different exercises trained")
 
                 val longestMinutes = workouts.maxOfOrNull { it.durationMinutes ?: 0L } ?: 0L
-                if (longestMinutes >= 90) AchievementItem("⏳", "Marathoner", "$longestMinutes-minute session")
+                if (longestMinutes >= 90) AchievementItem("Marathoner", "$longestMinutes-minute session")
             }
         }
     }
@@ -569,7 +558,6 @@ private fun AchievementsCard(workouts: List<com.bodyforge.domain.models.Workout>
 
 @Composable
 private fun AchievementItem(
-    icon: String,
     title: String,
     description: String
 ) {
@@ -579,12 +567,6 @@ private fun AchievementItem(
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = icon,
-            fontSize = 20.sp,
-            modifier = Modifier.padding(end = 12.dp)
-        )
-
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
@@ -603,34 +585,32 @@ private fun AchievementItem(
 
 private data class PlateauInfo(val name: String, val sessionsSince: Int, val best: Double)
 
-@Composable
-private fun PlateauDetectionCard(workouts: List<com.bodyforge.domain.models.Workout>) {
-    val plateaus = remember(workouts) {
-        val sorted = workouts.sortedBy { it.startedAt }
-        // exercise id -> chronological list of (name, best estimated 1RM that session)
-        val byExercise = LinkedHashMap<String, MutableList<Pair<String, Double>>>()
-        sorted.forEach { w ->
-            w.exercises.forEach { eiw ->
-                val best1rm = eiw.sets
-                    .filter { !it.isSkipped && it.reps > 0 && it.weightKg > 0.0 }
-                    .maxOfOrNull { it.weightKg * (1.0 + it.reps / 30.0) }
-                if (best1rm != null && best1rm > 0.0) {
-                    byExercise.getOrPut(eiw.exercise.id) { mutableListOf() }.add(eiw.exercise.name to best1rm)
-                }
+// Exercises with no new estimated-1RM PR in their last several sessions, worst first.
+private fun computePlateaus(workouts: List<com.bodyforge.domain.models.Workout>): List<PlateauInfo> {
+    val sorted = workouts.sortedBy { it.startedAt }
+    val byExercise = LinkedHashMap<String, MutableList<Pair<String, Double>>>()
+    sorted.forEach { w ->
+        w.exercises.forEach { eiw ->
+            val best1rm = eiw.sets
+                .filter { !it.isSkipped && it.reps > 0 && it.weightKg > 0.0 }
+                .maxOfOrNull { it.weightKg * (1.0 + it.reps / 30.0) }
+            if (best1rm != null && best1rm > 0.0) {
+                byExercise.getOrPut(eiw.exercise.id) { mutableListOf() }.add(eiw.exercise.name to best1rm)
             }
         }
-        byExercise.values.mapNotNull { sessions ->
-            if (sessions.size < 4) return@mapNotNull null
-            val series = sessions.map { it.second }
-            val best = series.maxOrNull() ?: return@mapNotNull null
-            val lastBestIndex = series.indexOfLast { it >= best - 0.001 }
-            val since = series.size - 1 - lastBestIndex
-            if (since >= 3) PlateauInfo(sessions.last().first, since, best) else null
-        }.sortedByDescending { it.sessionsSince }
     }
+    return byExercise.values.mapNotNull { sessions ->
+        if (sessions.size < 4) return@mapNotNull null
+        val series = sessions.map { it.second }
+        val best = series.maxOrNull() ?: return@mapNotNull null
+        val lastBestIndex = series.indexOfLast { it >= best - 0.001 }
+        val since = series.size - 1 - lastBestIndex
+        if (since >= 3) PlateauInfo(sessions.last().first, since, best) else null
+    }.sortedByDescending { it.sessionsSince }
+}
 
-    if (plateaus.isEmpty()) return
-
+@Composable
+private fun PlateauDetectionCard(plateaus: List<PlateauInfo>) {
     Card(
         backgroundColor = CardBackground,
         elevation = 2.dp,
@@ -638,7 +618,7 @@ private fun PlateauDetectionCard(workouts: List<com.bodyforge.domain.models.Work
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("🧗 Plateau Watch", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Text("Plateau Watch", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 "No new estimated-1RM PR in a while — consider a deload, a rep-range change, or a variation.",
@@ -675,7 +655,7 @@ private fun TrainingFrequencyCard(workouts: List<com.bodyforge.domain.models.Wor
             modifier = Modifier.padding(16.dp)
         ) {
             Text(
-                text = "📅 Training Frequency",
+                text = "Training Frequency",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
@@ -749,7 +729,7 @@ private fun CreatePhaseDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "🎯 Create Training Phase",
+                text = "Create Training Phase",
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
             )

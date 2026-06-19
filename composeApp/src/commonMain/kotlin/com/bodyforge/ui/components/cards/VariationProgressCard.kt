@@ -74,7 +74,7 @@ fun VariationProgressCard(
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("📊 Variation Progress", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Text("Variation Progress", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
             Spacer(Modifier.height(12.dp))
             if (routines.isEmpty()) {
                 Text(

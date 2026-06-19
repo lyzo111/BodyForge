@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -36,7 +37,7 @@ private val CardBackground = Color(0xFF1E293B)
 private val SurfaceColor = Color(0xFF334155)
 
 @Composable
-fun HistoryScreen() {
+fun HistoryScreen(listState: LazyListState) {
     val completedWorkouts by SharedWorkoutState.completedWorkouts.collectAsState()
     val isLoading by SharedWorkoutState.isLoading.collectAsState()
     val coroutineScope = rememberCoroutineScope()
@@ -49,14 +50,14 @@ fun HistoryScreen() {
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text("📊 Workout History", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary, modifier = Modifier.padding(bottom = 16.dp))
+        Text("Workout History", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary, modifier = Modifier.padding(bottom = 16.dp))
 
         when {
             isLoading -> Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = AccentOrange)
             }
             completedWorkouts.isEmpty() -> EmptyHistoryCard()
-            else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            else -> LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(completedWorkouts) { workout ->
                     HistoryWorkoutCard(
                         workout = workout,
@@ -126,9 +127,9 @@ private fun HistoryWorkoutCard(workout: Workout, onDelete: () -> Unit, onEdit: (
                     val dateFormatter = SimpleDateFormat("dd.MM.yyyy 'at' HH:mm", Locale.getDefault())
                     Text(dateFormatter.format(Date(workout.startedAt.epochSeconds * 1000)), fontSize = 12.sp, color = TextSecondary)
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    IconButton(onClick = onEdit) { Text("✏️", fontSize = 20.sp) }
-                    IconButton(onClick = onDelete) { Text("🗑️", fontSize = 20.sp) }
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(onClick = onEdit) { Text("Edit", color = AccentBlue, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+                    TextButton(onClick = onDelete) { Text("Delete", color = AccentRed, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
                 }
             }
 

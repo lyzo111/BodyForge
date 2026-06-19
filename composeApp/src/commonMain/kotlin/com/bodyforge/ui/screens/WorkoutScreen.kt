@@ -1,12 +1,15 @@
 package com.bodyforge.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -51,7 +54,7 @@ private val ButtonGreen = Color(0xFF2E7D32).copy(alpha = 0.8f)
 private val SelectedGreen = Color(0xFF065F46)
 
 @Composable
-fun WorkoutScreen(onGoToTemplates: () -> Unit = {}) {
+fun WorkoutScreen(listState: LazyListState, onGoToTemplates: () -> Unit = {}) {
     val viewModel: WorkoutViewModel = viewModel()
     val activeWorkout by SharedWorkoutState.activeWorkout.collectAsState()
     val bodyweight by SharedWorkoutState.bodyweight.collectAsState()
@@ -67,7 +70,8 @@ fun WorkoutScreen(onGoToTemplates: () -> Unit = {}) {
                 workout = activeWorkout!!,
                 bodyweight = bodyweight,
                 isLoading = isLoading,
-                viewModel = viewModel
+                viewModel = viewModel,
+                listState = listState
             )
         } else {
             QuickStartView(
@@ -239,11 +243,11 @@ private fun ActiveWorkoutView(
     workout: Workout,
     bodyweight: Double,
     isLoading: Boolean,
-    viewModel: WorkoutViewModel
+    viewModel: WorkoutViewModel,
+    listState: LazyListState
 ) {
     val hasBodyweightExercises = workout.exercises.any { it.exercise.isBodyweight }
     val availableExercises by SharedWorkoutState.exercises.collectAsState()
-    val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val baseOffset = (if (hasBodyweightExercises) 1 else 0) + 1
 
@@ -280,6 +284,7 @@ private fun ActiveWorkoutView(
             WorkoutHeaderCard(
                 workout = workout,
                 onFinishWorkout = { viewModel.completeWorkout() },
+                onStopWorkout = { viewModel.stopWorkout() },
                 isLoading = isLoading
             )
         }
@@ -406,34 +411,52 @@ private fun ExerciseJumpBar(
 private fun WorkoutHeaderCard(
     workout: Workout,
     onFinishWorkout: () -> Unit,
+    onStopWorkout: () -> Unit,
     isLoading: Boolean
 ) {
+    var showStopConfirm by remember { mutableStateOf(false) }
+
     Card(
         backgroundColor = AccentBlue,
         elevation = 4.dp,
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = workout.name.ifEmpty { "Workout" },
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Text(
+                    text = "${workout.exercises.size} exercises",
+                    fontSize = 14.sp,
+                    color = Color.White.copy(alpha = 0.8f)
+                )
+            }
+
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = workout.name.ifEmpty { "Workout" },
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Text(
-                        text = "${workout.exercises.size} exercises",
-                        fontSize = 14.sp,
-                        color = Color.White.copy(alpha = 0.8f)
-                    )
+                Button(
+                    onClick = { showStopConfirm = true },
+                    enabled = !isLoading,
+                    colors = ButtonDefaults.buttonColors(
+                        backgroundColor = Color.White.copy(alpha = 0.15f),
+                        contentColor = Color.White
+                    ),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f)),
+                    shape = RoundedCornerShape(25.dp),
+                    elevation = ButtonDefaults.elevation(0.dp)
+                ) {
+                    Text(text = "Stop", fontWeight = FontWeight.Bold)
                 }
 
                 Button(
@@ -447,12 +470,43 @@ private fun WorkoutHeaderCard(
                     elevation = ButtonDefaults.elevation(0.dp)
                 ) {
                     Text(
-                        text = if (isLoading) "Finishing..." else "Finish Workout",
+                        text = if (isLoading) "..." else "Finish",
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
         }
+    }
+
+    if (showStopConfirm) {
+        AlertDialog(
+            onDismissRequest = { showStopConfirm = false },
+            title = { Text("Stop workout?", fontWeight = FontWeight.Bold, color = TextPrimary) },
+            text = {
+                Text(
+                    "This discards the current workout without saving it to your history.",
+                    color = TextSecondary
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showStopConfirm = false
+                        onStopWorkout()
+                    },
+                    colors = ButtonDefaults.buttonColors(backgroundColor = AccentRed),
+                    elevation = ButtonDefaults.elevation(0.dp)
+                ) {
+                    Text("Discard", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showStopConfirm = false }) {
+                    Text("Keep going", color = TextSecondary)
+                }
+            },
+            backgroundColor = CardBackground
+        )
     }
 }
 
@@ -785,6 +839,7 @@ private fun SetRowWithButtons(
                         backgroundColor = if (isCompleted) AccentGreen else SurfaceColor.copy(alpha = 0.5f),
                         disabledBackgroundColor = SurfaceColor.copy(alpha = 0.3f)
                     ),
+                    border = if (isCompleted) null else BorderStroke(1.dp, TextSecondary.copy(alpha = 0.5f)),
                     shape = RoundedCornerShape(20.dp),
                     modifier = Modifier.height(36.dp),
                     elevation = ButtonDefaults.elevation(0.dp)
@@ -939,6 +994,7 @@ private fun ValueControlGroup(
                         color = SurfaceColor.copy(alpha = 0.5f),
                         shape = RoundedCornerShape(8.dp)
                     )
+                    .border(1.dp, TextSecondary.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
                     .clickable(enabled = enabled) { showEditDialog = true },
                 contentAlignment = Alignment.Center
             ) {
@@ -1034,6 +1090,7 @@ private fun BodyweightValueControl(
                         color = SurfaceColor.copy(alpha = 0.5f),
                         shape = RoundedCornerShape(8.dp)
                     )
+                    .border(1.dp, TextSecondary.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
                     .clickable(enabled = enabled) { showEditDialog = true }
                     .padding(horizontal = 8.dp),
                 contentAlignment = Alignment.Center
@@ -1463,14 +1520,14 @@ private fun QuickWorkoutFlow(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             items(filteredExercises) { exercise ->
                 val isSelected = selectedExercises.contains(exercise)
 
                 Card(
                     backgroundColor = if (isSelected) SelectedGreen else CardBackground,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -1487,7 +1544,7 @@ private fun QuickWorkoutFlow(
                                     }
                                 }
                             }
-                            .padding(16.dp),
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -1498,7 +1555,7 @@ private fun QuickWorkoutFlow(
                             ) {
                                 Text(
                                     text = exercise.name,
-                                    fontSize = 16.sp,
+                                    fontSize = 15.sp,
                                     fontWeight = FontWeight.Medium,
                                     color = if (isSelected) Color.White else TextPrimary
                                 )
@@ -1506,7 +1563,7 @@ private fun QuickWorkoutFlow(
                                 if (exercise.isBodyweight) {
                                     Text(
                                         text = "BW",
-                                        fontSize = 10.sp,
+                                        fontSize = 9.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = AccentGreen,
                                         modifier = Modifier
@@ -1514,14 +1571,14 @@ private fun QuickWorkoutFlow(
                                                 AccentGreen.copy(alpha = 0.2f),
                                                 RoundedCornerShape(4.dp)
                                             )
-                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                            .padding(horizontal = 5.dp, vertical = 2.dp)
                                     )
                                 }
                             }
 
                             Text(
                                 text = exercise.muscleGroups.joinToString(", "),
-                                fontSize = 12.sp,
+                                fontSize = 11.sp,
                                 color = if (isSelected) Color.White.copy(alpha = 0.8f) else TextSecondary
                             )
                         }
@@ -1529,7 +1586,8 @@ private fun QuickWorkoutFlow(
                         Icon(
                             imageVector = if (isSelected) Icons.Filled.Check else Icons.Filled.Add,
                             contentDescription = null,
-                            tint = if (isSelected) AccentGreen else AccentOrange
+                            tint = if (isSelected) AccentGreen else AccentOrange,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }

@@ -215,6 +215,23 @@ class WorkoutViewModel : ViewModel() {
         }
     }
 
+    // Discards the active workout entirely without recording it as finished.
+    fun stopWorkout() {
+        val currentWorkout = sharedState.activeWorkout.value ?: return
+        viewModelScope.launch {
+            sharedState.setLoading(true)
+            try {
+                sharedState.workoutRepo.deleteWorkout(currentWorkout.id)
+                sharedState.updateActiveWorkout(null)
+                sharedState.clearError()
+            } catch (e: Exception) {
+                sharedState.setError("Failed to stop workout: ${e.message ?: "Unknown error"}")
+            } finally {
+                sharedState.setLoading(false)
+            }
+        }
+    }
+
     fun deleteWorkout(workoutId: String) {
         viewModelScope.launch {
             try {

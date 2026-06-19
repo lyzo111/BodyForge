@@ -25,8 +25,9 @@ object AppSettings {
         set(value) { prefs.edit().putBoolean("vibrate_on_timer_end", value).apply() }
 }
 
-// A short vibration pulse, used when the rest timer reaches zero.
-fun vibrateDevice(milliseconds: Long = 500) {
+// A noticeable vibration pattern, used when the rest timer reaches zero. Several pulses so it's
+// hard to miss even with the phone pocketed between sets.
+fun vibrateDevice() {
     val context = DatabaseFactory.context()
     val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
@@ -34,10 +35,12 @@ fun vibrateDevice(milliseconds: Long = 500) {
         @Suppress("DEPRECATION")
         context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
     }
+    // Wait, buzz, pause, buzz, pause, buzz.
+    val pattern = longArrayOf(0, 500, 250, 500, 250, 600)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        vibrator.vibrate(VibrationEffect.createOneShot(milliseconds, VibrationEffect.DEFAULT_AMPLITUDE))
+        vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1))
     } else {
         @Suppress("DEPRECATION")
-        vibrator.vibrate(milliseconds)
+        vibrator.vibrate(pattern, -1)
     }
 }

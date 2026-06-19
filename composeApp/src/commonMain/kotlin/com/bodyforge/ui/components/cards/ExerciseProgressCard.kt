@@ -3,6 +3,7 @@ package com.bodyforge.ui.components.cards
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -78,7 +79,7 @@ fun ExerciseProgressCard(workouts: List<Workout>) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("🏋️ Exercise Progress", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Text("Exercise Progress", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
             Spacer(Modifier.height(12.dp))
             if (exercises.isEmpty()) {
                 Text("Complete a workout to track progress per exercise.", fontSize = 13.sp, color = TextSecondary)
@@ -102,8 +103,10 @@ private fun ExerciseProgressContent(workouts: List<Workout>, exercises: List<Exe
         }
     }
 
-    // Reset any tapped node when the exercise or metric changes.
-    var selectedIndex by remember(selectedExerciseId, metric) { mutableStateOf<Int?>(null) }
+    // Keep the selection state stable (don't recreate it on metric change) so taps/drags always
+    // target the live state; just clear the highlight when the exercise or metric changes.
+    var selectedIndex by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(selectedExerciseId, metric) { selectedIndex = null }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         ChipRow(label = "Exercise") {
@@ -159,7 +162,7 @@ private fun SelectedPointCard(point: ExercisePoint, unit: String) {
                 color = AccentGreen
             )
             if (point.exerciseNote.isNotBlank()) {
-                Text("📝 ${point.exerciseNote}", fontSize = 13.sp, color = TextPrimary)
+                Text(point.exerciseNote, fontSize = 13.sp, color = TextPrimary)
             }
             if (point.workoutNote.isNotBlank()) {
                 Text("Workout: ${point.workoutNote}", fontSize = 12.sp, color = TextSecondary)
@@ -200,6 +203,13 @@ private fun SelectChip(text: String, selected: Boolean, onClick: () -> Unit) {
     }
 }
 
+// Index of the data point whose x is closest to the given x within the chart.
+private fun nearestNodeIndex(x: Float, n: Int, width: Float, pad: Float): Int {
+    if (n <= 1) return 0
+    val chartW = width - 2 * pad
+    return (0 until n).minByOrNull { abs(x - (pad + chartW * it / (n - 1))) } ?: 0
+}
+
 @Composable
 private fun ExerciseLineChart(points: List<ExercisePoint>, selectedIndex: Int?, onSelect: (Int) -> Unit) {
     val values = points.map { it.value }
@@ -208,18 +218,19 @@ private fun ExerciseLineChart(points: List<ExercisePoint>, selectedIndex: Int?, 
             .fillMaxWidth()
             .height(180.dp)
             .pointerInput(points.size) {
-                detectTapGestures { tap ->
-                    val n = points.size
-                    if (n == 0) return@detectTapGestures
-                    val leftPad = 8.dp.toPx()
-                    val rightPad = 8.dp.toPx()
-                    val chartW = size.width - leftPad - rightPad
-                    val nearest = (0 until n).minByOrNull { i ->
-                        val x = leftPad + if (n == 1) chartW / 2f else chartW * i / (n - 1)
-                        abs(tap.x - x)
-                    } ?: 0
-                    onSelect(nearest)
+                val pad = 8.dp.toPx()
+                detectTapGestures { offset ->
+                    onSelect(nearestNodeIndex(offset.x, points.size, size.width.toFloat(), pad))
                 }
+            }
+            .pointerInput(points.size) {
+                val pad = 8.dp.toPx()
+                // Slide a finger along the graph; the highlighted node follows and snaps to the
+                // nearest point wherever you lift off.
+                detectDragGestures(
+                    onDragStart = { offset -> onSelect(nearestNodeIndex(offset.x, points.size, size.width.toFloat(), pad)) },
+                    onDrag = { change, _ -> onSelect(nearestNodeIndex(change.position.x, points.size, size.width.toFloat(), pad)) }
+                )
             }
     ) {
         val n = values.size

@@ -3,7 +3,10 @@ package com.bodyforge
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -281,6 +284,34 @@ private fun ErrorCard(
     }
 }
 
+@Composable
+private fun BreakOverBanner(
+    onGoToWorkout: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Surface(color = AccentGreen, elevation = 4.dp, modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onGoToWorkout)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Break's over — back to your workout",
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                modifier = Modifier.weight(1f)
+            )
+            IconButton(onClick = onDismiss, modifier = Modifier.size(24.dp)) {
+                Text("✕", color = Color.White, fontSize = 16.sp)
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MainContent(hasActiveWorkout: Boolean) {
@@ -297,6 +328,21 @@ private fun MainContent(hasActiveWorkout: Boolean) {
     )
     val coroutineScope = rememberCoroutineScope()
 
+    // One scroll state per tab, hoisted here so positions survive switching tabs. Re-tapping the
+    // current tab scrolls it back to the top.
+    val workoutListState = rememberLazyListState()
+    val templatesListState = rememberLazyListState()
+    val analyticsListState = rememberLazyListState()
+    val historyListState = rememberLazyListState()
+    val listStates = listOf(workoutListState, templatesListState, analyticsListState, historyListState)
+
+    // "Break is over" banner: only relevant while the user is away from the Workout tab (the rest
+    // bar already lives there). Returning to Workout clears it.
+    val restJustEnded by SharedWorkoutState.restJustEnded.collectAsState()
+    LaunchedEffect(pagerState.currentPage) {
+        if (pagerState.currentPage == 0) SharedWorkoutState.dismissRestEndedNotice()
+    }
+
     Column {
         // Tab Navigation Bar
         TabNavigationBar(
@@ -305,10 +351,21 @@ private fun MainContent(hasActiveWorkout: Boolean) {
             hasActiveWorkout = hasActiveWorkout,
             onTabSelected = { index ->
                 coroutineScope.launch {
-                    pagerState.animateScrollToPage(index)
+                    if (index == pagerState.currentPage) {
+                        listStates[index].animateScrollToItem(0)
+                    } else {
+                        pagerState.animateScrollToPage(index)
+                    }
                 }
             }
         )
+
+        if (restJustEnded && pagerState.currentPage != 0) {
+            BreakOverBanner(
+                onGoToWorkout = { coroutineScope.launch { pagerState.animateScrollToPage(0) } },
+                onDismiss = { SharedWorkoutState.dismissRestEndedNotice() }
+            )
+        }
 
         // Horizontal Pager for Tab Content
         HorizontalPager(
@@ -316,14 +373,16 @@ private fun MainContent(hasActiveWorkout: Boolean) {
             modifier = Modifier.fillMaxSize()
         ) { page ->
             when (page) {
-                0 -> WorkoutScreen(onGoToTemplates = {
-                    coroutineScope.launch { pagerState.animateScrollToPage(1) }
-                })
-                1 -> TemplatesScreen(onStartWorkout = {
-                    coroutineScope.launch { pagerState.animateScrollToPage(0) }
-                })
-                2 -> AnalyticsScreen()
-                3 -> HistoryScreen()
+                0 -> WorkoutScreen(
+                    listState = workoutListState,
+                    onGoToTemplates = { coroutineScope.launch { pagerState.animateScrollToPage(1) } }
+                )
+                1 -> TemplatesScreen(
+                    listState = templatesListState,
+                    onStartWorkout = { coroutineScope.launch { pagerState.animateScrollToPage(0) } }
+                )
+                2 -> AnalyticsScreen(listState = analyticsListState)
+                3 -> HistoryScreen(listState = historyListState)
             }
         }
     }

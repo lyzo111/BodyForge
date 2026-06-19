@@ -6,6 +6,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
@@ -55,7 +56,7 @@ private val SurfaceColor = Color(0xFF334155)
 private val SelectedGreen = Color(0xFF065F46)
 
 @Composable
-fun TemplatesScreen(onStartWorkout: () -> Unit = {}) {
+fun TemplatesScreen(listState: LazyListState, onStartWorkout: () -> Unit = {}) {
     val templates by SharedWorkoutState.templates.collectAsState()
     val exercises by SharedWorkoutState.exercises.collectAsState()
     val isLoading by SharedWorkoutState.isLoading.collectAsState()
@@ -67,6 +68,9 @@ fun TemplatesScreen(onStartWorkout: () -> Unit = {}) {
     var deleteConfirmationTemplate by remember { mutableStateOf<WorkoutTemplate?>(null) }
     var startConfirmTemplate by remember { mutableStateOf<WorkoutTemplate?>(null) }
     var showImportDialog by remember { mutableStateOf(false) }
+    // Which routine folders are expanded. Folders start collapsed, so a routine with variations
+    // (e.g. Upper A / Upper B) shows as a single "Upper" entry until tapped open.
+    val expandedRoutines = remember { mutableStateMapOf<String, Boolean>() }
 
     // Persists a new custom exercise via shared state and returns it so the template dialog
     // can select it immediately without navigating away.
@@ -98,7 +102,7 @@ fun TemplatesScreen(onStartWorkout: () -> Unit = {}) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("📋 My Templates", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Text("My Templates", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
             Button(
                 onClick = { showCreateTemplateDialog = true },
                 colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen),
@@ -115,7 +119,7 @@ fun TemplatesScreen(onStartWorkout: () -> Unit = {}) {
             onClick = { showImportDialog = true },
             contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp)
         ) {
-            Text("📥  Import a shared template", color = AccentBlue, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text("Import a shared template", color = AccentBlue, fontWeight = FontWeight.Bold, fontSize = 14.sp)
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -125,31 +129,36 @@ fun TemplatesScreen(onStartWorkout: () -> Unit = {}) {
                 CircularProgressIndicator(color = AccentOrange)
             }
             templates.isEmpty() -> EmptyTemplatesCard { showCreateTemplateDialog = true }
-            else -> LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            else -> LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 val groupedByRoutine = templates.filter { it.routineId.isNotBlank() }.groupBy { it.routineId }
                 val ungroupedTemplates = templates.filter { it.routineId.isBlank() }
 
-                groupedByRoutine.forEach { (_, routineTemplates) ->
+                groupedByRoutine.forEach { (routineId, routineTemplates) ->
                     val variations = routineTemplates.sortedBy { it.variationLabel }
-                    item {
-                        RoutineHeader(
+                    val isExpanded = expandedRoutines[routineId] == true
+                    item(key = "routine_$routineId") {
+                        RoutineFolderHeader(
                             name = variations.first().routineName.ifBlank { "Routine" },
-                            variationCount = variations.size
+                            variationCount = variations.size,
+                            expanded = isExpanded,
+                            onToggle = { expandedRoutines[routineId] = !isExpanded }
                         )
                     }
-                    items(variations) { template ->
-                        TemplateCard(
-                            template = template,
-                            exercises = exercises,
-                            onStart = { requestStart(template) },
-                            onEdit = { editingTemplate = template },
-                            onDelete = { deleteConfirmationTemplate = template },
-                            onShare = { SharedWorkoutState.shareTemplate(template) }
-                        )
+                    if (isExpanded) {
+                        items(variations, key = { it.id }) { template ->
+                            TemplateCard(
+                                template = template,
+                                exercises = exercises,
+                                onStart = { requestStart(template) },
+                                onEdit = { editingTemplate = template },
+                                onDelete = { deleteConfirmationTemplate = template },
+                                onShare = { SharedWorkoutState.shareTemplate(template) }
+                            )
+                        }
                     }
                 }
 
-                items(ungroupedTemplates) { template ->
+                items(ungroupedTemplates, key = { it.id }) { template ->
                     TemplateCard(
                         template = template,
                         exercises = exercises,
@@ -305,7 +314,6 @@ private fun ImportTemplateDialog(onDismiss: () -> Unit, onImport: (String) -> Bo
 private fun EmptyTemplatesCard(onCreateClick: () -> Unit) {
     Card(backgroundColor = CardBackground, elevation = 2.dp, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("📋", fontSize = 48.sp)
             Text("No Templates Yet", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TextPrimary, textAlign = TextAlign.Center)
             Text("Create workout templates to quickly start your favorite routines", fontSize = 14.sp, color = TextSecondary, textAlign = TextAlign.Center)
             Button(onClick = onCreateClick, colors = ButtonDefaults.buttonColors(backgroundColor = AccentBlue), shape = RoundedCornerShape(25.dp), elevation = ButtonDefaults.elevation(0.dp)) {
@@ -396,20 +404,30 @@ private fun RoutineVariationFields(
     }
 }
 
+// A collapsible routine folder. Tapping toggles whether its variations are listed below it.
 @Composable
-private fun RoutineHeader(name: String, variationCount: Int) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 2.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+private fun RoutineFolderHeader(name: String, variationCount: Int, expanded: Boolean, onToggle: () -> Unit) {
+    Card(
+        backgroundColor = SurfaceColor,
+        elevation = 0.dp,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Text("🔁", fontSize = 16.sp)
-        Text(name, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AccentBlue)
-        Text(
-            "$variationCount variation${if (variationCount == 1) "" else "s"}",
-            fontSize = 12.sp,
-            color = TextSecondary
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(if (expanded) "▾" else "▸", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AccentBlue)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(name, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Text(
+                    "$variationCount variation${if (variationCount == 1) "" else "s"}",
+                    fontSize = 12.sp,
+                    color = TextSecondary
+                )
+            }
+        }
     }
 }
 
