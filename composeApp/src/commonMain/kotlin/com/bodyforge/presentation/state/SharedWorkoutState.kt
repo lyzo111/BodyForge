@@ -48,6 +48,10 @@ object SharedWorkoutState {
     private val _templates = MutableStateFlow<List<WorkoutTemplate>>(emptyList())
     val templates: StateFlow<List<WorkoutTemplate>> = _templates.asStateFlow()
 
+    // templateId -> split name (e.g. "PPL"). Persisted in settings, not the database.
+    private val _splitAssignments = MutableStateFlow<Map<String, String>>(emptyMap())
+    val splitAssignments: StateFlow<Map<String, String>> = _splitAssignments.asStateFlow()
+
     private val _phases = MutableStateFlow<List<TrainingPhase>>(emptyList())
     val phases: StateFlow<List<TrainingPhase>> = _phases.asStateFlow()
 
@@ -162,6 +166,19 @@ object SharedWorkoutState {
         } catch (e: Exception) {
             _error.value = "Failed to load templates: ${e.message}"
         }
+    }
+
+    fun loadSplitAssignments() {
+        _splitAssignments.value = com.bodyforge.data.AppSettings.splitAssignments
+    }
+
+    // Assigns a template to a split (blank removes it). Persists to settings and updates state.
+    fun assignSplit(templateId: String, splitName: String) {
+        val updated = com.bodyforge.data.AppSettings.splitAssignments.toMutableMap()
+        val trimmed = splitName.trim()
+        if (trimmed.isBlank()) updated.remove(templateId) else updated[templateId] = trimmed
+        com.bodyforge.data.AppSettings.splitAssignments = updated
+        _splitAssignments.value = updated
     }
 
     suspend fun loadPhases() {
@@ -412,5 +429,6 @@ object SharedWorkoutState {
         loadCompletedWorkouts()
         loadTemplates()
         loadPhases()
+        loadSplitAssignments()
     }
 }

@@ -44,7 +44,8 @@ private enum class Metric(val label: String, val unit: String) {
 private enum class Scope(val label: String) {
     ALL("All time"),
     PHASE("By phase"),
-    ROUTINE("By routine")
+    ROUTINE("By routine"),
+    SPLIT("By split")
 }
 
 private data class Point(val value: Double, val date: LocalDate, val exerciseNote: String, val workoutNote: String)
@@ -78,6 +79,13 @@ private fun routineGroups(templates: List<WorkoutTemplate>): List<RoutineGroup> 
     return (grouped + ungrouped).sortedBy { it.label }
 }
 
+private fun splitGroups(templates: List<WorkoutTemplate>, assignments: Map<String, String>): List<RoutineGroup> {
+    return templates.mapNotNull { t -> assignments[t.id]?.takeIf { it.isNotBlank() }?.let { it to t.id } }
+        .groupBy({ it.first }, { it.second })
+        .map { (split, ids) -> RoutineGroup("s:$split", split, ids.toSet()) }
+        .sortedBy { it.label }
+}
+
 private fun formatDate(d: LocalDate): String =
     "${d.dayOfMonth.toString().padStart(2, '0')}.${d.monthNumber.toString().padStart(2, '0')}.${d.year}"
 
@@ -89,6 +97,7 @@ fun ProgressCard(
     workouts: List<Workout>,
     templates: List<WorkoutTemplate>,
     phases: List<TrainingPhase>,
+    splitAssignments: Map<String, String>,
     expanded: Boolean,
     onToggle: () -> Unit
 ) {
@@ -109,7 +118,7 @@ fun ProgressCard(
             }
             if (expanded) {
                 Spacer(Modifier.height(12.dp))
-                ProgressContent(workouts, templates, phases)
+                ProgressContent(workouts, templates, phases, splitAssignments)
             }
         }
     }
@@ -119,7 +128,8 @@ fun ProgressCard(
 private fun ProgressContent(
     workouts: List<Workout>,
     templates: List<WorkoutTemplate>,
-    phases: List<TrainingPhase>
+    phases: List<TrainingPhase>,
+    splitAssignments: Map<String, String>
 ) {
     val exercises = remember(workouts) {
         workouts.sortedByDescending { it.startedAt }
@@ -127,17 +137,19 @@ private fun ProgressContent(
             .distinctBy { it.id }
     }
     val groups = remember(templates) { routineGroups(templates) }
+    val splits = remember(templates, splitAssignments) { splitGroups(templates, splitAssignments) }
 
     var subjectId by remember { mutableStateOf<String?>(null) } // null => total volume
     var metric by remember { mutableStateOf(Metric.EST_1RM) }
     var scope by remember { mutableStateOf(Scope.ALL) }
     var selectedPhaseId by remember(phases) { mutableStateOf(phases.firstOrNull()?.id) }
     var selectedGroupKey by remember(groups) { mutableStateOf(groups.firstOrNull()?.key) }
+    var selectedSplitKey by remember(splits) { mutableStateOf(splits.firstOrNull()?.key) }
     var selectedIndex by remember { mutableStateOf<Int?>(null) }
 
     val effectiveMetric = if (subjectId == null) Metric.VOLUME else metric
 
-    val scopedWorkouts = remember(workouts, scope, selectedPhaseId, selectedGroupKey, phases, groups) {
+    val scopedWorkouts = remember(workouts, scope, selectedPhaseId, selectedGroupKey, selectedSplitKey, phases, groups, splits) {
         val base = when (scope) {
             Scope.ALL -> workouts
             Scope.PHASE -> {
@@ -147,6 +159,11 @@ private fun ProgressContent(
             }
             Scope.ROUTINE -> {
                 val g = groups.firstOrNull { it.key == selectedGroupKey }
+                if (g == null) emptyList()
+                else workouts.filter { it.templateId != null && it.templateId in g.templateIds }
+            }
+            Scope.SPLIT -> {
+                val g = splits.firstOrNull { it.key == selectedSplitKey }
                 if (g == null) emptyList()
                 else workouts.filter { it.templateId != null && it.templateId in g.templateIds }
             }
@@ -162,7 +179,7 @@ private fun ProgressContent(
         }
     }
 
-    LaunchedEffect(subjectId, effectiveMetric, scope, selectedPhaseId, selectedGroupKey) { selectedIndex = null }
+    LaunchedEffect(subjectId, effectiveMetric, scope, selectedPhaseId, selectedGroupKey, selectedSplitKey) { selectedIndex = null }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         ChipRow("Track") {
@@ -192,6 +209,15 @@ private fun ProgressContent(
             } else {
                 ChipRow("Routine") {
                     groups.forEach { g -> SelectChip(g.label, g.key == selectedGroupKey) { selectedGroupKey = g.key } }
+                }
+            }
+        }
+        if (scope == Scope.SPLIT) {
+            if (splits.isEmpty()) {
+                Text("No splits yet — assign templates to a split on the Templates tab.", fontSize = 12.sp, color = TextSecondary)
+            } else {
+                ChipRow("Split") {
+                    splits.forEach { g -> SelectChip(g.label, g.key == selectedSplitKey) { selectedSplitKey = g.key } }
                 }
             }
         }

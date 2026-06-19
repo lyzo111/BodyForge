@@ -23,6 +23,25 @@ object AppSettings {
     var vibrateOnTimerEnd: Boolean
         get() = prefs.getBoolean("vibrate_on_timer_end", true)
         set(value) { prefs.edit().putBoolean("vibrate_on_timer_end", value).apply() }
+
+    // templateId -> split name (e.g. "PPL"). Persisted here, so splits need no database migration.
+    // Entries are joined with control characters (record/unit separators) that users won't type.
+    private const val RECORD_SEP = "\u001E"
+    private const val UNIT_SEP = "\u001F"
+
+    var splitAssignments: Map<String, String>
+        get() {
+            val raw = prefs.getString("split_assignments", "") ?: ""
+            if (raw.isEmpty()) return emptyMap()
+            return raw.split(RECORD_SEP).mapNotNull { entry ->
+                val parts = entry.split(UNIT_SEP)
+                if (parts.size == 2 && parts[0].isNotEmpty()) parts[0] to parts[1] else null
+            }.toMap()
+        }
+        set(value) {
+            val raw = value.entries.joinToString(RECORD_SEP) { "${it.key}$UNIT_SEP${it.value}" }
+            prefs.edit().putString("split_assignments", raw).apply()
+        }
 }
 
 // A noticeable vibration pattern, used when the rest timer reaches zero. Several pulses so it's

@@ -2,6 +2,7 @@ package com.bodyforge.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
@@ -47,6 +48,7 @@ fun routineKey(routineName: String): String = buildString {
 
 private val AccentOrange = Color(0xFFFF6B35)
 private val AccentBlue = Color(0xFF3B82F6)
+private val AccentPurple = Color(0xFF8B5CF6)
 private val AccentGreen = Color(0xFF10B981)
 private val AccentRed = Color(0xFFEF4444)
 private val TextPrimary = Color(0xFFE2E8F0)
@@ -59,6 +61,7 @@ private val SelectedGreen = Color(0xFF065F46)
 fun TemplatesScreen(listState: LazyListState, onStartWorkout: () -> Unit = {}) {
     val templates by SharedWorkoutState.templates.collectAsState()
     val exercises by SharedWorkoutState.exercises.collectAsState()
+    val splitAssignments by SharedWorkoutState.splitAssignments.collectAsState()
     val isLoading by SharedWorkoutState.isLoading.collectAsState()
     val activeWorkout by SharedWorkoutState.activeWorkout.collectAsState()
     val coroutineScope = rememberCoroutineScope()
@@ -68,8 +71,11 @@ fun TemplatesScreen(listState: LazyListState, onStartWorkout: () -> Unit = {}) {
     var deleteConfirmationTemplate by remember { mutableStateOf<WorkoutTemplate?>(null) }
     var startConfirmTemplate by remember { mutableStateOf<WorkoutTemplate?>(null) }
     var showImportDialog by remember { mutableStateOf(false) }
-    // Which routine folders are expanded. Folders start collapsed, so a routine with variations
-    // (e.g. Upper A / Upper B) shows as a single "Upper" entry until tapped open.
+    var assigningSplitTemplate by remember { mutableStateOf<WorkoutTemplate?>(null) }
+    // Templates list grouping: false = by routine (default), true = by split.
+    var groupBySplit by remember { mutableStateOf(false) }
+    // Which routine/split folders are expanded. Folders start collapsed, so a routine with
+    // variations (e.g. Upper A / Upper B) shows as a single "Upper" entry until tapped open.
     val expandedRoutines = remember { mutableStateMapOf<String, Boolean>() }
 
     // Persists a new custom exercise via shared state and returns it so the template dialog
@@ -122,6 +128,14 @@ fun TemplatesScreen(listState: LazyListState, onStartWorkout: () -> Unit = {}) {
             Text("Import a shared template", color = AccentBlue, fontWeight = FontWeight.Bold, fontSize = 14.sp)
         }
 
+        if (templates.isNotEmpty()) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Group by", fontSize = 13.sp, color = TextSecondary)
+                GroupChip("Routine", !groupBySplit) { groupBySplit = false }
+                GroupChip("Split", groupBySplit) { groupBySplit = true }
+            }
+        }
+
         Spacer(modifier = Modifier.height(12.dp))
 
         when {
@@ -130,46 +144,94 @@ fun TemplatesScreen(listState: LazyListState, onStartWorkout: () -> Unit = {}) {
             }
             templates.isEmpty() -> EmptyTemplatesCard { showCreateTemplateDialog = true }
             else -> LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                val groupedByRoutine = templates.filter { it.routineId.isNotBlank() }.groupBy { it.routineId }
-                val ungroupedTemplates = templates.filter { it.routineId.isBlank() }
-
-                groupedByRoutine.forEach { (routineId, routineTemplates) ->
-                    val variations = routineTemplates.sortedBy { it.variationLabel }
-                    val isExpanded = expandedRoutines[routineId] == true
-                    item(key = "routine_$routineId") {
-                        RoutineFolderHeader(
-                            name = variations.first().routineName.ifBlank { "Routine" },
-                            variationCount = variations.size,
-                            expanded = isExpanded,
-                            onToggle = { expandedRoutines[routineId] = !isExpanded }
-                        )
-                    }
-                    if (isExpanded) {
-                        items(variations, key = { it.id }) { template ->
-                            TemplateCard(
-                                template = template,
-                                exercises = exercises,
-                                onStart = { requestStart(template) },
-                                onEdit = { editingTemplate = template },
-                                onDelete = { deleteConfirmationTemplate = template },
-                                onShare = { SharedWorkoutState.shareTemplate(template) }
+                if (groupBySplit) {
+                    val bySplit = templates.groupBy { splitAssignments[it.id]?.takeIf { s -> s.isNotBlank() } ?: "No split" }
+                    val orderedSplits = bySplit.keys.sortedWith(compareBy({ it == "No split" }, { it }))
+                    orderedSplits.forEach { splitName ->
+                        val inSplit = bySplit[splitName] ?: emptyList()
+                        val splitKey = "split_$splitName"
+                        val isExpanded = expandedRoutines[splitKey] == true
+                        item(key = splitKey) {
+                            RoutineFolderHeader(
+                                name = splitName,
+                                subtitle = "${inSplit.size} template${if (inSplit.size == 1) "" else "s"}",
+                                expanded = isExpanded,
+                                onToggle = { expandedRoutines[splitKey] = !isExpanded }
                             )
                         }
+                        if (isExpanded) {
+                            items(inSplit, key = { "sp_${it.id}" }) { template ->
+                                TemplateCard(
+                                    template = template,
+                                    exercises = exercises,
+                                    split = splitAssignments[template.id],
+                                    onStart = { requestStart(template) },
+                                    onEdit = { editingTemplate = template },
+                                    onDelete = { deleteConfirmationTemplate = template },
+                                    onShare = { SharedWorkoutState.shareTemplate(template) },
+                                    onAssignSplit = { assigningSplitTemplate = template }
+                                )
+                            }
+                        }
                     }
-                }
+                } else {
+                    val groupedByRoutine = templates.filter { it.routineId.isNotBlank() }.groupBy { it.routineId }
+                    val ungroupedTemplates = templates.filter { it.routineId.isBlank() }
 
-                items(ungroupedTemplates, key = { it.id }) { template ->
-                    TemplateCard(
-                        template = template,
-                        exercises = exercises,
-                        onStart = { requestStart(template) },
-                        onEdit = { editingTemplate = template },
-                        onDelete = { deleteConfirmationTemplate = template },
-                        onShare = { SharedWorkoutState.shareTemplate(template) }
-                    )
+                    groupedByRoutine.forEach { (routineId, routineTemplates) ->
+                        val variations = routineTemplates.sortedBy { it.variationLabel }
+                        val isExpanded = expandedRoutines[routineId] == true
+                        item(key = "routine_$routineId") {
+                            RoutineFolderHeader(
+                                name = variations.first().routineName.ifBlank { "Routine" },
+                                subtitle = "${variations.size} variation${if (variations.size == 1) "" else "s"}",
+                                expanded = isExpanded,
+                                onToggle = { expandedRoutines[routineId] = !isExpanded }
+                            )
+                        }
+                        if (isExpanded) {
+                            items(variations, key = { it.id }) { template ->
+                                TemplateCard(
+                                    template = template,
+                                    exercises = exercises,
+                                    split = splitAssignments[template.id],
+                                    onStart = { requestStart(template) },
+                                    onEdit = { editingTemplate = template },
+                                    onDelete = { deleteConfirmationTemplate = template },
+                                    onShare = { SharedWorkoutState.shareTemplate(template) },
+                                    onAssignSplit = { assigningSplitTemplate = template }
+                                )
+                            }
+                        }
+                    }
+
+                    items(ungroupedTemplates, key = { it.id }) { template ->
+                        TemplateCard(
+                            template = template,
+                            exercises = exercises,
+                            split = splitAssignments[template.id],
+                            onStart = { requestStart(template) },
+                            onEdit = { editingTemplate = template },
+                            onDelete = { deleteConfirmationTemplate = template },
+                            onShare = { SharedWorkoutState.shareTemplate(template) },
+                            onAssignSplit = { assigningSplitTemplate = template }
+                        )
+                    }
                 }
             }
         }
+    }
+
+    assigningSplitTemplate?.let { template ->
+        AssignSplitDialog(
+            current = splitAssignments[template.id] ?: "",
+            existingSplits = splitAssignments.values.filter { it.isNotBlank() }.distinct().sorted(),
+            onDismiss = { assigningSplitTemplate = null },
+            onAssign = { name ->
+                SharedWorkoutState.assignSplit(template.id, name)
+                assigningSplitTemplate = null
+            }
+        )
     }
 
     if (showCreateTemplateDialog) {
@@ -324,7 +386,7 @@ private fun EmptyTemplatesCard(onCreateClick: () -> Unit) {
 }
 
 @Composable
-private fun TemplateCard(template: WorkoutTemplate, exercises: List<com.bodyforge.domain.models.Exercise>, onStart: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit, onShare: () -> Unit) {
+private fun TemplateCard(template: WorkoutTemplate, exercises: List<com.bodyforge.domain.models.Exercise>, split: String?, onStart: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit, onShare: () -> Unit, onAssignSplit: () -> Unit) {
     val templateExercises = remember(template, exercises) { template.exerciseIds.mapNotNull { id -> exercises.firstOrNull { it.id == id } } }
     var showAllExercises by remember { mutableStateOf(false) }
 
@@ -343,6 +405,16 @@ private fun TemplateCard(template: WorkoutTemplate, exercises: List<com.bodyforg
                                 modifier = Modifier.background(AccentBlue, RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
+                        Text(
+                            if (!split.isNullOrBlank()) split else "+ Split",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (!split.isNullOrBlank()) Color.White else TextSecondary,
+                            modifier = Modifier
+                                .background(if (!split.isNullOrBlank()) AccentPurple else SurfaceColor, RoundedCornerShape(4.dp))
+                                .clickable { onAssignSplit() }
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
                     }
                     Text("${template.exerciseIds.size} exercises", fontSize = 14.sp, color = TextSecondary)
                     if (template.description.isNotEmpty()) Text(template.description, fontSize = 12.sp, color = TextSecondary, modifier = Modifier.padding(top = 4.dp))
@@ -421,7 +493,7 @@ private fun RoutineVariationFields(
 
 // A collapsible routine folder. Tapping toggles whether its variations are listed below it.
 @Composable
-private fun RoutineFolderHeader(name: String, variationCount: Int, expanded: Boolean, onToggle: () -> Unit) {
+private fun RoutineFolderHeader(name: String, subtitle: String, expanded: Boolean, onToggle: () -> Unit) {
     Card(
         backgroundColor = SurfaceColor,
         elevation = 0.dp,
@@ -437,7 +509,7 @@ private fun RoutineFolderHeader(name: String, variationCount: Int, expanded: Boo
             Column(modifier = Modifier.weight(1f)) {
                 Text(name, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                 Text(
-                    "$variationCount variation${if (variationCount == 1) "" else "s"}",
+                    subtitle,
                     fontSize = 12.sp,
                     color = TextSecondary
                 )
@@ -459,6 +531,58 @@ private fun NewExerciseButton(onClick: () -> Unit) {
         Spacer(modifier = Modifier.width(4.dp))
         Text("New Exercise", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
+}
+
+@Composable
+private fun GroupChip(text: String, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .background(if (selected) AccentPurple else SurfaceColor, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    ) {
+        Text(text, color = if (selected) Color.White else TextSecondary, fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+    }
+}
+
+@Composable
+private fun AssignSplitDialog(current: String, existingSplits: List<String>, onDismiss: () -> Unit, onAssign: (String) -> Unit) {
+    var name by remember { mutableStateOf(current) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Assign to split", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 18.sp)
+                if (existingSplits.isNotEmpty()) {
+                    Text("Pick existing", fontSize = 12.sp, color = TextSecondary)
+                    Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        existingSplits.forEach { s -> GroupChip(s, s == name) { name = s } }
+                    }
+                }
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Split name") },
+                    placeholder = { Text("e.g., PPL, Upper/Lower") },
+                    singleLine = true,
+                    colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentPurple, unfocusedBorderColor = SurfaceColor),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onAssign(name.trim()) }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentPurple), elevation = ButtonDefaults.elevation(0.dp)) {
+                Text("Save", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            Row {
+                if (current.isNotBlank()) TextButton(onClick = { onAssign("") }) { Text("Remove", color = AccentRed) }
+                TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) }
+            }
+        },
+        backgroundColor = CardBackground
+    )
 }
 
 // Selected exercises shown in their saved order, with up/down controls to change the sequence.

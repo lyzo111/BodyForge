@@ -57,6 +57,7 @@ fun AnalyticsScreen(listState: LazyListState) {
     val completedWorkouts by SharedWorkoutState.completedWorkouts.collectAsState()
     val templates by SharedWorkoutState.templates.collectAsState()
     val phases by SharedWorkoutState.phases.collectAsState()
+    val splitAssignments by SharedWorkoutState.splitAssignments.collectAsState()
     val isLoading by SharedWorkoutState.isLoading.collectAsState()
 
     // Expand state for the analytics dropdowns, hoisted here so "Open all" / "Close all" can drive
@@ -141,6 +142,7 @@ fun AnalyticsScreen(listState: LazyListState) {
                     completedWorkouts,
                     templates,
                     phases,
+                    splitAssignments,
                     expandedSections["progress"] == true
                 ) { expandedSections["progress"] = !(expandedSections["progress"] == true) }
             }
