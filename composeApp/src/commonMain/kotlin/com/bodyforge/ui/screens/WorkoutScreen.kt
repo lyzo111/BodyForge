@@ -1,5 +1,8 @@
 package com.bodyforge.ui.screens
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -349,6 +352,13 @@ private fun RestTimerBar(
     val minutes = remaining / 60
     val seconds = remaining % 60
     val progress = if (total > 0) remaining.toFloat() / total.toFloat() else 0f
+    // Drain the bar continuously. The timer decrements once per second, so a linear one-second
+    // tween between ticks turns the stepwise countdown into smooth motion.
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress,
+        animationSpec = tween(durationMillis = 1000, easing = LinearEasing),
+        label = "restProgress"
+    )
 
     Surface(color = SurfaceColor, elevation = 8.dp) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -370,7 +380,7 @@ private fun RestTimerBar(
             }
             Spacer(modifier = Modifier.height(8.dp))
             LinearProgressIndicator(
-                progress = progress,
+                progress = animatedProgress,
                 modifier = Modifier.fillMaxWidth().height(6.dp),
                 color = AccentOrange,
                 backgroundColor = CardBackground
@@ -1392,57 +1402,62 @@ private fun QuickWorkoutFlow(
             }
         )
 
-        // Selected exercises card
-        if (selectedExercises.isNotEmpty()) {
-            Card(
-                backgroundColor = SelectedGreen,
-                shape = RoundedCornerShape(12.dp),
+        // Selected summary bar — always present so the exercise list below never shifts when
+        // selecting. Start stays in place but is greyed out until at least one exercise is picked.
+        val canStart = selectedExercises.isNotEmpty() && !isLoading
+        Card(
+            backgroundColor = SelectedGreen,
+            shape = RoundedCornerShape(12.dp),
+            elevation = 0.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+        ) {
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "${selectedExercises.size} Selected",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = selectedExercises.take(2).joinToString(", ") { it.name },
-                            fontSize = 12.sp,
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
-                    }
+                Text(
+                    text = "${selectedExercises.size} Selected",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
 
-                    Button(
-                        onClick = { onStartWorkout(selectedExercises) },
-                        enabled = !isLoading,
-                        colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange),
-                        shape = RoundedCornerShape(25.dp)
-                    ) {
-                        Text("Start", color = Color.White, fontWeight = FontWeight.Bold)
-                    }
+                Button(
+                    onClick = { onStartWorkout(selectedExercises) },
+                    enabled = canStart,
+                    colors = ButtonDefaults.buttonColors(
+                        backgroundColor = AccentOrange,
+                        disabledBackgroundColor = SurfaceColor
+                    ),
+                    shape = RoundedCornerShape(25.dp),
+                    elevation = ButtonDefaults.elevation(0.dp)
+                ) {
+                    Text(
+                        "Start",
+                        color = if (canStart) Color.White else TextSecondary,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Search bar
         Card(
             backgroundColor = CardBackground,
             shape = RoundedCornerShape(12.dp),
+            elevation = 0.dp,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -1454,7 +1469,7 @@ private fun QuickWorkoutFlow(
                         modifier = Modifier
                             .weight(1f)
                             .background(SurfaceColor, RoundedCornerShape(25.dp))
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
                         textStyle = TextStyle(fontSize = 16.sp, color = TextPrimary),
                         singleLine = true,
                         decorationBox = { innerTextField ->
@@ -1471,8 +1486,9 @@ private fun QuickWorkoutFlow(
                             backgroundColor = if (showFilters) AccentOrange else SurfaceColor
                         ),
                         shape = RoundedCornerShape(25.dp),
-                        modifier = Modifier.size(48.dp),
-                        contentPadding = PaddingValues(0.dp)
+                        modifier = Modifier.size(44.dp),
+                        contentPadding = PaddingValues(0.dp),
+                        elevation = ButtonDefaults.elevation(0.dp)
                     ) {
                         Text(if (showFilters) "▲" else "▼", fontSize = 16.sp)
                     }

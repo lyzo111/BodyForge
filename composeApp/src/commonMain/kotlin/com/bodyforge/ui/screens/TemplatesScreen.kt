@@ -490,6 +490,32 @@ private fun SelectedOrderSection(
     }
 }
 
+// Reorder lives in its own popup so the create/edit form stays compact; same up/down behaviour.
+@Composable
+private fun ReorderDialog(
+    selected: List<com.bodyforge.domain.models.Exercise>,
+    onReorder: (List<com.bodyforge.domain.models.Exercise>) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(shape = RoundedCornerShape(16.dp), color = CardBackground, modifier = Modifier.fillMaxWidth(0.95f).fillMaxHeight(0.8f)) {
+            Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
+                Text("Reorder Exercises", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 20.sp)
+                Spacer(modifier = Modifier.height(12.dp))
+                Column(modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
+                    SelectedOrderSection(selected, onReorder)
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange), elevation = ButtonDefaults.elevation(0.dp)) {
+                        Text("Done", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exercise>, onCreateExercise: suspend (String, List<String>, String, Boolean) -> Exercise, onDismiss: () -> Unit, onCreateTemplate: (String, List<com.bodyforge.domain.models.Exercise>, String, String, String) -> Unit) {
     var templateName by remember { mutableStateOf("") }
@@ -499,6 +525,7 @@ fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exercise>, 
     var selectedExercises by remember { mutableStateOf(emptyList<com.bodyforge.domain.models.Exercise>()) }
     var searchQuery by remember { mutableStateOf("") }
     var showCreateExerciseDialog by remember { mutableStateOf(false) }
+    var showOrderDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     val filteredExercises = remember(exercises, searchQuery) {
@@ -518,7 +545,17 @@ fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exercise>, 
                     Text("Select Exercises (${selectedExercises.size})", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
                     NewExerciseButton(onClick = { showCreateExerciseDialog = true })
                 }
-                SelectedOrderSection(selectedExercises) { selectedExercises = it }
+                if (selectedExercises.size >= 2) {
+                    Button(
+                        onClick = { showOrderDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(backgroundColor = SurfaceColor),
+                        shape = RoundedCornerShape(8.dp),
+                        elevation = ButtonDefaults.elevation(0.dp)
+                    ) {
+                        Text("↕ Reorder Exercises", color = TextPrimary, fontWeight = FontWeight.Medium)
+                    }
+                }
                 OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, label = { Text("Search") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth())
                 filteredExercises.forEach { exercise ->
                     val isSelected = selectedExercises.contains(exercise)
@@ -546,6 +583,14 @@ fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exercise>, 
         }
     }
 
+    if (showOrderDialog) {
+        ReorderDialog(
+            selected = selectedExercises,
+            onReorder = { selectedExercises = it },
+            onDismiss = { showOrderDialog = false }
+        )
+    }
+
     // Inline exercise creation: stays layered over this dialog so template progress is kept,
     // and the freshly created exercise is selected automatically.
     CreateExerciseDialog(
@@ -569,6 +614,7 @@ private fun EditTemplateDialog(template: WorkoutTemplate, exercises: List<com.bo
     var selectedExercises by remember { mutableStateOf(template.exerciseIds.mapNotNull { id -> exercises.firstOrNull { it.id == id } }) }
     var searchQuery by remember { mutableStateOf("") }
     var showCreateExerciseDialog by remember { mutableStateOf(false) }
+    var showOrderDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     val filteredExercises = remember(exercises, searchQuery) {
@@ -588,7 +634,17 @@ private fun EditTemplateDialog(template: WorkoutTemplate, exercises: List<com.bo
                     Text("Select Exercises (${selectedExercises.size})", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
                     NewExerciseButton(onClick = { showCreateExerciseDialog = true })
                 }
-                SelectedOrderSection(selectedExercises) { selectedExercises = it }
+                if (selectedExercises.size >= 2) {
+                    Button(
+                        onClick = { showOrderDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(backgroundColor = SurfaceColor),
+                        shape = RoundedCornerShape(8.dp),
+                        elevation = ButtonDefaults.elevation(0.dp)
+                    ) {
+                        Text("↕ Reorder Exercises", color = TextPrimary, fontWeight = FontWeight.Medium)
+                    }
+                }
                 OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, label = { Text("Search") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth())
                 filteredExercises.forEach { exercise ->
                     val isSelected = selectedExercises.contains(exercise)
@@ -611,6 +667,14 @@ private fun EditTemplateDialog(template: WorkoutTemplate, exercises: List<com.bo
                 }
             }
         }
+    }
+
+    if (showOrderDialog) {
+        ReorderDialog(
+            selected = selectedExercises,
+            onReorder = { selectedExercises = it },
+            onDismiss = { showOrderDialog = false }
+        )
     }
 
     CreateExerciseDialog(

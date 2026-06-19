@@ -14,7 +14,6 @@ import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -77,8 +76,6 @@ fun App() {
                 .background(DarkBackground)
         ) {
             Column {
-                HeaderSection(onSettings = { showSettings = true })
-
                 // Error Display
                 error?.let { errorMessage ->
                     ErrorCard(
@@ -87,8 +84,11 @@ fun App() {
                     )
                 }
 
-                // Main Content with 4 Tabs + HorizontalPager
-                MainContent(hasActiveWorkout = activeWorkout != null)
+                // Main Content with 4 Tabs + HorizontalPager. Settings now lives in the tab bar.
+                MainContent(
+                    hasActiveWorkout = activeWorkout != null,
+                    onSettings = { showSettings = true }
+                )
             }
 
             if (showSplash) {
@@ -212,48 +212,6 @@ private fun RestSetting(label: String, seconds: Int, onChange: (Int) -> Unit) {
 }
 
 @Composable
-private fun HeaderSection(onSettings: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                Brush.horizontalGradient(
-                    colors = listOf(
-                        Color(0xFF1E293B),
-                        Color(0xFF334155)
-                    )
-                )
-            )
-            .padding(20.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Image(
-                    painter = painterResource(Res.drawable.bodyforge_logo),
-                    contentDescription = "BodyForge logo",
-                    modifier = Modifier.size(40.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = "BodyForge",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = AccentOrange
-                )
-            }
-
-            IconButton(onClick = onSettings) {
-                Text(text = "⚙️", fontSize = 22.sp)
-            }
-        }
-    }
-}
-
-@Composable
 private fun ErrorCard(
     error: String,
     onDismiss: () -> Unit
@@ -314,7 +272,7 @@ private fun BreakOverBanner(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MainContent(hasActiveWorkout: Boolean) {
+private fun MainContent(hasActiveWorkout: Boolean, onSettings: () -> Unit) {
     val tabs = listOf(
         TabItem("workout", "🏋️💪", "Workout"),
         TabItem("templates", "📋", "Templates"),
@@ -357,7 +315,8 @@ private fun MainContent(hasActiveWorkout: Boolean) {
                         pagerState.animateScrollToPage(index)
                     }
                 }
-            }
+            },
+            onSettings = onSettings
         )
 
         if (restJustEnded && pagerState.currentPage != 0) {
@@ -393,13 +352,15 @@ private fun TabNavigationBar(
     tabs: List<TabItem>,
     selectedTabIndex: Int,
     hasActiveWorkout: Boolean,
-    onTabSelected: (Int) -> Unit
+    onTabSelected: (Int) -> Unit,
+    onSettings: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color(0xFF1E293B))
-            .padding(horizontal = 4.dp)
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         tabs.forEachIndexed { index, tab ->
             TabButton(
@@ -409,6 +370,9 @@ private fun TabNavigationBar(
                 modifier = Modifier.weight(1f),
                 showBadge = tab.id == "workout" && hasActiveWorkout
             )
+        }
+        IconButton(onClick = onSettings, modifier = Modifier.size(44.dp)) {
+            Text(text = "⚙️", fontSize = 20.sp)
         }
     }
 }
