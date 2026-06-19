@@ -65,13 +65,12 @@ private fun formatDate(d: LocalDate): String =
     "${d.dayOfMonth.toString().padStart(2, '0')}.${d.monthNumber.toString().padStart(2, '0')}.${d.year}"
 
 @Composable
-fun ExerciseProgressCard(workouts: List<Workout>) {
+fun ExerciseProgressCard(workouts: List<Workout>, expanded: Boolean, onToggle: () -> Unit) {
     val exercises = remember(workouts) {
         workouts.sortedByDescending { it.startedAt }
             .flatMap { w -> w.exercises.map { it.exercise } }
             .distinctBy { it.id }
     }
-    var expanded by remember { mutableStateOf(false) }
 
     Card(
         backgroundColor = CardBackground,
@@ -81,7 +80,7 @@ fun ExerciseProgressCard(workouts: List<Workout>) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
+                modifier = Modifier.fillMaxWidth().clickable { onToggle() },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {

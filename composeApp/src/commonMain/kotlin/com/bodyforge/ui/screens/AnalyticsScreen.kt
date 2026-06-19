@@ -2,6 +2,8 @@ package com.bodyforge.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -23,11 +25,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bodyforge.presentation.state.SharedWorkoutState
+import com.bodyforge.domain.models.TrainingPhase
+import com.bodyforge.domain.models.analyzePhase
 import com.bodyforge.ui.components.cards.PhaseSection
 import com.bodyforge.ui.components.cards.ExerciseProgressCard
 import com.bodyforge.ui.components.cards.VariationProgressCard
 import kotlinx.datetime.Clock
 import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.isoDayNumber
 import kotlinx.datetime.plus
@@ -52,7 +57,12 @@ private val SurfaceColor = Color(0xFF334155)
 fun AnalyticsScreen(listState: LazyListState) {
     val completedWorkouts by SharedWorkoutState.completedWorkouts.collectAsState()
     val templates by SharedWorkoutState.templates.collectAsState()
+    val phases by SharedWorkoutState.phases.collectAsState()
     val isLoading by SharedWorkoutState.isLoading.collectAsState()
+
+    // Expand state for the analytics dropdowns, hoisted here so "Open all" / "Close all" can drive
+    // every section at once while each section keeps its own toggle.
+    val expandedSections = remember { mutableStateMapOf<String, Boolean>() }
 
     // Completed workouts already stay fresh through app start and workout completion. Re-fetching
     // on every visit swapped the list reference out and bounced the scroll position to the top.
@@ -98,47 +108,95 @@ fun AnalyticsScreen(listState: LazyListState) {
                 EmptyAnalyticsCard()
             }
         } else {
+            val plateaus = computePlateaus(completedWorkouts)
+            val sectionKeys = buildList {
+                add("exercise"); add("variation")
+                if (phases.isNotEmpty()) add("phase")
+                add("volume"); add("muscle"); add("achievements")
+                if (plateaus.isNotEmpty()) add("plateau")
+                add("frequency")
+            }
+            val allOpen = sectionKeys.all { expandedSections[it] == true }
+
             // Quick Stats Row
             item {
                 QuickStatsRow(completedWorkouts)
             }
 
-            // Progress per exercise (Est. 1RM / top weight / volume), any logged exercise
+            // Open all / Close all for the dropdowns below.
             item {
-                ExerciseProgressCard(completedWorkouts)
+                Text(
+                    text = if (allOpen) "Close all" else "Open all",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextSecondary,
+                    modifier = Modifier.clickable {
+                        val target = !allOpen
+                        sectionKeys.forEach { expandedSections[it] = target }
+                    }
+                )
             }
 
-            // Per-variation progress (volume / est. 1RM, selectable per exercise)
             item {
-                VariationProgressCard(completedWorkouts, templates)
+                ExerciseProgressCard(
+                    completedWorkouts,
+                    expandedSections["exercise"] == true
+                ) { expandedSections["exercise"] = !(expandedSections["exercise"] == true) }
             }
 
-            // Volume Progression Chart
             item {
-                VolumeProgressionCard(completedWorkouts)
+                VariationProgressCard(
+                    completedWorkouts,
+                    templates,
+                    expandedSections["variation"] == true
+                ) { expandedSections["variation"] = !(expandedSections["variation"] == true) }
             }
 
-            // Muscle Group Balance
-            item {
-                MuscleGroupBalanceCard(completedWorkouts)
-            }
-
-            // Recent PRs & Achievements
-            item {
-                AchievementsCard(completedWorkouts)
-            }
-
-            // Plateau detection (only shown when something is actually plateaued)
-            val plateaus = computePlateaus(completedWorkouts)
-            if (plateaus.isNotEmpty()) {
+            if (phases.isNotEmpty()) {
                 item {
-                    PlateauDetectionCard(plateaus)
+                    PhaseComparisonCard(
+                        completedWorkouts,
+                        phases,
+                        expandedSections["phase"] == true
+                    ) { expandedSections["phase"] = !(expandedSections["phase"] == true) }
                 }
             }
 
-            // Training Frequency Heatmap (Placeholder)
             item {
-                TrainingFrequencyCard(completedWorkouts)
+                VolumeProgressionCard(
+                    completedWorkouts,
+                    expandedSections["volume"] == true
+                ) { expandedSections["volume"] = !(expandedSections["volume"] == true) }
+            }
+
+            item {
+                MuscleGroupBalanceCard(
+                    completedWorkouts,
+                    expandedSections["muscle"] == true
+                ) { expandedSections["muscle"] = !(expandedSections["muscle"] == true) }
+            }
+
+            item {
+                AchievementsCard(
+                    completedWorkouts,
+                    expandedSections["achievements"] == true
+                ) { expandedSections["achievements"] = !(expandedSections["achievements"] == true) }
+            }
+
+            if (plateaus.isNotEmpty()) {
+                item {
+                    PlateauDetectionCard(
+                        plateaus,
+                        expandedSections["plateau"] == true
+                    ) { expandedSections["plateau"] = !(expandedSections["plateau"] == true) }
+                }
+            }
+
+            item {
+                TrainingFrequencyCard(
+                    completedWorkouts,
+                    expandedSections["frequency"] == true
+                ) { expandedSections["frequency"] = !(expandedSections["frequency"] == true) }
             }
         }
     }
@@ -149,9 +207,10 @@ fun AnalyticsScreen(listState: LazyListState) {
 @Composable
 private fun CollapsibleCard(
     title: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
     Card(
         backgroundColor = CardBackground,
         elevation = 0.dp,
@@ -160,7 +219,7 @@ private fun CollapsibleCard(
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
+                modifier = Modifier.fillMaxWidth().clickable { onToggle() },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -172,6 +231,63 @@ private fun CollapsibleCard(
                 content()
             }
         }
+    }
+}
+
+private fun fmtDay(d: LocalDate): String =
+    "${d.dayOfMonth.toString().padStart(2, '0')}.${d.monthNumber.toString().padStart(2, '0')}.${d.year}"
+
+// Groups completed workouts into each training phase by date (via analyzePhase) so blocks of
+// training can be compared — the point of the phase feature.
+@Composable
+private fun PhaseComparisonCard(
+    workouts: List<com.bodyforge.domain.models.Workout>,
+    phases: List<TrainingPhase>,
+    expanded: Boolean,
+    onToggle: () -> Unit
+) {
+    CollapsibleCard("Phase Comparison", expanded, onToggle) {
+        Text(
+            "Workouts are grouped into your phases by date, so you can compare training blocks.",
+            fontSize = 12.sp,
+            color = TextSecondary
+        )
+        val ordered = phases.sortedWith(
+            compareByDescending<TrainingPhase> { it.isActive }.thenByDescending { it.startDate }
+        )
+        ordered.forEach { phase ->
+            val a = workouts.analyzePhase(phase)
+            Spacer(modifier = Modifier.height(12.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(SurfaceColor, RoundedCornerShape(8.dp))
+                    .padding(12.dp)
+            ) {
+                Text("${phase.phaseType.emoji} ${phase.name}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                val range = phase.endDate?.let { "${fmtDay(phase.startDate)} – ${fmtDay(it)}" } ?: "since ${fmtDay(phase.startDate)}"
+                Text("${phase.phaseType.displayName} · $range", fontSize = 11.sp, color = TextSecondary)
+                Spacer(modifier = Modifier.height(8.dp))
+                if (a.totalWorkouts == 0) {
+                    Text("No workouts logged in this phase yet.", fontSize = 12.sp, color = TextSecondary)
+                } else {
+                    val avgPerSession = (a.totalVolume / a.totalWorkouts).roundToInt()
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        PhaseStat("${a.totalWorkouts}", "Workouts")
+                        PhaseStat("${a.totalVolume.roundToInt()}kg", "Volume")
+                        PhaseStat("${avgPerSession}kg", "Avg/session")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PhaseStat(value: String, label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary, maxLines = 1, softWrap = false)
+        Text(label, fontSize = 10.sp, color = TextSecondary, maxLines = 1, softWrap = false)
     }
 }
 
@@ -260,11 +376,14 @@ private fun QuickStatsRow(workouts: List<com.bodyforge.domain.models.Workout>) {
 
     // Wider fixed-width cards in a horizontally scrollable row so labels like "Total Volume" and
     // "Avg Duration" are shown in full instead of being squeezed and clipped.
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        item { QuickStatCard(value = "${workouts.size}", label = "Workouts", color = AccentBlue) }
-        item { QuickStatCard(value = "${totalVolume}kg", label = "Total Volume", color = AccentGreen) }
-        item { QuickStatCard(value = "${avgDuration.roundToInt()}m", label = "Avg Duration", color = AccentOrange) }
-        item { QuickStatCard(value = "$thisWeekWorkouts", label = "This Week", color = AccentPurple) }
+    Row(
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        QuickStatCard(value = "${workouts.size}", label = "Workouts", color = AccentBlue)
+        QuickStatCard(value = "${totalVolume}kg", label = "Total Volume", color = AccentGreen)
+        QuickStatCard(value = "${avgDuration.roundToInt()}m", label = "Avg Duration", color = AccentOrange)
+        QuickStatCard(value = "$thisWeekWorkouts", label = "This Week", color = AccentPurple)
     }
 }
 
@@ -305,8 +424,8 @@ private fun QuickStatCard(
 }
 
 @Composable
-private fun VolumeProgressionCard(workouts: List<com.bodyforge.domain.models.Workout>) {
-    CollapsibleCard(title = "Volume Progression") {
+private fun VolumeProgressionCard(workouts: List<com.bodyforge.domain.models.Workout>, expanded: Boolean, onToggle: () -> Unit) {
+    CollapsibleCard("Volume Progression", expanded, onToggle) {
         VolumeChart(workouts)
     }
 }
@@ -363,8 +482,8 @@ private fun VolumeChart(workouts: List<com.bodyforge.domain.models.Workout>) {
 }
 
 @Composable
-private fun MuscleGroupBalanceCard(workouts: List<com.bodyforge.domain.models.Workout>) {
-    CollapsibleCard(title = "Muscle Group Balance") {
+private fun MuscleGroupBalanceCard(workouts: List<com.bodyforge.domain.models.Workout>, expanded: Boolean, onToggle: () -> Unit) {
+    CollapsibleCard("Muscle Group Balance", expanded, onToggle) {
         // Calculate muscle group frequencies
         val muscleGroupCounts = mutableMapOf<String, Int>()
         workouts.forEach { workout ->
@@ -447,8 +566,8 @@ private fun MuscleGroupBar(
 }
 
 @Composable
-private fun AchievementsCard(workouts: List<com.bodyforge.domain.models.Workout>) {
-    CollapsibleCard(title = "Recent Achievements") {
+private fun AchievementsCard(workouts: List<com.bodyforge.domain.models.Workout>, expanded: Boolean, onToggle: () -> Unit) {
+    CollapsibleCard("Recent Achievements", expanded, onToggle) {
         if (workouts.isEmpty()) {
             Text(
                 text = "Complete workouts to unlock achievements!",
@@ -557,8 +676,8 @@ private fun computePlateaus(workouts: List<com.bodyforge.domain.models.Workout>)
 }
 
 @Composable
-private fun PlateauDetectionCard(plateaus: List<PlateauInfo>) {
-    CollapsibleCard(title = "Plateau Watch") {
+private fun PlateauDetectionCard(plateaus: List<PlateauInfo>, expanded: Boolean, onToggle: () -> Unit) {
+    CollapsibleCard("Plateau Watch", expanded, onToggle) {
         Text(
             "No new estimated-1RM PR in a while — consider a deload, a rep-range change, or a variation.",
             fontSize = 12.sp,
@@ -582,8 +701,8 @@ private fun PlateauDetectionCard(plateaus: List<PlateauInfo>) {
 }
 
 @Composable
-private fun TrainingFrequencyCard(workouts: List<com.bodyforge.domain.models.Workout>) {
-    CollapsibleCard(title = "Training Frequency") {
+private fun TrainingFrequencyCard(workouts: List<com.bodyforge.domain.models.Workout>, expanded: Boolean, onToggle: () -> Unit) {
+    CollapsibleCard("Training Frequency", expanded, onToggle) {
         val weeks = 16
         val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
         val counts = remember(workouts) { workouts.groupingBy { it.startDate }.eachCount() }

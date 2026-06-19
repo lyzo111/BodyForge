@@ -58,7 +58,9 @@ private fun workoutMetric(workout: Workout, exerciseId: String?, metric: Progres
 @Composable
 fun VariationProgressCard(
     workouts: List<Workout>,
-    templates: List<WorkoutTemplate>
+    templates: List<WorkoutTemplate>,
+    expanded: Boolean,
+    onToggle: () -> Unit
 ) {
     val routines = remember(templates) {
         templates.filter { it.routineId.isNotBlank() }
@@ -66,7 +68,6 @@ fun VariationProgressCard(
             .map { (id, group) -> RoutineRef(id, group.first().routineName.ifBlank { "Routine" }) }
             .sortedBy { it.name }
     }
-    var expanded by remember { mutableStateOf(false) }
 
     Card(
         backgroundColor = CardBackground,
@@ -76,7 +77,7 @@ fun VariationProgressCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
+                modifier = Modifier.fillMaxWidth().clickable { onToggle() },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {

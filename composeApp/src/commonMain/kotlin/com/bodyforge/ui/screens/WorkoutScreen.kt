@@ -39,6 +39,7 @@ import com.bodyforge.domain.models.WorkoutSet
 import com.bodyforge.domain.models.WorkoutTemplate
 import com.bodyforge.presentation.state.SharedWorkoutState
 import com.bodyforge.presentation.viewmodel.WorkoutViewModel
+import com.bodyforge.ui.PlatformBackHandler
 import com.bodyforge.ui.components.cards.CreateExerciseDialog
 import com.bodyforge.ui.components.inputs.BodyweightInput
 import kotlinx.coroutines.launch
@@ -1321,6 +1322,9 @@ private fun QuickWorkoutFlow(
     var showAddToWorkoutDialog by remember { mutableStateOf<Exercise?>(null) }
     var showCreateExerciseDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
+    // Android system back / edge-swipe in the picker returns to the "Ready to workout?" screen.
+    PlatformBackHandler(enabled = true, onBack = onBack)
 
     LaunchedEffect(Unit) {
         SharedWorkoutState.loadExercises()
