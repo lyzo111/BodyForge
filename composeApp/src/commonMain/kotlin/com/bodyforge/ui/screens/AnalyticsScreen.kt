@@ -28,8 +28,7 @@ import com.bodyforge.presentation.state.SharedWorkoutState
 import com.bodyforge.domain.models.TrainingPhase
 import com.bodyforge.domain.models.analyzePhase
 import com.bodyforge.ui.components.cards.PhaseSection
-import com.bodyforge.ui.components.cards.ExerciseProgressCard
-import com.bodyforge.ui.components.cards.VariationProgressCard
+import com.bodyforge.ui.components.cards.ProgressCard
 import kotlinx.datetime.Clock
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -110,9 +109,9 @@ fun AnalyticsScreen(listState: LazyListState) {
         } else {
             val plateaus = computePlateaus(completedWorkouts)
             val sectionKeys = buildList {
-                add("exercise"); add("variation")
+                add("progress")
                 if (phases.isNotEmpty()) add("phase")
-                add("volume"); add("muscle"); add("achievements")
+                add("muscle"); add("achievements")
                 if (plateaus.isNotEmpty()) add("plateau")
                 add("frequency")
             }
@@ -138,18 +137,12 @@ fun AnalyticsScreen(listState: LazyListState) {
             }
 
             item {
-                ExerciseProgressCard(
-                    completedWorkouts,
-                    expandedSections["exercise"] == true
-                ) { expandedSections["exercise"] = !(expandedSections["exercise"] == true) }
-            }
-
-            item {
-                VariationProgressCard(
+                ProgressCard(
                     completedWorkouts,
                     templates,
-                    expandedSections["variation"] == true
-                ) { expandedSections["variation"] = !(expandedSections["variation"] == true) }
+                    phases,
+                    expandedSections["progress"] == true
+                ) { expandedSections["progress"] = !(expandedSections["progress"] == true) }
             }
 
             if (phases.isNotEmpty()) {
@@ -160,13 +153,6 @@ fun AnalyticsScreen(listState: LazyListState) {
                         expandedSections["phase"] == true
                     ) { expandedSections["phase"] = !(expandedSections["phase"] == true) }
                 }
-            }
-
-            item {
-                VolumeProgressionCard(
-                    completedWorkouts,
-                    expandedSections["volume"] == true
-                ) { expandedSections["volume"] = !(expandedSections["volume"] == true) }
             }
 
             item {
