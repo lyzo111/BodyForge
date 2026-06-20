@@ -246,6 +246,7 @@ private fun ActiveWorkoutView(
     // the user leaves the Workout tab and returns.
     val restRemaining by SharedWorkoutState.restRemainingSeconds.collectAsState()
     val restTotal by SharedWorkoutState.restTotalSeconds.collectAsState()
+    val restEndsAtMillis by SharedWorkoutState.restEndsAtMillis.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {
         if (workout.exercises.size > 1) {
@@ -319,10 +320,10 @@ private fun ActiveWorkoutView(
             }
         }
 
-        if (restRemaining > 0) {
+        if (restEndsAtMillis > 0L) {
             RestTimerBar(
-                remaining = restRemaining,
-                total = restTotal,
+                endsAtMillis = restEndsAtMillis,
+                totalSeconds = restTotal,
                 onAddTime = { SharedWorkoutState.addRestTime(15) },
                 onSkip = { SharedWorkoutState.skipRest() }
             )
@@ -332,21 +333,26 @@ private fun ActiveWorkoutView(
 
 @Composable
 private fun RestTimerBar(
-    remaining: Int,
-    total: Int,
+    endsAtMillis: Long,
+    totalSeconds: Int,
     onAddTime: () -> Unit,
     onSkip: () -> Unit
 ) {
-    val minutes = remaining / 60
-    val seconds = remaining % 60
-    val progress = if (total > 0) remaining.toFloat() / total.toFloat() else 0f
-    // Drain the bar continuously. The timer decrements once per second, so a linear one-second
-    // tween between ticks turns the stepwise countdown into smooth motion.
-    val animatedProgress by animateFloatAsState(
-        targetValue = progress,
-        animationSpec = tween(durationMillis = 1000, easing = LinearEasing),
-        label = "restProgress"
-    )
+    // Recompute from the wall clock every frame, so the bar drains perfectly smoothly and stays
+    // correct even if the app was paused (screen locked) during the rest.
+    var nowMillis by remember { mutableStateOf(Clock.System.now().toEpochMilliseconds()) }
+    LaunchedEffect(endsAtMillis) {
+        while (endsAtMillis > 0L) {
+            withFrameMillis { }
+            nowMillis = Clock.System.now().toEpochMilliseconds()
+        }
+    }
+    val totalMillis = (totalSeconds * 1000L).coerceAtLeast(1L)
+    val remainingMillis = (endsAtMillis - nowMillis).coerceAtLeast(0L)
+    val progress = (remainingMillis.toFloat() / totalMillis.toFloat()).coerceIn(0f, 1f)
+    val secondsLeft = ((remainingMillis + 999L) / 1000L).toInt()
+    val minutes = secondsLeft / 60
+    val seconds = secondsLeft % 60
 
     Surface(color = SurfaceColor, elevation = 8.dp) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -368,7 +374,7 @@ private fun RestTimerBar(
             }
             Spacer(modifier = Modifier.height(8.dp))
             LinearProgressIndicator(
-                progress = animatedProgress,
+                progress = progress,
                 modifier = Modifier.fillMaxWidth().height(6.dp),
                 color = AccentOrange,
                 backgroundColor = CardBackground

@@ -78,6 +78,11 @@ object SharedWorkoutState {
     private val _restRemainingSeconds = MutableStateFlow(0)
     val restRemainingSeconds: StateFlow<Int> = _restRemainingSeconds.asStateFlow()
 
+    // Wall-clock end of the current rest (epoch millis, 0 = none). Driving the bar from this rather
+    // than a per-second decrement keeps it smooth and correct even after the screen locks.
+    private val _restEndsAtMillis = MutableStateFlow(0L)
+    val restEndsAtMillis: StateFlow<Long> = _restEndsAtMillis.asStateFlow()
+
     // Goes true the moment a rest timer counts down to zero on its own. Drives a closeable
     // "break is over" banner that shows even when the user is on another tab.
     private val _restJustEnded = MutableStateFlow(false)
@@ -89,29 +94,39 @@ object SharedWorkoutState {
         _restJustEnded.value = false
         _restTotalSeconds.value = seconds
         _restRemainingSeconds.value = seconds
+        _restEndsAtMillis.value = Clock.System.now().toEpochMilliseconds() + seconds * 1000L
         restJob = timerScope.launch {
-            while (isActive && _restRemainingSeconds.value > 0) {
-                delay(1000)
-                _restRemainingSeconds.value = (_restRemainingSeconds.value - 1).coerceAtLeast(0)
-            }
-            // Reached zero on its own (not skipped/cancelled) -> buzz and raise the banner.
-            if (isActive && _restRemainingSeconds.value == 0) {
-                _restJustEnded.value = true
-                if (com.bodyforge.data.AppSettings.vibrateOnTimerEnd) {
-                    com.bodyforge.data.vibrateDevice()
+            // Poll the wall clock instead of counting down, so a throttled coroutine (e.g. while the
+            // phone is locked) can't make the timer drift — remaining is always (end - now).
+            while (isActive) {
+                val endMs = _restEndsAtMillis.value
+                if (endMs == 0L) break
+                val remMs = endMs - Clock.System.now().toEpochMilliseconds()
+                if (remMs <= 0L) {
+                    _restRemainingSeconds.value = 0
+                    _restEndsAtMillis.value = 0L
+                    _restJustEnded.value = true
+                    if (com.bodyforge.data.AppSettings.vibrateOnTimerEnd) {
+                        com.bodyforge.data.vibrateDevice()
+                    }
+                    break
                 }
+                _restRemainingSeconds.value = ((remMs + 999L) / 1000L).toInt()
+                delay(250)
             }
         }
     }
 
     fun addRestTime(seconds: Int) {
-        if (_restRemainingSeconds.value <= 0) return
+        if (_restEndsAtMillis.value == 0L) return
+        _restEndsAtMillis.value += seconds * 1000L
         _restTotalSeconds.value += seconds
         _restRemainingSeconds.value += seconds
     }
 
     fun skipRest() {
         restJob?.cancel()
+        _restEndsAtMillis.value = 0L
         _restRemainingSeconds.value = 0
         _restJustEnded.value = false
     }

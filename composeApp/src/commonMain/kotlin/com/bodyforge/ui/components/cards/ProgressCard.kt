@@ -363,6 +363,8 @@ private fun TrackFilterDialog(
     onDismiss: () -> Unit
 ) {
     val current = remember { mutableStateListOf<String?>().also { it.addAll(selected) } }
+    var query by remember { mutableStateOf("") }
+    val filtered = exercises.filter { query.isBlank() || it.name.contains(query, ignoreCase = true) }
     fun toggle(id: String?) {
         if (current.contains(id)) current.remove(id)
         else if (current.size < MAX_SUBJECTS) current.add(id)
@@ -372,10 +374,21 @@ private fun TrackFilterDialog(
             Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
                 Text("Track (up to $MAX_SUBJECTS)", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 20.sp)
                 Text("${current.size} selected", fontSize = 12.sp, color = TextSecondary)
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    label = { Text("Search exercises") },
+                    singleLine = true,
+                    colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
                 Column(modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    SelectRow("Total Volume", current.contains(null)) { toggle(null) }
-                    exercises.forEach { ex -> SelectRow(ex.name, current.contains(ex.id)) { toggle(ex.id) } }
+                    if (query.isBlank() || "total volume".contains(query, ignoreCase = true)) {
+                        SelectRow("Total Volume", current.contains(null)) { toggle(null) }
+                    }
+                    filtered.forEach { ex -> SelectRow(ex.name, current.contains(ex.id)) { toggle(ex.id) } }
                 }
                 Spacer(Modifier.height(12.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
