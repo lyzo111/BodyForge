@@ -42,6 +42,11 @@ object AppSettings {
             val raw = value.entries.joinToString(RECORD_SEP) { "${it.key}$UNIT_SEP${it.value}" }
             prefs.edit().putString("split_assignments", raw).apply()
         }
+
+    // Whether the Templates list groups by split (true) or routine (false). Remembered across launches.
+    var groupTemplatesBySplit: Boolean
+        get() = prefs.getBoolean("group_templates_by_split", false)
+        set(value) { prefs.edit().putBoolean("group_templates_by_split", value).apply() }
 }
 
 // A noticeable vibration pattern, used when the rest timer reaches zero. Several pulses so it's

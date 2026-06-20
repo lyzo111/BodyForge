@@ -73,7 +73,7 @@ fun TemplatesScreen(listState: LazyListState, onStartWorkout: () -> Unit = {}) {
     var showImportDialog by remember { mutableStateOf(false) }
     var assigningSplitTemplate by remember { mutableStateOf<WorkoutTemplate?>(null) }
     // Templates list grouping: false = by routine (default), true = by split.
-    var groupBySplit by remember { mutableStateOf(false) }
+    var groupBySplit by remember { mutableStateOf(com.bodyforge.data.AppSettings.groupTemplatesBySplit) }
     // Which routine/split folders are expanded. Folders start collapsed, so a routine with
     // variations (e.g. Upper A / Upper B) shows as a single "Upper" entry until tapped open.
     val expandedRoutines = remember { mutableStateMapOf<String, Boolean>() }
@@ -131,8 +131,8 @@ fun TemplatesScreen(listState: LazyListState, onStartWorkout: () -> Unit = {}) {
         if (templates.isNotEmpty()) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Group by", fontSize = 13.sp, color = TextSecondary)
-                GroupChip("Routine", !groupBySplit) { groupBySplit = false }
-                GroupChip("Split", groupBySplit) { groupBySplit = true }
+                GroupChip("Routine", !groupBySplit) { groupBySplit = false; com.bodyforge.data.AppSettings.groupTemplatesBySplit = false }
+                GroupChip("Split", groupBySplit) { groupBySplit = true; com.bodyforge.data.AppSettings.groupTemplatesBySplit = true }
             }
         }
 
@@ -405,16 +405,6 @@ private fun TemplateCard(template: WorkoutTemplate, exercises: List<com.bodyforg
                                 modifier = Modifier.background(AccentBlue, RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
-                        Text(
-                            if (!split.isNullOrBlank()) split else "+ Split",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (!split.isNullOrBlank()) Color.White else TextSecondary,
-                            modifier = Modifier
-                                .background(if (!split.isNullOrBlank()) AccentPurple else SurfaceColor, RoundedCornerShape(4.dp))
-                                .clickable { onAssignSplit() }
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
                     }
                     Text("${template.exerciseIds.size} exercises", fontSize = 14.sp, color = TextSecondary)
                     if (template.description.isNotEmpty()) Text(template.description, fontSize = 12.sp, color = TextSecondary, modifier = Modifier.padding(top = 4.dp))
@@ -424,6 +414,22 @@ private fun TemplateCard(template: WorkoutTemplate, exercises: List<com.bodyforg
                     TextButton(onClick = onEdit) { Text("Edit", color = TextSecondary, fontSize = 12.sp) }
                     TextButton(onClick = onDelete) { Text("Delete", color = AccentRed, fontSize = 12.sp) }
                 }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Split", fontSize = 12.sp, color = TextSecondary)
+                Text(
+                    if (!split.isNullOrBlank()) split else "+ Add",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (!split.isNullOrBlank()) Color.White else TextSecondary,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier
+                        .background(if (!split.isNullOrBlank()) AccentOrange else SurfaceColor, RoundedCornerShape(6.dp))
+                        .clickable { onAssignSplit() }
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                )
             }
             if (templateExercises.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -537,7 +543,7 @@ private fun NewExerciseButton(onClick: () -> Unit) {
 private fun GroupChip(text: String, selected: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .background(if (selected) AccentPurple else SurfaceColor, RoundedCornerShape(16.dp))
+            .background(if (selected) AccentOrange else SurfaceColor, RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
@@ -565,13 +571,13 @@ private fun AssignSplitDialog(current: String, existingSplits: List<String>, onD
                     label = { Text("Split name") },
                     placeholder = { Text("e.g., PPL, Upper/Lower") },
                     singleLine = true,
-                    colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentPurple, unfocusedBorderColor = SurfaceColor),
+                    colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         },
         confirmButton = {
-            Button(onClick = { onAssign(name.trim()) }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentPurple), elevation = ButtonDefaults.elevation(0.dp)) {
+            Button(onClick = { onAssign(name.trim()) }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange), elevation = ButtonDefaults.elevation(0.dp)) {
                 Text("Save", color = Color.White, fontWeight = FontWeight.Bold)
             }
         },
