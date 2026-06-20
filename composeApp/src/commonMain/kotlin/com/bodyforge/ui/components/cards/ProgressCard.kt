@@ -8,7 +8,9 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,28 +21,35 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.bodyforge.domain.models.Exercise
 import com.bodyforge.domain.models.TrainingPhase
 import com.bodyforge.domain.models.Workout
 import com.bodyforge.domain.models.WorkoutTemplate
 import kotlinx.datetime.LocalDate
-import kotlin.math.abs
 import kotlin.math.roundToInt
 
 private val AccentOrange = Color(0xFFFF6B35)
 private val AccentBlue = Color(0xFF3B82F6)
 private val AccentGreen = Color(0xFF10B981)
+private val AccentPurple = Color(0xFF8B5CF6)
+private val AccentRed = Color(0xFFEF4444)
 private val TextPrimary = Color(0xFFE2E8F0)
 private val TextSecondary = Color(0xFF94A3B8)
 private val CardBackground = Color(0xFF1E293B)
 private val SurfaceColor = Color(0xFF334155)
 
-private enum class Metric(val label: String, val unit: String) {
-    EST_1RM("Est. 1RM", "kg"),
-    TOP_WEIGHT("Top weight", "kg"),
-    VOLUME("Volume", "kg")
+// Distinct colours for up to five simultaneous series.
+private val seriesPalette = listOf(AccentBlue, AccentOrange, AccentGreen, AccentPurple, AccentRed)
+private const val MAX_SUBJECTS = 5
+
+private enum class Metric(val label: String) {
+    EST_1RM("Est. 1RM"),
+    TOP_WEIGHT("Top weight"),
+    VOLUME("Volume")
 }
 
-// Which slice of workouts the graph is drawn from.
 private enum class Scope(val label: String) {
     ALL("All time"),
     PHASE("By phase"),
@@ -49,8 +58,7 @@ private enum class Scope(val label: String) {
 }
 
 private data class Point(val value: Double, val date: LocalDate, val exerciseNote: String, val workoutNote: String)
-
-// A selectable routine slice: a grouped routine (all its variations) or a single ungrouped template.
+private data class Series(val label: String, val color: Color, val points: List<Point>)
 private data class RoutineGroup(val key: String, val label: String, val templateIds: Set<String>)
 
 private fun epley(weightKg: Double, reps: Int): Double =
@@ -73,7 +81,6 @@ private fun routineGroups(templates: List<WorkoutTemplate>): List<RoutineGroup> 
     val grouped = templates.filter { it.routineId.isNotBlank() }
         .groupBy { it.routineId }
         .map { (rid, ts) -> RoutineGroup("r:$rid", ts.first().routineName.ifBlank { "Routine" }, ts.map { it.id }.toSet()) }
-    // Ungrouped templates each become their own selectable group so their workouts are tracked too.
     val ungrouped = templates.filter { it.routineId.isBlank() }
         .map { RoutineGroup("t:${it.id}", it.name, setOf(it.id)) }
     return (grouped + ungrouped).sortedBy { it.label }
@@ -89,9 +96,8 @@ private fun splitGroups(templates: List<WorkoutTemplate>, assignments: Map<Strin
 private fun formatDate(d: LocalDate): String =
     "${d.dayOfMonth.toString().padStart(2, '0')}.${d.monthNumber.toString().padStart(2, '0')}.${d.year}"
 
-// One graph for every progress view: pick what to track (an exercise or total volume), the metric,
-// and the scope (all time / a phase / a routine). Replaces the separate exercise, variation and
-// volume cards.
+// One graph for every progress view: pick what to track (several exercises and/or total volume at
+// once), the metric, and the scope (all time / a phase / a routine / a split).
 @Composable
 fun ProgressCard(
     workouts: List<Workout>,
@@ -139,17 +145,29 @@ private fun ProgressContent(
     val groups = remember(templates) { routineGroups(templates) }
     val splits = remember(templates, splitAssignments) { splitGroups(templates, splitAssignments) }
 
-    var subjectId by remember { mutableStateOf<String?>(null) } // null => total volume
+    // Selected subjects: null = total volume, otherwise an exercise id. Up to MAX_SUBJECTS.
+    var selectedSubjects by remember { mutableStateOf<List<String?>>(listOf(null)) }
     var metric by remember { mutableStateOf(Metric.EST_1RM) }
     var scope by remember { mutableStateOf(Scope.ALL) }
     var selectedPhaseId by remember(phases) { mutableStateOf(phases.firstOrNull()?.id) }
     var selectedGroupKey by remember(groups) { mutableStateOf(groups.firstOrNull()?.key) }
     var selectedSplitKey by remember(splits) { mutableStateOf(splits.firstOrNull()?.key) }
-    var selectedIndex by remember { mutableStateOf<Int?>(null) }
+    var selectedVariationId by remember(selectedGroupKey) { mutableStateOf<String?>(null) } // null = across variations
+    var showTrackDialog by remember { mutableStateOf(false) }
+    var selected by remember { mutableStateOf<Pair<Int, Int>?>(null) } // (seriesIndex, pointIndex)
 
-    val effectiveMetric = if (subjectId == null) Metric.VOLUME else metric
+    // Variations (templates) of the currently selected grouped routine, for the drill-down.
+    val routineVariations = remember(selectedGroupKey, templates) {
+        val key = selectedGroupKey
+        if (key != null && key.startsWith("r:")) {
+            val rid = key.removePrefix("r:")
+            templates.filter { it.routineId == rid }.sortedBy { it.variationLabel }
+        } else emptyList()
+    }
 
-    val scopedWorkouts = remember(workouts, scope, selectedPhaseId, selectedGroupKey, selectedSplitKey, phases, groups, splits) {
+    val anyExercise = selectedSubjects.any { it != null }
+
+    val scopedWorkouts = remember(workouts, scope, selectedPhaseId, selectedGroupKey, selectedSplitKey, selectedVariationId, phases, groups, splits) {
         val base = when (scope) {
             Scope.ALL -> workouts
             Scope.PHASE -> {
@@ -159,8 +177,8 @@ private fun ProgressContent(
             }
             Scope.ROUTINE -> {
                 val g = groups.firstOrNull { it.key == selectedGroupKey }
-                if (g == null) emptyList()
-                else workouts.filter { it.templateId != null && it.templateId in g.templateIds }
+                val ids = if (selectedVariationId != null) setOf(selectedVariationId) else g?.templateIds ?: emptySet()
+                workouts.filter { it.templateId != null && it.templateId in ids }
             }
             Scope.SPLIT -> {
                 val g = splits.firstOrNull { it.key == selectedSplitKey }
@@ -171,22 +189,41 @@ private fun ProgressContent(
         base.sortedBy { it.startedAt }
     }
 
-    val points = remember(scopedWorkouts, subjectId, effectiveMetric) {
-        scopedWorkouts.mapNotNull { w ->
-            val v = subjectValue(w, subjectId, effectiveMetric) ?: return@mapNotNull null
-            val note = w.exercises.firstOrNull { it.exercise.id == subjectId }?.notes ?: ""
-            Point(v, w.startDate, note, w.notes)
+    val series = remember(scopedWorkouts, selectedSubjects, metric, exercises) {
+        selectedSubjects.mapIndexed { i, subj ->
+            val effMetric = if (subj == null) Metric.VOLUME else metric
+            val pts = scopedWorkouts.mapNotNull { w ->
+                val v = subjectValue(w, subj, effMetric) ?: return@mapNotNull null
+                val note = w.exercises.firstOrNull { it.exercise.id == subj }?.notes ?: ""
+                Point(v, w.startDate, note, w.notes)
+            }
+            val label = subj?.let { id -> exercises.firstOrNull { it.id == id }?.name ?: "Exercise" } ?: "Total Volume"
+            Series(label, seriesPalette[i % seriesPalette.size], pts)
         }
     }
 
-    LaunchedEffect(subjectId, effectiveMetric, scope, selectedPhaseId, selectedGroupKey, selectedSplitKey) { selectedIndex = null }
+    LaunchedEffect(selectedSubjects, metric, scope, selectedPhaseId, selectedGroupKey, selectedSplitKey, selectedVariationId) { selected = null }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        ChipRow("Track") {
-            SelectChip("Total Volume", subjectId == null) { subjectId = null }
-            exercises.forEach { ex -> SelectChip(ex.name, subjectId == ex.id) { subjectId = ex.id } }
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Track", fontSize = 11.sp, color = TextSecondary)
+            Button(
+                onClick = { showTrackDialog = true },
+                colors = ButtonDefaults.buttonColors(backgroundColor = SurfaceColor),
+                shape = RoundedCornerShape(8.dp),
+                elevation = ButtonDefaults.elevation(0.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    series.joinToString(", ") { it.label },
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
         }
-        if (subjectId != null) {
+        if (anyExercise) {
             ChipRow("Metric") {
                 Metric.values().forEach { option -> SelectChip(option.label, option == metric) { metric = option } }
             }
@@ -208,7 +245,15 @@ private fun ProgressContent(
                 Text("No templates yet — create one on the Templates tab.", fontSize = 12.sp, color = TextSecondary)
             } else {
                 ChipRow("Routine") {
-                    groups.forEach { g -> SelectChip(g.label, g.key == selectedGroupKey) { selectedGroupKey = g.key } }
+                    groups.forEach { g -> SelectChip(g.label, g.key == selectedGroupKey) { selectedGroupKey = g.key; selectedVariationId = null } }
+                }
+                if (routineVariations.size > 1) {
+                    ChipRow("Variation") {
+                        SelectChip("Across variations", selectedVariationId == null) { selectedVariationId = null }
+                        routineVariations.forEach { t ->
+                            SelectChip(t.variationLabel.ifBlank { t.name }, selectedVariationId == t.id) { selectedVariationId = t.id }
+                        }
+                    }
                 }
             }
         }
@@ -224,32 +269,36 @@ private fun ProgressContent(
 
         Spacer(Modifier.height(4.dp))
 
-        if (points.size < 2) {
+        val totalPoints = series.sumOf { it.points.size }
+        if (totalPoints < 2) {
             Text(
                 "Not enough data for this selection yet — log at least two matching workouts.",
                 fontSize = 13.sp,
                 color = TextSecondary
             )
         } else {
-            LineChart(points, selectedIndex) { selectedIndex = it }
+            MultiLineChart(series, selected) { selected = it }
             Spacer(Modifier.height(8.dp))
-            val unit = effectiveMetric.unit
-            val selected = selectedIndex?.let { points.getOrNull(it) }
-            if (selected != null) {
-                SelectedPointCard(selected, unit)
+            if (series.size > 1) {
+                Legend(series)
+                Spacer(Modifier.height(8.dp))
+            }
+            val sel = selected?.let { (s, p) -> series.getOrNull(s)?.let { ser -> ser.points.getOrNull(p)?.let { ser to it } } }
+            if (sel != null) {
+                SelectedPointCard(sel.first.label, sel.first.color, sel.second)
             } else {
-                val values = points.map { it.value }
-                val change = values.last() - values.first()
-                val sign = if (change >= 0) "+" else ""
-                val best = values.maxOrNull() ?: 0.0
-                Text(
-                    "${points.size} sessions · latest ${values.last().roundToInt()} $unit · best ${best.roundToInt()} $unit · $sign${change.roundToInt()} $unit overall",
-                    fontSize = 12.sp,
-                    color = TextSecondary
-                )
                 Text("Tap a point to read that day's notes.", fontSize = 11.sp, color = TextSecondary.copy(alpha = 0.7f))
             }
         }
+    }
+
+    if (showTrackDialog) {
+        TrackFilterDialog(
+            exercises = exercises,
+            selected = selectedSubjects,
+            onDone = { selectedSubjects = it; showTrackDialog = false },
+            onDismiss = { showTrackDialog = false }
+        )
     }
 }
 
@@ -283,10 +332,22 @@ private fun SelectChip(text: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun SelectedPointCard(point: Point, unit: String) {
+private fun Legend(series: List<Series>) {
+    Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        series.forEach { s ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Box(modifier = Modifier.size(10.dp).background(s.color, CircleShape))
+                Text(s.label, fontSize = 11.sp, color = TextSecondary, maxLines = 1, softWrap = false)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelectedPointCard(label: String, color: Color, point: Point) {
     Card(backgroundColor = SurfaceColor, shape = RoundedCornerShape(8.dp), elevation = 0.dp, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("${formatDate(point.date)} · ${point.value.roundToInt()} $unit", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AccentGreen)
+            Text("$label · ${formatDate(point.date)} · ${point.value.roundToInt()} kg", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = color)
             if (point.exerciseNote.isNotBlank()) Text(point.exerciseNote, fontSize = 13.sp, color = TextPrimary)
             if (point.workoutNote.isNotBlank()) Text("Workout: ${point.workoutNote}", fontSize = 12.sp, color = TextSecondary)
             if (point.exerciseNote.isBlank() && point.workoutNote.isBlank()) Text("No notes recorded for this day.", fontSize = 12.sp, color = TextSecondary)
@@ -294,56 +355,126 @@ private fun SelectedPointCard(point: Point, unit: String) {
     }
 }
 
-private fun nearestNodeIndex(x: Float, n: Int, width: Float, pad: Float): Int {
-    if (n <= 1) return 0
-    val chartW = width - 2 * pad
-    return (0 until n).minByOrNull { abs(x - (pad + chartW * it / (n - 1))) } ?: 0
+@Composable
+private fun TrackFilterDialog(
+    exercises: List<Exercise>,
+    selected: List<String?>,
+    onDone: (List<String?>) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val current = remember { mutableStateListOf<String?>().also { it.addAll(selected) } }
+    fun toggle(id: String?) {
+        if (current.contains(id)) current.remove(id)
+        else if (current.size < MAX_SUBJECTS) current.add(id)
+    }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(shape = RoundedCornerShape(16.dp), color = CardBackground, modifier = Modifier.fillMaxWidth(0.95f).fillMaxHeight(0.85f)) {
+            Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
+                Text("Track (up to $MAX_SUBJECTS)", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 20.sp)
+                Text("${current.size} selected", fontSize = 12.sp, color = TextSecondary)
+                Spacer(Modifier.height(12.dp))
+                Column(modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SelectRow("Total Volume", current.contains(null)) { toggle(null) }
+                    exercises.forEach { ex -> SelectRow(ex.name, current.contains(ex.id)) { toggle(ex.id) } }
+                }
+                Spacer(Modifier.height(12.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    Button(
+                        onClick = {
+                            val result = if (current.isEmpty()) listOf<String?>(null) else current.toList()
+                            onDone(result)
+                        },
+                        colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange),
+                        elevation = ButtonDefaults.elevation(0.dp)
+                    ) { Text("Done", color = Color.White, fontWeight = FontWeight.Bold) }
+                }
+            }
+        }
+    }
 }
 
 @Composable
-private fun LineChart(points: List<Point>, selectedIndex: Int?, onSelect: (Int) -> Unit) {
-    val values = points.map { it.value }
+private fun SelectRow(text: String, checked: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(if (checked) AccentBlue.copy(alpha = 0.15f) else SurfaceColor, RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text, color = if (checked) TextPrimary else TextSecondary, fontSize = 14.sp, fontWeight = if (checked) FontWeight.Bold else FontWeight.Normal)
+        if (checked) Text("✓", color = AccentGreen, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun MultiLineChart(series: List<Series>, selected: Pair<Int, Int>?, onSelect: (Pair<Int, Int>?) -> Unit) {
+    val flat = remember(series) { series.flatMapIndexed { si, s -> s.points.mapIndexed { pi, p -> Triple(si, pi, p) } } }
+    if (flat.isEmpty()) return
+    val minDay = flat.minOf { it.third.date.toEpochDays() }
+    val maxDay = flat.maxOf { it.third.date.toEpochDays() }
+    val dayRange = (maxDay - minDay).let { if (it > 0) it else 1 }
+    val maxV = flat.maxOf { it.third.value }
+    val minV = flat.minOf { it.third.value }
+    val vRange = (maxV - minV).let { if (it > 0.0) it else 1.0 }
+
+    fun nearest(x: Float, y: Float, leftPad: Float, topPad: Float, chartW: Float, chartH: Float): Pair<Int, Int>? {
+        var best: Pair<Int, Int>? = null
+        var bestD = Float.MAX_VALUE
+        flat.forEach { (si, pi, p) ->
+            val px = leftPad + chartW * (p.date.toEpochDays() - minDay).toFloat() / dayRange.toFloat()
+            val py = topPad + chartH * (1f - ((p.value - minV) / vRange).toFloat())
+            val d = (x - px) * (x - px) + (y - py) * (y - py)
+            if (d < bestD) { bestD = d; best = si to pi }
+        }
+        return best
+    }
+
     Canvas(
         modifier = Modifier
             .fillMaxWidth()
             .height(180.dp)
-            .pointerInput(points.size) {
+            .pointerInput(series) {
                 val pad = 8.dp.toPx()
-                detectTapGestures { offset -> onSelect(nearestNodeIndex(offset.x, points.size, size.width.toFloat(), pad)) }
+                val top = 12.dp.toPx()
+                detectTapGestures { o -> onSelect(nearest(o.x, o.y, pad, top, size.width - 2 * pad, size.height - 2 * top)) }
             }
-            .pointerInput(points.size) {
+            .pointerInput(series) {
                 val pad = 8.dp.toPx()
+                val top = 12.dp.toPx()
                 detectDragGestures(
-                    onDragStart = { offset -> onSelect(nearestNodeIndex(offset.x, points.size, size.width.toFloat(), pad)) },
-                    onDrag = { change, _ -> onSelect(nearestNodeIndex(change.position.x, points.size, size.width.toFloat(), pad)) }
+                    onDragStart = { o -> onSelect(nearest(o.x, o.y, pad, top, size.width - 2 * pad, size.height - 2 * top)) },
+                    onDrag = { change, _ -> onSelect(nearest(change.position.x, change.position.y, pad, top, size.width - 2 * pad, size.height - 2 * top)) }
                 )
             }
     ) {
-        val n = values.size
         val leftPad = 8.dp.toPx()
         val rightPad = 8.dp.toPx()
         val topPad = 12.dp.toPx()
         val botPad = 12.dp.toPx()
         val chartW = size.width - leftPad - rightPad
         val chartH = size.height - topPad - botPad
-        val maxV = values.maxOrNull() ?: 0.0
-        val minV = values.minOrNull() ?: 0.0
-        val range = (maxV - minV).let { if (it > 0.0) it else 1.0 }
 
-        fun xAt(i: Int): Float = leftPad + if (n == 1) chartW / 2f else chartW * i / (n - 1)
-        fun yAt(v: Double): Float = topPad + chartH * (1f - ((v - minV) / range).toFloat())
+        fun xAt(day: Int): Float = leftPad + chartW * (day - minDay).toFloat() / dayRange.toFloat()
+        fun yAt(v: Double): Float = topPad + chartH * (1f - ((v - minV) / vRange).toFloat())
 
         drawLine(SurfaceColor, Offset(leftPad, topPad + chartH), Offset(leftPad + chartW, topPad + chartH), strokeWidth = 1.dp.toPx())
-        for (i in 0 until n - 1) {
-            drawLine(AccentBlue, Offset(xAt(i), yAt(values[i])), Offset(xAt(i + 1), yAt(values[i + 1])), strokeWidth = 3.dp.toPx())
+        series.forEach { s ->
+            val sorted = s.points.sortedBy { it.date.toEpochDays() }
+            for (i in 0 until sorted.size - 1) {
+                drawLine(s.color, Offset(xAt(sorted[i].date.toEpochDays()), yAt(sorted[i].value)), Offset(xAt(sorted[i + 1].date.toEpochDays()), yAt(sorted[i + 1].value)), strokeWidth = 3.dp.toPx())
+            }
+            s.points.forEach { p -> drawCircle(s.color, radius = 5.dp.toPx(), center = Offset(xAt(p.date.toEpochDays()), yAt(p.value))) }
         }
-        values.forEachIndexed { i, v ->
-            if (i == selectedIndex) {
-                drawLine(TextSecondary, Offset(xAt(i), topPad), Offset(xAt(i), topPad + chartH), strokeWidth = 1.dp.toPx())
-                drawCircle(Color.White, radius = 8.dp.toPx(), center = Offset(xAt(i), yAt(v)))
-                drawCircle(AccentOrange, radius = 5.dp.toPx(), center = Offset(xAt(i), yAt(v)))
-            } else {
-                drawCircle(AccentOrange, radius = 5.dp.toPx(), center = Offset(xAt(i), yAt(v)))
+        selected?.let { (si, pi) ->
+            series.getOrNull(si)?.points?.getOrNull(pi)?.let { p ->
+                val cx = xAt(p.date.toEpochDays())
+                val cy = yAt(p.value)
+                drawLine(TextSecondary, Offset(cx, topPad), Offset(cx, topPad + chartH), strokeWidth = 1.dp.toPx())
+                drawCircle(Color.White, radius = 8.dp.toPx(), center = Offset(cx, cy))
+                drawCircle(series[si].color, radius = 5.dp.toPx(), center = Offset(cx, cy))
             }
         }
     }
