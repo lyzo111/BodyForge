@@ -12,11 +12,18 @@ import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Assignment
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -276,10 +283,10 @@ private fun BreakOverBanner(
 @Composable
 private fun MainContent(hasActiveWorkout: Boolean, onSettings: () -> Unit) {
     val tabs = listOf(
-        TabItem("workout", "🏋️", "Workout"),
-        TabItem("templates", "📋", "Templates"),
-        TabItem("analytics", "📈", "Analytics"),
-        TabItem("history", "🕘", "History")
+        TabItem("workout", Icons.Filled.FitnessCenter, "Workout"),
+        TabItem("templates", Icons.Filled.Assignment, "Templates"),
+        TabItem("analytics", Icons.Filled.Timeline, "Analytics"),
+        TabItem("history", Icons.Filled.Schedule, "History")
     )
 
     val pagerState = rememberPagerState(
@@ -378,7 +385,7 @@ private fun TabNavigationBar(
             )
         }
         IconButton(onClick = onSettings, modifier = Modifier.size(44.dp)) {
-            Text(text = "⚙️", fontSize = 20.sp)
+            Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = TextSecondary, modifier = Modifier.size(22.dp))
         }
     }
 }
@@ -392,19 +399,22 @@ private fun TabButton(
     showBadge: Boolean = false
 ) {
     Box(modifier = modifier.padding(horizontal = 2.dp)) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(10.dp))
                 .clickable(onClick = onClick)
                 .background(if (isActive) AccentOrange.copy(alpha = 0.15f) else Color.Transparent)
-                .padding(vertical = 7.dp, horizontal = 2.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(3.dp)
+                .padding(vertical = 8.dp, horizontal = 2.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = tab.icon,
-                fontSize = 16.sp
+            // Single-color icon sits behind the centered label, tinted in the page's dark blue
+            // so it reads as a subtle watermark on the lighter tab bar.
+            Icon(
+                imageVector = tab.icon,
+                contentDescription = null,
+                tint = DarkBackground,
+                modifier = Modifier.size(28.dp)
             )
             Text(
                 text = tab.title,
@@ -430,6 +440,6 @@ private fun TabButton(
 
 data class TabItem(
     val id: String,
-    val icon: String,
+    val icon: ImageVector,
     val title: String
 )

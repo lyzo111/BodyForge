@@ -9,12 +9,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.window.Dialog
@@ -46,6 +49,7 @@ fun HistoryScreen(listState: LazyListState) {
     var editingWorkout by remember { mutableStateOf<Workout?>(null) }
     var deleteConfirmationWorkout by remember { mutableStateOf<Workout?>(null) }
     var importMessage by remember { mutableStateOf<String?>(null) }
+    var showImportInfo by remember { mutableStateOf(false) }
     val launchCsvImport = rememberCsvImporter { csv ->
         coroutineScope.launch {
             val (imported, skipped) = SharedWorkoutState.importWorkoutsFromCsv(csv)
@@ -65,14 +69,19 @@ fun HistoryScreen(listState: LazyListState) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Workout History", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-            Button(
-                onClick = launchCsvImport,
-                colors = ButtonDefaults.buttonColors(backgroundColor = AccentBlue),
-                shape = RoundedCornerShape(20.dp),
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                elevation = ButtonDefaults.elevation(0.dp)
-            ) {
-                Text("Import CSV", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                IconButton(onClick = { showImportInfo = true }, modifier = Modifier.size(24.dp)) {
+                    Icon(Icons.Filled.Info, contentDescription = "About CSV import", tint = AccentBlue, modifier = Modifier.size(22.dp))
+                }
+                Button(
+                    onClick = launchCsvImport,
+                    colors = ButtonDefaults.buttonColors(backgroundColor = AccentBlue),
+                    shape = RoundedCornerShape(20.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                    elevation = ButtonDefaults.elevation(0.dp)
+                ) {
+                    Text("Import CSV", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
             }
         }
 
@@ -101,6 +110,38 @@ fun HistoryScreen(listState: LazyListState) {
             confirmButton = {
                 Button(onClick = { importMessage = null }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentBlue)) {
                     Text("OK", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            backgroundColor = CardBackground
+        )
+    }
+
+    if (showImportInfo) {
+        AlertDialog(
+            onDismissRequest = { showImportInfo = false },
+            title = { Text("Import CSV", color = TextPrimary, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "Bulk-import past workouts into your history. Pick a CSV file and each row is added as one completed set, back-dated to its date.",
+                        color = TextSecondary, fontSize = 14.sp
+                    )
+                    Text("Format — one row per set:", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Box(modifier = Modifier.fillMaxWidth().background(SurfaceColor, RoundedCornerShape(8.dp)).padding(12.dp)) {
+                        Text(
+                            "date,workout,exercise,reps,weight\n2025-01-15,Push,Bench Press,8,80\n2025-01-15,Push,Bench Press,7,80\n2025-01-18,Pull,Deadlift,5,120",
+                            color = TextPrimary, fontSize = 12.sp, fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    Text(
+                        "• Header row optional.\n• Date: YYYY-MM-DD or DD.MM.YYYY.\n• Same date + workout = one session; weight in kg.\n• Unknown exercises are created automatically (matched by name).",
+                        color = TextSecondary, fontSize = 12.sp
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = { showImportInfo = false }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentBlue)) {
+                    Text("Got it", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             backgroundColor = CardBackground
