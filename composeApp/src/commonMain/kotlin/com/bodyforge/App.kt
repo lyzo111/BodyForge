@@ -152,6 +152,7 @@ private fun SettingsDialog(onDismiss: () -> Unit) {
     var vibrate by remember { mutableStateOf(AppSettings.vibrateOnTimerEnd) }
     var editCompleted by remember { mutableStateOf(AppSettings.editCompletedSets) }
     var useLbs by remember { mutableStateOf(AppSettings.useLbs) }
+    var emojiMode by remember { mutableStateOf(AppSettings.emojiMode) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -196,6 +197,18 @@ private fun SettingsDialog(onDismiss: () -> Unit) {
                         UnitOption("lbs", useLbs) { useLbs = true }
                     }
                 }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Emoji mode", color = TextPrimary, fontSize = 14.sp)
+                    Switch(
+                        checked = emojiMode,
+                        onCheckedChange = { emojiMode = it },
+                        colors = SwitchDefaults.colors(checkedThumbColor = AccentOrange, checkedTrackColor = AccentOrange.copy(alpha = 0.5f))
+                    )
+                }
             }
         },
         confirmButton = {
@@ -206,6 +219,7 @@ private fun SettingsDialog(onDismiss: () -> Unit) {
                     AppSettings.vibrateOnTimerEnd = vibrate
                     AppSettings.editCompletedSets = editCompleted
                     AppSettings.useLbs = useLbs
+                    AppSettings.emojiMode = emojiMode
                     SettingsState.reload()
                     onDismiss()
                 },

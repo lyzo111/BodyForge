@@ -8,6 +8,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,6 +22,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bodyforge.data.Weights
+import com.bodyforge.ui.components.EmojiIcon
 
 @Composable
 fun BodyweightInput(
@@ -40,10 +43,7 @@ fun BodyweightInput(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = "💪",
-                    fontSize = 20.sp
-                )
+                EmojiIcon("💪", Icons.Filled.FitnessCenter, fontSize = 20.sp, iconSize = 22.dp, tint = Color.White)
                 Text(
                     text = "Your Bodyweight:",
                     fontSize = 16.sp,

@@ -13,9 +13,12 @@ object SettingsState {
         private set
     var useLbs by mutableStateOf(AppSettings.useLbs)
         private set
+    var emojiMode by mutableStateOf(AppSettings.emojiMode)
+        private set
 
     fun reload() {
         editCompletedSets = AppSettings.editCompletedSets
         useLbs = AppSettings.useLbs
+        emojiMode = AppSettings.emojiMode
     }
 }

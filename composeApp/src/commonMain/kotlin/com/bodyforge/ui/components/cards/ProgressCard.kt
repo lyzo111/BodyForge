@@ -28,6 +28,7 @@ import com.bodyforge.domain.models.TrainingPhase
 import com.bodyforge.domain.models.Workout
 import com.bodyforge.domain.models.WorkoutTemplate
 import com.bodyforge.data.Weights
+import com.bodyforge.presentation.state.SettingsState
 import kotlinx.datetime.LocalDate
 import kotlin.math.roundToInt
 
@@ -241,7 +242,7 @@ private fun ProgressContent(
                 Text("No phases yet — start one on the Training Phase card.", fontSize = 12.sp, color = TextSecondary)
             } else {
                 ChipRow("Phase") {
-                    phases.forEach { p -> SelectChip("${p.phaseType.emoji} ${p.name}", p.id == selectedPhaseId) { selectedPhaseId = p.id } }
+                    phases.forEach { p -> SelectChip(if (SettingsState.emojiMode) "${p.phaseType.emoji} ${p.name}" else p.name, p.id == selectedPhaseId) { selectedPhaseId = p.id } }
                 }
             }
         }

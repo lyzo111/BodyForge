@@ -36,6 +36,11 @@ object AppSettings {
         get() = prefs.getBoolean("use_lbs", false)
         set(value) { prefs.edit().putBoolean("use_lbs", value).apply() }
 
+    // When true (default), decorative emojis are shown; when false they are replaced with icons.
+    var emojiMode: Boolean
+        get() = prefs.getBoolean("emoji_mode", true)
+        set(value) { prefs.edit().putBoolean("emoji_mode", value).apply() }
+
     // templateId -> split name (e.g. "PPL"). Persisted here, so splits need no database migration.
     // Entries are joined with control characters (record/unit separators) that users won't type.
     private const val RECORD_SEP = "\u001E"

@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.bodyforge.presentation.state.SharedWorkoutState
+import com.bodyforge.presentation.state.SettingsState
 import com.bodyforge.data.Weights
 import com.bodyforge.domain.models.TrainingPhase
 import com.bodyforge.domain.models.analyzePhase
@@ -259,7 +260,7 @@ private fun PhaseComparisonCard(
                     .background(SurfaceColor, RoundedCornerShape(8.dp))
                     .padding(12.dp)
             ) {
-                Text("${phase.phaseType.emoji} ${phase.name}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Text(if (SettingsState.emojiMode) "${phase.phaseType.emoji} ${phase.name}" else phase.name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                 val range = phase.endDate?.let { "${fmtDay(phase.startDate)} – ${fmtDay(it)}" } ?: "since ${fmtDay(phase.startDate)}"
                 Text("${phase.phaseType.displayName} · $range", fontSize = 11.sp, color = TextSecondary)
                 Spacer(modifier = Modifier.height(8.dp))
@@ -855,7 +856,7 @@ private fun FrequencyDialog(
                     if (phases.isNotEmpty()) {
                         FreqChipRow("Phase") {
                             FilterChip("Any", phaseId == null) { phaseId = null }
-                            phases.forEach { p -> FilterChip("${p.phaseType.emoji} ${p.name}", phaseId == p.id) { phaseId = p.id } }
+                            phases.forEach { p -> FilterChip(if (SettingsState.emojiMode) "${p.phaseType.emoji} ${p.name}" else p.name, phaseId == p.id) { phaseId = p.id } }
                         }
                     }
                     if (templates.isNotEmpty()) {

@@ -25,6 +25,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Notes
+import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +49,7 @@ import com.bodyforge.presentation.viewmodel.WorkoutViewModel
 import com.bodyforge.ui.PlatformBackHandler
 import com.bodyforge.ui.components.cards.CreateExerciseDialog
 import com.bodyforge.ui.components.inputs.BodyweightInput
+import com.bodyforge.ui.components.EmojiIcon
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 
@@ -737,7 +740,10 @@ private fun ExerciseNotesField(exerciseId: String, notes: String, onNotesChange:
         }
     }
     Column {
-        Text("📝 Notes", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = TextSecondary)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            EmojiIcon("📝", Icons.Filled.Notes, fontSize = 12.sp, iconSize = 14.dp)
+            Text("Notes", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = TextSecondary)
+        }
         Spacer(modifier = Modifier.height(4.dp))
         BasicTextField(
             value = text,
@@ -1781,7 +1787,7 @@ private fun TemplateSelectionFlow(
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("📋", fontSize = 48.sp)
+                    EmojiIcon("📋", Icons.Filled.Assignment, iconSize = 48.dp, fontSize = 48.sp)
                     Text(
                         text = "No Templates Yet",
                         fontSize = 20.sp,

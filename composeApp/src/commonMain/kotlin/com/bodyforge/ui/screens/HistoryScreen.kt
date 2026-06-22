@@ -11,11 +11,16 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Notes
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -25,6 +30,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bodyforge.data.Weights
+import com.bodyforge.ui.components.EmojiIcon
 import com.bodyforge.domain.models.Workout
 import com.bodyforge.presentation.state.SharedWorkoutState
 import com.bodyforge.ui.rememberCsvImporter
@@ -190,7 +196,7 @@ fun HistoryScreen(listState: LazyListState) {
 private fun EmptyHistoryCard() {
     Card(backgroundColor = CardBackground, elevation = 2.dp, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("📊", fontSize = 48.sp)
+            EmojiIcon("📊", Icons.Filled.BarChart, iconSize = 48.dp, fontSize = 48.sp)
             Text("No Workouts Yet", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TextPrimary, textAlign = TextAlign.Center)
             Text("Complete your first workout to see your training history here", fontSize = 14.sp, color = TextSecondary, textAlign = TextAlign.Center)
         }
@@ -217,10 +223,10 @@ private fun HistoryWorkoutCard(workout: Workout, onDelete: () -> Unit, onEdit: (
             Spacer(modifier = Modifier.height(12.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                WorkoutStat("🏋️", "${workout.exercises.size}", "Exercises")
-                WorkoutStat("💪", "${workout.performedSets}", "Sets")
-                WorkoutStat("⏱️", "${workout.durationMinutes ?: 0}m", "Duration")
-                if (workout.totalVolumePerformed > 0) WorkoutStat("📊", "${Weights.formatRounded(workout.totalVolumePerformed)}${Weights.unit}", "Volume")
+                WorkoutStat("🏋️", Icons.Filled.FitnessCenter, "${workout.exercises.size}", "Exercises")
+                WorkoutStat("💪", Icons.Filled.FitnessCenter, "${workout.performedSets}", "Sets")
+                WorkoutStat("⏱️", Icons.Filled.Timer, "${workout.durationMinutes ?: 0}m", "Duration")
+                if (workout.totalVolumePerformed > 0) WorkoutStat("📊", Icons.Filled.BarChart, "${Weights.formatRounded(workout.totalVolumePerformed)}${Weights.unit}", "Volume")
             }
 
             if (workout.exercises.isNotEmpty()) {
@@ -245,16 +251,19 @@ private fun HistoryWorkoutCard(workout: Workout, onDelete: () -> Unit, onEdit: (
 
             if (workout.notes.isNotBlank()) {
                 Spacer(modifier = Modifier.height(12.dp))
-                Text("📝 ${workout.notes}", fontSize = 12.sp, color = TextSecondary)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    EmojiIcon("📝", Icons.Filled.Notes, fontSize = 12.sp, iconSize = 14.dp)
+                    Text(workout.notes, fontSize = 12.sp, color = TextSecondary)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun WorkoutStat(icon: String, value: String, label: String) {
+private fun WorkoutStat(emoji: String, icon: ImageVector, value: String, label: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(icon, fontSize = 16.sp)
+        EmojiIcon(emoji, icon, fontSize = 16.sp, iconSize = 18.dp)
         Text(value, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
         Text(label, fontSize = 12.sp, color = TextSecondary)
     }

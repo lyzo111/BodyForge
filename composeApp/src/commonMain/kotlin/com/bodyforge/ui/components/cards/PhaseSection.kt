@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.TrackChanges
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -19,6 +20,8 @@ import androidx.compose.ui.unit.sp
 import com.bodyforge.domain.models.PhaseType
 import com.bodyforge.domain.models.TrainingPhase
 import com.bodyforge.presentation.state.SharedWorkoutState
+import com.bodyforge.presentation.state.SettingsState
+import com.bodyforge.ui.components.EmojiIcon
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 
@@ -59,7 +62,10 @@ fun PhaseSection() {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("🎯 Training Phase", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    EmojiIcon("🎯", Icons.Filled.TrackChanges, fontSize = 18.sp, iconSize = 20.dp)
+                    Text("Training Phase", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                }
                 Button(
                     onClick = { showCreate = true },
                     colors = ButtonDefaults.buttonColors(backgroundColor = AccentPurple),
@@ -85,7 +91,7 @@ fun PhaseSection() {
                 ) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("${active.phaseType.emoji} ${active.name}", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                            Text(if (SettingsState.emojiMode) "${active.phaseType.emoji} ${active.name}" else active.name, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                             Text("${active.phaseType.displayName} · since ${formatDate(active.startDate)}", fontSize = 12.sp, color = TextSecondary)
                             if (active.description.isNotBlank()) {
                                 Text(active.description, fontSize = 12.sp, color = TextSecondary, modifier = Modifier.padding(top = 4.dp))
@@ -125,7 +131,7 @@ fun PhaseSection() {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("${phase.phaseType.emoji} ${phase.name}", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
+                                Text(if (SettingsState.emojiMode) "${phase.phaseType.emoji} ${phase.name}" else phase.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
                                 val range = phase.endDate?.let { "${formatDate(phase.startDate)} – ${formatDate(it)}" } ?: "since ${formatDate(phase.startDate)}"
                                 Text("${phase.phaseType.displayName} · $range", fontSize = 11.sp, color = TextSecondary)
                             }

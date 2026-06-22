@@ -14,6 +14,7 @@ import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,6 +29,7 @@ import com.bodyforge.domain.models.Exercise
 import com.bodyforge.domain.models.WorkoutTemplate
 import com.bodyforge.presentation.state.SharedWorkoutState
 import com.bodyforge.ui.components.cards.CreateExerciseDialog
+import com.bodyforge.ui.components.EmojiIcon
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 
@@ -680,7 +682,10 @@ fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exercise>, 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(shape = RoundedCornerShape(16.dp), color = CardBackground, modifier = Modifier.fillMaxWidth(0.95f).fillMaxHeight(0.88f)) {
             Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
-                Text("📋 Create Template", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 20.sp)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    EmojiIcon("📋", Icons.Filled.Assignment, fontSize = 20.sp, iconSize = 22.dp)
+                    Text("Create Template", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 20.sp)
+                }
                 Spacer(modifier = Modifier.height(12.dp))
                 Column(modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 OutlinedTextField(value = templateName, onValueChange = { templateName = it }, label = { Text("Template Name") }, placeholder = { Text("e.g., Push Day") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth())
