@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bodyforge.domain.models.Workout
 import com.bodyforge.presentation.state.SharedWorkoutState
+import com.bodyforge.ui.rememberCsvImporter
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -44,13 +45,36 @@ fun HistoryScreen(listState: LazyListState) {
 
     var editingWorkout by remember { mutableStateOf<Workout?>(null) }
     var deleteConfirmationWorkout by remember { mutableStateOf<Workout?>(null) }
+    var importMessage by remember { mutableStateOf<String?>(null) }
+    val launchCsvImport = rememberCsvImporter { csv ->
+        coroutineScope.launch {
+            val (imported, skipped) = SharedWorkoutState.importWorkoutsFromCsv(csv)
+            importMessage = "Imported $imported workout${if (imported == 1) "" else "s"}" +
+                if (skipped > 0) " · $skipped row${if (skipped == 1) "" else "s"} skipped" else ""
+        }
+    }
 
     LaunchedEffect(Unit) {
         SharedWorkoutState.loadCompletedWorkouts()
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Workout History", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary, modifier = Modifier.padding(bottom = 16.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Workout History", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Button(
+                onClick = launchCsvImport,
+                colors = ButtonDefaults.buttonColors(backgroundColor = AccentBlue),
+                shape = RoundedCornerShape(20.dp),
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                elevation = ButtonDefaults.elevation(0.dp)
+            ) {
+                Text("Import CSV", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
+        }
 
         when {
             isLoading -> Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -67,6 +91,20 @@ fun HistoryScreen(listState: LazyListState) {
                 }
             }
         }
+    }
+
+    importMessage?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { importMessage = null },
+            title = { Text("CSV Import", color = TextPrimary, fontWeight = FontWeight.Bold) },
+            text = { Text(msg, color = TextSecondary) },
+            confirmButton = {
+                Button(onClick = { importMessage = null }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentBlue)) {
+                    Text("OK", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            backgroundColor = CardBackground
+        )
     }
 
     editingWorkout?.let { workout ->

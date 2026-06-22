@@ -11,6 +11,8 @@ import com.bodyforge.domain.models.Exercise
 import com.bodyforge.domain.models.PhaseType
 import com.bodyforge.domain.models.TrainingPhase
 import com.bodyforge.domain.models.Workout
+import com.bodyforge.domain.models.ExerciseInWorkout
+import com.bodyforge.domain.models.SetStatus
 import com.bodyforge.domain.models.WorkoutSet
 import com.bodyforge.domain.models.WorkoutTemplate
 import kotlinx.coroutines.CancellationException
@@ -25,7 +27,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 import kotlinx.datetime.todayIn
 
 object SharedWorkoutState {
@@ -431,6 +435,63 @@ object SharedWorkoutState {
 
     fun setLoading(loading: Boolean) {
         _isLoading.value = loading
+    }
+
+    // Imports completed workouts from a "date,workout,exercise,reps,weight" CSV (one row per set),
+    // back-dated into history. Returns (workoutsImported, rowsSkipped).
+    suspend fun importWorkoutsFromCsv(csv: String): Pair<Int, Int> {
+        val parsed = com.bodyforge.data.parseWorkoutCsv(csv)
+        if (parsed.workouts.isEmpty()) {
+            loadCompletedWorkouts()
+            return 0 to parsed.skippedRows
+        }
+        val byName = exerciseRepo.getAllExercises().associateBy { it.name.trim().lowercase() }.toMutableMap()
+        val tz = TimeZone.currentSystemDefault()
+        val base = Clock.System.now().epochSeconds
+        var seq = 0
+        var imported = 0
+        try {
+            for (cw in parsed.workouts) {
+                val start = cw.date.atTime(12, 0).toInstant(tz)
+                val finish = Instant.fromEpochSeconds(start.epochSeconds + 1800)
+                val exercisesInWorkout = cw.exercises.mapIndexed { index, ce ->
+                    val key = ce.name.trim().lowercase()
+                    val exercise = byName[key] ?: run {
+                        val created = createCustomExercise(ce.name.trim(), emptyList(), "", false)
+                        byName[key] = created
+                        created
+                    }
+                    val sets = ce.sets.map { s ->
+                        WorkoutSet(
+                            id = "set_imp_${base}_${seq++}",
+                            reps = s.reps,
+                            weightKg = s.weight,
+                            restTimeSeconds = exercise.defaultRestTimeSeconds,
+                            completed = true,
+                            completedAt = finish,
+                            status = SetStatus.COMPLETED
+                        )
+                    }
+                    ExerciseInWorkout(exercise = exercise, sets = sets, orderInWorkout = index)
+                }
+                val workout = Workout(
+                    id = "workout_imp_${base}_${seq++}",
+                    name = cw.name,
+                    startedAt = start,
+                    finishedAt = finish,
+                    exercises = exercisesInWorkout,
+                    notes = ""
+                )
+                workoutRepo.importWorkout(workout)
+                imported++
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _error.value = "CSV import failed: ${e.message}"
+        }
+        loadCompletedWorkouts()
+        return imported to parsed.skippedRows
     }
 
     // Refresh all data

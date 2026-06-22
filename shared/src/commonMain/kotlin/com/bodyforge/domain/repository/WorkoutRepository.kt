@@ -5,6 +5,7 @@ import kotlinx.datetime.LocalDate
 
 interface WorkoutRepository {
     suspend fun saveWorkout(workout: Workout): Workout
+    suspend fun importWorkout(workout: Workout)
     suspend fun getWorkout(id: String): Workout?
     suspend fun getAllWorkouts(): List<Workout>
     suspend fun getCompletedWorkouts(): List<Workout>
