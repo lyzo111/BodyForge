@@ -94,21 +94,22 @@ object SharedWorkoutState {
         _restJustEnded.value = false
         _restTotalSeconds.value = seconds
         _restRemainingSeconds.value = seconds
-        _restEndsAtMillis.value = Clock.System.now().toEpochMilliseconds() + seconds * 1000L
+        val endMs = Clock.System.now().toEpochMilliseconds() + seconds * 1000L
+        _restEndsAtMillis.value = endMs
+        // Exact alarm so the end buzz fires even if the app is backgrounded or the phone is locked.
+        // The alarm (not this in-app loop) does the vibrating, so there is never a double buzz.
+        com.bodyforge.scheduleRestAlarm(endMs)
         restJob = timerScope.launch {
             // Poll the wall clock instead of counting down, so a throttled coroutine (e.g. while the
             // phone is locked) can't make the timer drift — remaining is always (end - now).
             while (isActive) {
-                val endMs = _restEndsAtMillis.value
-                if (endMs == 0L) break
-                val remMs = endMs - Clock.System.now().toEpochMilliseconds()
+                val end = _restEndsAtMillis.value
+                if (end == 0L) break
+                val remMs = end - Clock.System.now().toEpochMilliseconds()
                 if (remMs <= 0L) {
                     _restRemainingSeconds.value = 0
                     _restEndsAtMillis.value = 0L
                     _restJustEnded.value = true
-                    if (com.bodyforge.data.AppSettings.vibrateOnTimerEnd) {
-                        com.bodyforge.data.vibrateDevice()
-                    }
                     break
                 }
                 _restRemainingSeconds.value = ((remMs + 999L) / 1000L).toInt()
@@ -122,10 +123,12 @@ object SharedWorkoutState {
         _restEndsAtMillis.value += seconds * 1000L
         _restTotalSeconds.value += seconds
         _restRemainingSeconds.value += seconds
+        com.bodyforge.scheduleRestAlarm(_restEndsAtMillis.value)
     }
 
     fun skipRest() {
         restJob?.cancel()
+        com.bodyforge.cancelRestAlarm()
         _restEndsAtMillis.value = 0L
         _restRemainingSeconds.value = 0
         _restJustEnded.value = false
