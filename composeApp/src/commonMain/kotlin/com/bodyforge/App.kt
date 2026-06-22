@@ -145,6 +145,7 @@ private fun SettingsDialog(onDismiss: () -> Unit) {
     var isolationRest by remember { mutableStateOf(AppSettings.isolationRestSeconds) }
     var compoundRest by remember { mutableStateOf(AppSettings.compoundRestSeconds) }
     var vibrate by remember { mutableStateOf(AppSettings.vibrateOnTimerEnd) }
+    var editCompleted by remember { mutableStateOf(AppSettings.editCompletedSets) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -166,6 +167,18 @@ private fun SettingsDialog(onDismiss: () -> Unit) {
                         colors = SwitchDefaults.colors(checkedThumbColor = AccentOrange, checkedTrackColor = AccentOrange.copy(alpha = 0.5f))
                     )
                 }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Edit sets after completing", color = TextPrimary, fontSize = 14.sp)
+                    Switch(
+                        checked = editCompleted,
+                        onCheckedChange = { editCompleted = it },
+                        colors = SwitchDefaults.colors(checkedThumbColor = AccentOrange, checkedTrackColor = AccentOrange.copy(alpha = 0.5f))
+                    )
+                }
             }
         },
         confirmButton = {
@@ -174,6 +187,7 @@ private fun SettingsDialog(onDismiss: () -> Unit) {
                     AppSettings.isolationRestSeconds = isolationRest
                     AppSettings.compoundRestSeconds = compoundRest
                     AppSettings.vibrateOnTimerEnd = vibrate
+                    AppSettings.editCompletedSets = editCompleted
                     onDismiss()
                 },
                 colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange),

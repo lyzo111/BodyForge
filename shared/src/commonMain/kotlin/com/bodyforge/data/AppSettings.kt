@@ -24,6 +24,12 @@ object AppSettings {
         get() = prefs.getBoolean("vibrate_on_timer_end", true)
         set(value) { prefs.edit().putBoolean("vibrate_on_timer_end", value).apply() }
 
+    // When false (default), a set can no longer be edited once it is marked done; when true,
+    // completed sets stay editable.
+    var editCompletedSets: Boolean
+        get() = prefs.getBoolean("edit_completed_sets", false)
+        set(value) { prefs.edit().putBoolean("edit_completed_sets", value).apply() }
+
     // templateId -> split name (e.g. "PPL"). Persisted here, so splits need no database migration.
     // Entries are joined with control characters (record/unit separators) that users won't type.
     private const val RECORD_SEP = "\u001E"

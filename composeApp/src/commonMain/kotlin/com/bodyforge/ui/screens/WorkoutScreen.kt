@@ -7,6 +7,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -26,6 +28,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -394,23 +397,55 @@ private fun ExerciseJumpBar(
     exercises: List<ExerciseInWorkout>,
     onJump: (Int) -> Unit
 ) {
-    LazyRow(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        itemsIndexed(exercises) { index, exerciseInWorkout ->
-            Box(
+    val scrollState = rememberScrollState()
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(scrollState),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            exercises.forEachIndexed { index, exerciseInWorkout ->
+                Box(
+                    modifier = Modifier
+                        .background(SurfaceColor, RoundedCornerShape(16.dp))
+                        .clickable { onJump(index) }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        "${index + 1}. ${exerciseInWorkout.exercise.name}",
+                        color = TextSecondary,
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
+            }
+        }
+
+        // Purely visual scroll-position indicator: a track with a thumb whose width and offset
+        // reflect how far the jump buttons are scrolled. Shown only when the row overflows.
+        if (scrollState.maxValue > 0) {
+            Spacer(modifier = Modifier.height(6.dp))
+            BoxWithConstraints(
                 modifier = Modifier
-                    .background(SurfaceColor, RoundedCornerShape(16.dp))
-                    .clickable { onJump(index) }
-                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(SurfaceColor.copy(alpha = 0.4f))
             ) {
-                Text(
-                    "${index + 1}. ${exerciseInWorkout.exercise.name}",
-                    color = TextSecondary,
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    softWrap = false
+                val density = LocalDensity.current
+                val trackPx = with(density) { maxWidth.toPx() }
+                val content = trackPx + scrollState.maxValue
+                val thumbFraction = (trackPx / content).coerceIn(0.2f, 1f)
+                val progress = scrollState.value.toFloat() / scrollState.maxValue
+                val thumbWidth = with(density) { (trackPx * thumbFraction).toDp() }
+                val thumbOffset = with(density) { ((trackPx - trackPx * thumbFraction) * progress).toDp() }
+                Box(
+                    modifier = Modifier
+                        .offset(x = thumbOffset)
+                        .width(thumbWidth)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(AccentBlue.copy(alpha = 0.8f))
                 )
             }
         }
@@ -826,6 +861,8 @@ private fun SetRowWithButtons(
     onUpdateSet: (Int?, Double?, Boolean?) -> Unit
 ) {
     val isCompleted = set.completed
+    // Completed sets are locked by default; a Settings toggle re-enables editing them.
+    val editable = !set.completed || com.bodyforge.data.AppSettings.editCompletedSets
     val backgroundColor = if (isCompleted) AccentGreen.copy(alpha = 0.15f) else SurfaceColor
 
     Card(
@@ -891,21 +928,21 @@ private fun SetRowWithButtons(
                     value = set.reps,
                     displayValue = set.reps.toString(),
                     onDecrement = {
-                        if (set.reps > 0 && !isCompleted) {
+                        if (set.reps > 0 && editable) {
                             onUpdateSet(set.reps - 1, null, null)
                         }
                     },
                     onIncrement = {
-                        if (!isCompleted) {
+                        if (editable) {
                             onUpdateSet(set.reps + 1, null, null)
                         }
                     },
                     onValueChange = { newReps ->
-                        if (!isCompleted) {
+                        if (editable) {
                             onUpdateSet(newReps, null, null)
                         }
                     },
-                    enabled = !isCompleted,
+                    enabled = editable,
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -916,21 +953,21 @@ private fun SetRowWithButtons(
                         additionalWeight = set.weightKg,
                         bodyweight = bodyweight,
                         onDecrement = {
-                            if (set.weightKg > 0 && !isCompleted) {
+                            if (set.weightKg > 0 && editable) {
                                 onUpdateSet(null, (set.weightKg - 2.5).coerceAtLeast(0.0), null)
                             }
                         },
                         onIncrement = {
-                            if (!isCompleted) {
+                            if (editable) {
                                 onUpdateSet(null, set.weightKg + 2.5, null)
                             }
                         },
                         onValueChange = { newWeight ->
-                            if (!isCompleted) {
+                            if (editable) {
                                 onUpdateSet(null, newWeight, null)
                             }
                         },
-                        enabled = !isCompleted,
+                        enabled = editable,
                         modifier = Modifier.fillMaxWidth()
                     )
                 } else {
@@ -939,25 +976,25 @@ private fun SetRowWithButtons(
                         value = set.weightKg.toInt(),
                         displayValue = "${formatWeight(set.weightKg)} kg",
                         onDecrement = {
-                            if (set.weightKg > 0 && !isCompleted) {
+                            if (set.weightKg > 0 && editable) {
                                 onUpdateSet(null, (set.weightKg - 2.5).coerceAtLeast(0.0), null)
                             }
                         },
                         onIncrement = {
-                            if (!isCompleted) {
+                            if (editable) {
                                 onUpdateSet(null, set.weightKg + 2.5, null)
                             }
                         },
                         onValueChange = { newWeight ->
-                            if (!isCompleted) {
+                            if (editable) {
                                 onUpdateSet(null, newWeight.toDouble(), null)
                             }
                         },
-                        enabled = !isCompleted,
+                        enabled = editable,
                         isWeight = true,
                         currentWeight = set.weightKg,
                         onWeightChange = { newWeight ->
-                            if (!isCompleted) {
+                            if (editable) {
                                 onUpdateSet(null, newWeight, null)
                             }
                         },
