@@ -247,6 +247,8 @@ private fun ActiveWorkoutView(
     val restRemaining by SharedWorkoutState.restRemainingSeconds.collectAsState()
     val restTotal by SharedWorkoutState.restTotalSeconds.collectAsState()
     val restEndsAtMillis by SharedWorkoutState.restEndsAtMillis.collectAsState()
+    // Per-exercise collapse state for the active workout, hoisted so it survives list recycling.
+    val expandedExercises = remember { mutableStateMapOf<String, Boolean>() }
 
     Column(modifier = Modifier.fillMaxSize()) {
         if (workout.exercises.size > 1) {
@@ -283,6 +285,7 @@ private fun ActiveWorkoutView(
 
         items(workout.exercises) { exerciseInWorkout ->
             val isSkipped = exerciseInWorkout.sets.isNotEmpty() && exerciseInWorkout.sets.all { it.isSkipped }
+            val exId = exerciseInWorkout.exercise.id
             ActiveExerciseCard(
                 exerciseInWorkout = exerciseInWorkout,
                 bodyweight = bodyweight,
@@ -315,7 +318,9 @@ private fun ActiveWorkoutView(
                 onSubstitute = { newExercise ->
                     viewModel.substituteExercise(exerciseInWorkout.exercise.id, newExercise)
                 },
-                onNotesChange = { viewModel.updateExerciseNotes(exerciseInWorkout.exercise.id, it) }
+                onNotesChange = { viewModel.updateExerciseNotes(exerciseInWorkout.exercise.id, it) },
+                expanded = expandedExercises[exId] ?: true,
+                onToggleExpand = { expandedExercises[exId] = !(expandedExercises[exId] ?: true) }
             )
             }
         }
@@ -519,6 +524,8 @@ private fun ActiveExerciseCard(
     exerciseInWorkout: ExerciseInWorkout,
     bodyweight: Double,
     availableExercises: List<Exercise>,
+    expanded: Boolean,
+    onToggleExpand: () -> Unit,
     onUpdateSet: (String, Int?, Double?, Boolean?) -> Unit,
     onAddSet: () -> Unit,
     onRemoveSet: () -> Unit,
@@ -541,9 +548,9 @@ private fun ActiveExerciseCard(
         Column(
             modifier = Modifier.padding(20.dp)
         ) {
-            // Exercise name on its own line so long names never push the controls off-screen
+            // Exercise name row with a dropdown chevron to collapse/expand the card and save space.
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().clickable { onToggleExpand() },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -552,7 +559,7 @@ private fun ActiveExerciseCard(
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary,
-                    modifier = Modifier.weight(1f, fill = false)
+                    modifier = Modifier.weight(1f)
                 )
 
                 if (exercise.isBodyweight) {
@@ -569,8 +576,16 @@ private fun ActiveExerciseCard(
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }
+
+                Text(
+                    text = if (expanded) "▾" else "▸",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = AccentBlue
+                )
             }
 
+            if (expanded) {
             Spacer(modifier = Modifier.height(8.dp))
 
             // Set count controls with skip / substitute actions on the same row
@@ -653,6 +668,7 @@ private fun ActiveExerciseCard(
                 notes = exerciseInWorkout.notes,
                 onNotesChange = onNotesChange
             )
+            }
         }
     }
 

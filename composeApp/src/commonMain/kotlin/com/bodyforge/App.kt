@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
@@ -333,6 +334,7 @@ private fun MainContent(hasActiveWorkout: Boolean, onSettings: () -> Unit) {
         HorizontalPager(
             state = pagerState,
             beyondBoundsPageCount = 3,
+            flingBehavior = PagerDefaults.flingBehavior(state = pagerState, snapPositionalThreshold = 0.7f),
             modifier = Modifier.fillMaxSize()
         ) { page ->
             when (page) {
