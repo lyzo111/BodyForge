@@ -478,12 +478,26 @@ private fun VolumeChart(workouts: List<com.bodyforge.domain.models.Workout>) {
 @Composable
 private fun MuscleGroupBalanceCard(workouts: List<com.bodyforge.domain.models.Workout>, expanded: Boolean, onToggle: () -> Unit) {
     CollapsibleCard("Muscle Group Balance", expanded, onToggle) {
-        // Calculate muscle group frequencies
+        var bySets by remember { mutableStateOf(false) }
+        Text(
+            if (bySets) "Number of sets per muscle group" else "Number of exercises per muscle group",
+            fontSize = 12.sp,
+            color = TextSecondary
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip("Exercises", !bySets) { bySets = false }
+            FilterChip("Sets", bySets) { bySets = true }
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Per muscle group, count either how many exercises hit it or how many sets were performed.
         val muscleGroupCounts = mutableMapOf<String, Int>()
         workouts.forEach { workout ->
             workout.exercises.forEach { exerciseInWorkout ->
+                val amount = if (bySets) exerciseInWorkout.performedSets else 1
                 exerciseInWorkout.exercise.muscleGroups.forEach { muscleGroup ->
-                    muscleGroupCounts[muscleGroup] = muscleGroupCounts.getOrDefault(muscleGroup, 0) + 1
+                    muscleGroupCounts[muscleGroup] = muscleGroupCounts.getOrDefault(muscleGroup, 0) + amount
                 }
             }
         }

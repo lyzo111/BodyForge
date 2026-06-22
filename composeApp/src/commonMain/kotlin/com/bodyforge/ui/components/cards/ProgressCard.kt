@@ -57,7 +57,7 @@ private enum class Scope(val label: String) {
     SPLIT("By split")
 }
 
-private data class Point(val value: Double, val date: LocalDate, val exerciseNote: String, val workoutNote: String)
+private data class Point(val value: Double, val date: LocalDate, val exerciseNote: String, val workoutNote: String, val sets: Int)
 private data class Series(val label: String, val color: Color, val points: List<Point>)
 private data class RoutineGroup(val key: String, val label: String, val templateIds: Set<String>)
 
@@ -194,8 +194,9 @@ private fun ProgressContent(
             val effMetric = if (subj == null) Metric.VOLUME else metric
             val pts = scopedWorkouts.mapNotNull { w ->
                 val v = subjectValue(w, subj, effMetric) ?: return@mapNotNull null
-                val note = w.exercises.firstOrNull { it.exercise.id == subj }?.notes ?: ""
-                Point(v, w.startDate, note, w.notes)
+                val eiw = w.exercises.firstOrNull { it.exercise.id == subj }
+                val setCount = if (subj == null) w.performedSets else (eiw?.performedSets ?: 0)
+                Point(v, w.startDate, eiw?.notes ?: "", w.notes, setCount)
             }
             val label = subj?.let { id -> exercises.firstOrNull { it.id == id }?.name ?: "Exercise" } ?: "Total Volume"
             Series(label, seriesPalette[i % seriesPalette.size], pts)
@@ -348,6 +349,7 @@ private fun SelectedPointCard(label: String, color: Color, point: Point) {
     Card(backgroundColor = SurfaceColor, shape = RoundedCornerShape(8.dp), elevation = 0.dp, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("$label · ${formatDate(point.date)} · ${point.value.roundToInt()} kg", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = color)
+            Text("${point.sets} ${if (point.sets == 1) "set" else "sets"} this day", fontSize = 12.sp, color = TextSecondary)
             if (point.exerciseNote.isNotBlank()) Text(point.exerciseNote, fontSize = 13.sp, color = TextPrimary)
             if (point.workoutNote.isNotBlank()) Text("Workout: ${point.workoutNote}", fontSize = 12.sp, color = TextSecondary)
             if (point.exerciseNote.isBlank() && point.workoutNote.isBlank()) Text("No notes recorded for this day.", fontSize = 12.sp, color = TextSecondary)
