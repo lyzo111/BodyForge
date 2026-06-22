@@ -30,7 +30,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import com.bodyforge.data.AppSettings
+import com.bodyforge.data.Weights
 import com.bodyforge.presentation.state.SharedWorkoutState
+import com.bodyforge.presentation.state.SettingsState
 import com.bodyforge.ui.screens.WorkoutScreen
 import com.bodyforge.ui.screens.TemplatesScreen
 import com.bodyforge.ui.screens.AnalyticsScreen
@@ -55,6 +57,9 @@ private val TextSecondary = Color(0xFF94A3B8)
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun App() {
+    // Route weight formatting through the reactive unit setting so unit changes recompose instantly.
+    remember { Weights.useLbsProvider = { SettingsState.useLbs }; Unit }
+
     // Initialize shared state
     LaunchedEffect(Unit) {
         SharedWorkoutState.refreshAll()
@@ -201,6 +206,7 @@ private fun SettingsDialog(onDismiss: () -> Unit) {
                     AppSettings.vibrateOnTimerEnd = vibrate
                     AppSettings.editCompletedSets = editCompleted
                     AppSettings.useLbs = useLbs
+                    SettingsState.reload()
                     onDismiss()
                 },
                 colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange),

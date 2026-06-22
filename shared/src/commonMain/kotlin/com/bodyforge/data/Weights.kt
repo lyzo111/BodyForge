@@ -8,7 +8,10 @@ import kotlin.math.roundToInt
 object Weights {
     private const val LB_PER_KG = 2.2046226218
 
-    val useLbs: Boolean get() = AppSettings.useLbs
+    // composeApp installs a reactive provider so weight displays recompose when the unit changes;
+    // without it (e.g. tests) we fall back to the persisted setting.
+    var useLbsProvider: (() -> Boolean)? = null
+    val useLbs: Boolean get() = useLbsProvider?.invoke() ?: AppSettings.useLbs
 
     // Short label for the active display unit.
     val unit: String get() = if (useLbs) "lbs" else "kg"

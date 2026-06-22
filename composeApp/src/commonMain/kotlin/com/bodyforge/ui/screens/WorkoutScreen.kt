@@ -863,7 +863,7 @@ private fun SetRowWithButtons(
 ) {
     val isCompleted = set.completed
     // Completed sets are locked by default; a Settings toggle re-enables editing them.
-    val editable = !set.completed || com.bodyforge.data.AppSettings.editCompletedSets
+    val editable = !set.completed || com.bodyforge.presentation.state.SettingsState.editCompletedSets
     val backgroundColor = if (isCompleted) AccentGreen.copy(alpha = 0.15f) else SurfaceColor
 
     Card(
