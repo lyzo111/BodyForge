@@ -19,6 +19,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bodyforge.data.Weights
 
 @Composable
 fun BodyweightInput(
@@ -62,7 +63,7 @@ fun BodyweightInput(
                 Button(
                     onClick = {
                         if (bodyweight > 30.0) {
-                            val newWeight = (bodyweight - 0.5).coerceAtLeast(30.0)
+                            val newWeight = (bodyweight - Weights.toKg(0.5)).coerceAtLeast(30.0)
                             onBodyweightChange(newWeight)
                         }
                     },
@@ -82,7 +83,7 @@ fun BodyweightInput(
                     )
                 }
 
-                var textValue by remember(bodyweight) { mutableStateOf(formatWeight(bodyweight)) }
+                var textValue by remember(bodyweight) { mutableStateOf(Weights.format(bodyweight)) }
                 var isEditing by remember { mutableStateOf(false) }
 
                 if (isEditing) {
@@ -115,16 +116,16 @@ fun BodyweightInput(
                         ),
                         keyboardActions = KeyboardActions(
                             onDone = {
-                                val newValue = parseWeightInput(textValue).coerceIn(30.0, 999.0)
+                                val newValue = Weights.toKg(parseWeightInput(textValue)).coerceIn(30.0, 999.0)
                                 onBodyweightChange(newValue)
-                                textValue = formatWeight(newValue)
+                                textValue = Weights.format(newValue)
                                 isEditing = false
                             }
                         )
                     )
                 } else {
                     Text(
-                        text = "${formatWeight(bodyweight)} kg",
+                        text = "${Weights.format(bodyweight)} ${Weights.unit}",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
@@ -132,7 +133,7 @@ fun BodyweightInput(
                             .weight(1f)
                             .clickable {
                                 isEditing = true
-                                textValue = formatWeight(bodyweight)
+                                textValue = Weights.format(bodyweight)
                             }
                             .background(
                                 color = Color.White.copy(alpha = 0.2f),
@@ -146,7 +147,7 @@ fun BodyweightInput(
                 Button(
                     onClick = {
                         if (bodyweight < 999.0) {
-                            val newWeight = (bodyweight + 0.5).coerceAtMost(999.0)
+                            val newWeight = (bodyweight + Weights.toKg(0.5)).coerceAtMost(999.0)
                             onBodyweightChange(newWeight)
                         }
                     },

@@ -24,6 +24,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bodyforge.data.Weights
 import com.bodyforge.domain.models.Workout
 import com.bodyforge.presentation.state.SharedWorkoutState
 import com.bodyforge.ui.rememberCsvImporter
@@ -219,7 +220,7 @@ private fun HistoryWorkoutCard(workout: Workout, onDelete: () -> Unit, onEdit: (
                 WorkoutStat("🏋️", "${workout.exercises.size}", "Exercises")
                 WorkoutStat("💪", "${workout.performedSets}", "Sets")
                 WorkoutStat("⏱️", "${workout.durationMinutes ?: 0}m", "Duration")
-                if (workout.totalVolumePerformed > 0) WorkoutStat("📊", "${workout.totalVolumePerformed.toInt()}kg", "Volume")
+                if (workout.totalVolumePerformed > 0) WorkoutStat("📊", "${Weights.formatRounded(workout.totalVolumePerformed)}${Weights.unit}", "Volume")
             }
 
             if (workout.exercises.isNotEmpty()) {
@@ -330,7 +331,7 @@ private fun EditWorkoutDialog(workout: Workout, onDismiss: () -> Unit, onSave: (
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                     Text("Set", fontSize = 12.sp, color = TextSecondary, modifier = Modifier.width(40.dp))
                                     Text("Reps", fontSize = 12.sp, color = TextSecondary, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                                    Text(if (exerciseInWorkout.exercise.isBodyweight) "Added kg" else "Weight", fontSize = 12.sp, color = TextSecondary, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                                    Text(if (exerciseInWorkout.exercise.isBodyweight) "Added ${Weights.unit}" else "Weight", fontSize = 12.sp, color = TextSecondary, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -454,7 +455,7 @@ private fun HistoryWeightInputDialog(currentWeight: Double, onDismiss: () -> Uni
         onDismissRequest = onDismiss,
         text = {
             Column {
-                Text("Edit Weight (kg)", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text("Edit Weight (${Weights.unit})", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 Spacer(modifier = Modifier.height(16.dp))
                 BasicTextField(
                     value = textValue,
@@ -466,7 +467,7 @@ private fun HistoryWeightInputDialog(currentWeight: Double, onDismiss: () -> Uni
             }
         },
         confirmButton = {
-            Button(onClick = { onConfirm(textValue.toDoubleOrNull() ?: 0.0) }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange)) {
+            Button(onClick = { onConfirm(Weights.toKg(textValue.toDoubleOrNull() ?: 0.0)) }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange)) {
                 Text("OK", color = Color.White, fontWeight = FontWeight.Bold)
             }
         },
@@ -475,4 +476,4 @@ private fun HistoryWeightInputDialog(currentWeight: Double, onDismiss: () -> Uni
     )
 }
 
-private fun formatWeight(weight: Double): String = if (weight % 1.0 == 0.0) weight.toInt().toString() else String.format("%.1f", weight)
+private fun formatWeight(weight: Double): String = Weights.format(weight)

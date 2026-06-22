@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.bodyforge.presentation.state.SharedWorkoutState
+import com.bodyforge.data.Weights
 import com.bodyforge.domain.models.TrainingPhase
 import com.bodyforge.domain.models.analyzePhase
 import com.bodyforge.ui.components.cards.PhaseSection
@@ -265,11 +266,11 @@ private fun PhaseComparisonCard(
                 if (a.totalWorkouts == 0) {
                     Text("No workouts logged in this phase yet.", fontSize = 12.sp, color = TextSecondary)
                 } else {
-                    val avgPerSession = (a.totalVolume / a.totalWorkouts).roundToInt()
+                    val avgPerSession = a.totalVolume / a.totalWorkouts
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         PhaseStat("${a.totalWorkouts}", "Workouts")
-                        PhaseStat("${a.totalVolume.roundToInt()}kg", "Volume")
-                        PhaseStat("${avgPerSession}kg", "Avg/session")
+                        PhaseStat("${Weights.formatRounded(a.totalVolume)} ${Weights.unit}", "Volume")
+                        PhaseStat("${Weights.formatRounded(avgPerSession)} ${Weights.unit}", "Avg/session")
                     }
                 }
             }
@@ -359,7 +360,7 @@ private fun CurrentPhaseCard() {
 
 @Composable
 private fun QuickStatsRow(workouts: List<com.bodyforge.domain.models.Workout>) {
-    val totalVolume = workouts.sumOf { it.totalVolumePerformed }.roundToInt()
+    val totalVolume = workouts.sumOf { it.totalVolumePerformed }
     val avgDuration = workouts.mapNotNull { it.durationMinutes }.average().takeIf { !it.isNaN() } ?: 0.0
     val thisWeekWorkouts = workouts.filter {
         val workoutDate = it.startDate
@@ -375,7 +376,7 @@ private fun QuickStatsRow(workouts: List<com.bodyforge.domain.models.Workout>) {
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         QuickStatCard(value = "${workouts.size}", label = "Workouts", color = AccentBlue)
-        QuickStatCard(value = "${totalVolume}kg", label = "Total Volume", color = AccentGreen)
+        QuickStatCard(value = "${Weights.formatRounded(totalVolume)} ${Weights.unit}", label = "Total Volume", color = AccentGreen)
         QuickStatCard(value = "${avgDuration.roundToInt()}m", label = "Avg Duration", color = AccentOrange)
         QuickStatCard(value = "$thisWeekWorkouts", label = "This Week", color = AccentPurple)
     }
@@ -468,7 +469,7 @@ private fun VolumeChart(workouts: List<com.bodyforge.domain.models.Workout>) {
         }
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            "${series.size} workouts · latest ${series.last().roundToInt()} kg · best ${maxV.roundToInt()} kg",
+            "${series.size} workouts · latest ${Weights.formatRounded(series.last())} ${Weights.unit} · best ${Weights.formatRounded(maxV)} ${Weights.unit}",
             fontSize = 12.sp,
             color = TextSecondary
         )
@@ -700,7 +701,7 @@ private fun PlateauDetectionCard(plateaus: List<PlateauInfo>, expanded: Boolean,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(p.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
-                    Text("best ${p.best.roundToInt()} kg est. 1RM", fontSize = 11.sp, color = TextSecondary)
+                    Text("best ${Weights.formatRounded(p.best)} ${Weights.unit} est. 1RM", fontSize = 11.sp, color = TextSecondary)
                 }
                 Text("${p.sessionsSince} sessions", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AccentOrange)
             }

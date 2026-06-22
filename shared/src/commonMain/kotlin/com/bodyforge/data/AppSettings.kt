@@ -30,6 +30,12 @@ object AppSettings {
         get() = prefs.getBoolean("edit_completed_sets", false)
         set(value) { prefs.edit().putBoolean("edit_completed_sets", value).apply() }
 
+    // Display unit for weights. Stored data stays in kilograms; this only changes how weights are
+    // shown and entered across the app.
+    var useLbs: Boolean
+        get() = prefs.getBoolean("use_lbs", false)
+        set(value) { prefs.edit().putBoolean("use_lbs", value).apply() }
+
     // templateId -> split name (e.g. "PPL"). Persisted here, so splits need no database migration.
     // Entries are joined with control characters (record/unit separators) that users won't type.
     private const val RECORD_SEP = "\u001E"

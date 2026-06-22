@@ -27,6 +27,7 @@ import com.bodyforge.domain.models.Exercise
 import com.bodyforge.domain.models.TrainingPhase
 import com.bodyforge.domain.models.Workout
 import com.bodyforge.domain.models.WorkoutTemplate
+import com.bodyforge.data.Weights
 import kotlinx.datetime.LocalDate
 import kotlin.math.roundToInt
 
@@ -351,7 +352,7 @@ private fun Legend(series: List<Series>) {
 private fun SelectedPointCard(label: String, color: Color, point: Point) {
     Card(backgroundColor = SurfaceColor, shape = RoundedCornerShape(8.dp), elevation = 0.dp, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("$label · ${formatDate(point.date)} · ${point.value.roundToInt()} kg", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = color)
+            Text("$label · ${formatDate(point.date)} · ${Weights.formatRounded(point.value)} ${Weights.unit}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = color)
             Text("${point.sets} ${if (point.sets == 1) "set" else "sets"} this day", fontSize = 12.sp, color = TextSecondary)
             if (point.exerciseNote.isNotBlank()) Text(point.exerciseNote, fontSize = 13.sp, color = TextPrimary)
             if (point.workoutNote.isNotBlank()) Text("Workout: ${point.workoutNote}", fontSize = 12.sp, color = TextSecondary)

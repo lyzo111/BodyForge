@@ -146,6 +146,7 @@ private fun SettingsDialog(onDismiss: () -> Unit) {
     var compoundRest by remember { mutableStateOf(AppSettings.compoundRestSeconds) }
     var vibrate by remember { mutableStateOf(AppSettings.vibrateOnTimerEnd) }
     var editCompleted by remember { mutableStateOf(AppSettings.editCompletedSets) }
+    var useLbs by remember { mutableStateOf(AppSettings.useLbs) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -179,6 +180,17 @@ private fun SettingsDialog(onDismiss: () -> Unit) {
                         colors = SwitchDefaults.colors(checkedThumbColor = AccentOrange, checkedTrackColor = AccentOrange.copy(alpha = 0.5f))
                     )
                 }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Weight unit", color = TextPrimary, fontSize = 14.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        UnitOption("kg", !useLbs) { useLbs = false }
+                        UnitOption("lbs", useLbs) { useLbs = true }
+                    }
+                }
             }
         },
         confirmButton = {
@@ -188,6 +200,7 @@ private fun SettingsDialog(onDismiss: () -> Unit) {
                     AppSettings.compoundRestSeconds = compoundRest
                     AppSettings.vibrateOnTimerEnd = vibrate
                     AppSettings.editCompletedSets = editCompleted
+                    AppSettings.useLbs = useLbs
                     onDismiss()
                 },
                 colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange),
@@ -231,6 +244,22 @@ private fun RestSetting(label: String, seconds: Int, onChange: (Int) -> Unit) {
                 elevation = ButtonDefaults.elevation(0.dp)
             ) { Text("+", color = Color.White, fontSize = 18.sp) }
         }
+    }
+}
+
+@Composable
+private fun UnitOption(label: String, selected: Boolean, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(
+            backgroundColor = if (selected) AccentOrange else SurfaceColor,
+            contentColor = if (selected) Color.White else TextSecondary
+        ),
+        shape = RoundedCornerShape(8.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+        elevation = ButtonDefaults.elevation(0.dp)
+    ) {
+        Text(label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
     }
 }
 

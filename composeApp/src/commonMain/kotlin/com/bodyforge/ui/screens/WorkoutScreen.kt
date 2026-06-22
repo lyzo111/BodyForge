@@ -36,6 +36,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.bodyforge.data.Weights
 import com.bodyforge.domain.models.Exercise
 import com.bodyforge.domain.models.ExerciseInWorkout
 import com.bodyforge.domain.models.Workout
@@ -954,12 +955,12 @@ private fun SetRowWithButtons(
                         bodyweight = bodyweight,
                         onDecrement = {
                             if (set.weightKg > 0 && editable) {
-                                onUpdateSet(null, (set.weightKg - 2.5).coerceAtLeast(0.0), null)
+                                onUpdateSet(null, (set.weightKg - Weights.toKg(2.5)).coerceAtLeast(0.0), null)
                             }
                         },
                         onIncrement = {
                             if (editable) {
-                                onUpdateSet(null, set.weightKg + 2.5, null)
+                                onUpdateSet(null, set.weightKg + Weights.toKg(2.5), null)
                             }
                         },
                         onValueChange = { newWeight ->
@@ -974,15 +975,15 @@ private fun SetRowWithButtons(
                     ValueControlGroup(
                         label = "Weight",
                         value = set.weightKg.toInt(),
-                        displayValue = "${formatWeight(set.weightKg)} kg",
+                        displayValue = "${formatWeight(set.weightKg)} ${Weights.unit}",
                         onDecrement = {
                             if (set.weightKg > 0 && editable) {
-                                onUpdateSet(null, (set.weightKg - 2.5).coerceAtLeast(0.0), null)
+                                onUpdateSet(null, (set.weightKg - Weights.toKg(2.5)).coerceAtLeast(0.0), null)
                             }
                         },
                         onIncrement = {
                             if (editable) {
-                                onUpdateSet(null, set.weightKg + 2.5, null)
+                                onUpdateSet(null, set.weightKg + Weights.toKg(2.5), null)
                             }
                         },
                         onValueChange = { newWeight ->
@@ -1158,8 +1159,8 @@ private fun BodyweightValueControl(
                 contentAlignment = Alignment.Center
             ) {
                 val displayText = when {
-                    additionalWeight > 0 -> "BW+${formatWeight(additionalWeight)}kg"
-                    additionalWeight < 0 -> "BW${formatWeight(additionalWeight)}kg"
+                    additionalWeight > 0 -> "BW+${formatWeight(additionalWeight)}${Weights.unit}"
+                    additionalWeight < 0 -> "BW${formatWeight(additionalWeight)}${Weights.unit}"
                     else -> "BW"
                 }
 
@@ -1199,7 +1200,7 @@ private fun BodyweightValueControl(
         // Total weight display
         if (additionalWeight != 0.0) {
             Text(
-                text = "Total: ${formatWeight(bodyweight + additionalWeight)}kg",
+                text = "Total: ${formatWeight(bodyweight + additionalWeight)}${Weights.unit}",
                 fontSize = 10.sp,
                 color = AccentGreen,
                 modifier = Modifier.padding(top = 4.dp)
@@ -1333,9 +1334,9 @@ private fun WeightEditDialog(
                 )
 
                 if (isBodyweight) {
-                    val newAdditional = textValue.toDoubleOrNull() ?: 0.0
+                    val newAdditional = Weights.toKg(textValue.toDoubleOrNull() ?: 0.0)
                     Text(
-                        text = "Total: ${formatWeight(totalWeight - currentWeight + newAdditional)}kg",
+                        text = "Total: ${formatWeight(totalWeight - currentWeight + newAdditional)}${Weights.unit}",
                         fontSize = 14.sp,
                         color = AccentGreen,
                         modifier = Modifier.padding(top = 8.dp)
@@ -1343,7 +1344,7 @@ private fun WeightEditDialog(
                 }
 
                 Text(
-                    text = "kg",
+                    text = Weights.unit,
                     fontSize = 16.sp,
                     color = TextSecondary,
                     modifier = Modifier
@@ -1354,7 +1355,7 @@ private fun WeightEditDialog(
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(textValue.toDoubleOrNull() ?: 0.0) },
+                onClick = { onConfirm(Weights.toKg(textValue.toDoubleOrNull() ?: 0.0)) },
                 colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange)
             ) {
                 Text("OK", color = Color.White, fontWeight = FontWeight.Bold)
@@ -1871,10 +1872,4 @@ private fun TemplateSelectionFlow(
     }
 }
 
-private fun formatWeight(weight: Double): String {
-    return if (weight % 1.0 == 0.0) {
-        weight.toInt().toString()
-    } else {
-        String.format("%.1f", weight)
-    }
-}
+private fun formatWeight(weight: Double): String = Weights.format(weight)
