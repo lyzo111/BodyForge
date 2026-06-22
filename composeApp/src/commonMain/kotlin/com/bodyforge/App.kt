@@ -148,7 +148,7 @@ private fun SettingsDialog(onDismiss: () -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("⚙️ Settings", fontWeight = FontWeight.Bold, color = TextPrimary) },
+        title = { Text("Settings", fontWeight = FontWeight.Bold, color = TextPrimary) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text("Rest timer", fontWeight = FontWeight.Bold, color = TextSecondary, fontSize = 13.sp)
@@ -414,7 +414,7 @@ private fun TabButton(
                 imageVector = tab.icon,
                 contentDescription = null,
                 tint = DarkBackground,
-                modifier = Modifier.size(28.dp)
+                modifier = Modifier.size(40.dp)
             )
             Text(
                 text = tab.title,

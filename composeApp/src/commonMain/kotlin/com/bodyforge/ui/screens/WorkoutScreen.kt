@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
@@ -550,7 +551,11 @@ private fun ActiveExerciseCard(
         ) {
             // Exercise name row with a dropdown chevron to collapse/expand the card and save space.
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { onToggleExpand() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { onToggleExpand() }
+                    .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -579,7 +584,7 @@ private fun ActiveExerciseCard(
 
                 Text(
                     text = if (expanded) "▾" else "▸",
-                    fontSize = 18.sp,
+                    fontSize = 26.sp,
                     fontWeight = FontWeight.Bold,
                     color = AccentBlue
                 )
