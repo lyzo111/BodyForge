@@ -470,6 +470,7 @@ object SharedWorkoutState {
                             restTimeSeconds = exercise.defaultRestTimeSeconds,
                             completed = true,
                             completedAt = finish,
+                            notes = s.notes,
                             status = SetStatus.COMPLETED
                         )
                     }

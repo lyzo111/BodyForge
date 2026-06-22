@@ -196,7 +196,10 @@ private fun ProgressContent(
                 val v = subjectValue(w, subj, effMetric) ?: return@mapNotNull null
                 val eiw = w.exercises.firstOrNull { it.exercise.id == subj }
                 val setCount = if (subj == null) w.performedSets else (eiw?.performedSets ?: 0)
-                Point(v, w.startDate, eiw?.notes ?: "", w.notes, setCount)
+                // Per-set notes for the day, joined with semicolons, after any exercise-level note.
+                val setNotes = eiw?.sets?.mapNotNull { it.notes.trim().ifBlank { null } }?.distinct().orEmpty()
+                val combinedNote = (listOf(eiw?.notes?.trim().orEmpty()) + setNotes).filter { it.isNotBlank() }.joinToString("; ")
+                Point(v, w.startDate, combinedNote, w.notes, setCount)
             }
             val label = subj?.let { id -> exercises.firstOrNull { it.id == id }?.name ?: "Exercise" } ?: "Total Volume"
             Series(label, seriesPalette[i % seriesPalette.size], pts)

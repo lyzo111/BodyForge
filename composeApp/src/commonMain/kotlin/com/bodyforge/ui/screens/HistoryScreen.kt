@@ -129,12 +129,12 @@ fun HistoryScreen(listState: LazyListState) {
                     Text("Format — one row per set:", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     Box(modifier = Modifier.fillMaxWidth().background(SurfaceColor, RoundedCornerShape(8.dp)).padding(12.dp)) {
                         Text(
-                            "date,workout,exercise,reps,weight\n2025-01-15,Push,Bench Press,8,80\n2025-01-15,Push,Bench Press,7,80\n2025-01-18,Pull,Deadlift,5,120",
+                            "date,workout,exercise,reps,weight,unit,notes\n2025-01-15,Push,Bench Press,8,80,kg,felt strong\n2025-01-15,Push,Bench Press,7,80,kg,\n2025-01-18,Pull,Deadlift,5,275,lbs,belt on",
                             color = TextPrimary, fontSize = 12.sp, fontFamily = FontFamily.Monospace
                         )
                     }
                     Text(
-                        "• Header row optional.\n• Date: YYYY-MM-DD or DD.MM.YYYY.\n• Same date + workout = one session; weight in kg.\n• Unknown exercises are created automatically (matched by name).",
+                        "• Header row optional. Date: YYYY-MM-DD or DD.MM.YYYY.\n• unit (kg/lbs) and notes are optional; weight is stored in kg and lbs is converted on import.\n• Multiple set notes for an exercise show semicolon-separated in Analytics → Progress (tap a point).\n• Same date + workout = one session; unknown exercises are auto-created by name.",
                         color = TextSecondary, fontSize = 12.sp
                     )
                 }
