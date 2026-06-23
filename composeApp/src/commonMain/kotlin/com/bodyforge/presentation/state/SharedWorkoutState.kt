@@ -169,6 +169,26 @@ object SharedWorkoutState {
         }
     }
 
+    // Reactivates a finished workout from history (e.g. one that the orphan cleanup auto-finished).
+    // Any other active workout is finished first so the single-active-workout rule holds; sets are
+    // preserved as-is.
+    suspend fun resumeWorkout(workout: Workout) {
+        try {
+            _activeWorkout.value?.let { active ->
+                if (active.id != workout.id) {
+                    workoutRepo.updateWorkout(active.copy(finishedAt = Clock.System.now()))
+                }
+            }
+            workoutRepo.updateWorkout(workout.copy(finishedAt = null))
+            loadActiveWorkout()
+            loadCompletedWorkouts()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _error.value = "Failed to resume workout: ${e.message}"
+        }
+    }
+
     suspend fun loadCompletedWorkouts() {
         try {
             val workouts = workoutRepo.getCompletedWorkouts()

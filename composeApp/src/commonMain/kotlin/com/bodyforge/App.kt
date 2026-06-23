@@ -417,7 +417,7 @@ private fun MainContent(hasActiveWorkout: Boolean, onSettings: () -> Unit) {
                     onStartWorkout = { coroutineScope.launch { pagerState.animateScrollToPage(0) } }
                 )
                 2 -> AnalyticsScreen(listState = analyticsListState)
-                3 -> HistoryScreen(listState = historyListState)
+                3 -> HistoryScreen(listState = historyListState, onResumed = { coroutineScope.launch { pagerState.animateScrollToPage(0) } })
             }
         }
     }

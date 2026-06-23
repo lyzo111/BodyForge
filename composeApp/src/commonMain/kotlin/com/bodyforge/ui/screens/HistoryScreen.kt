@@ -48,12 +48,14 @@ private val CardBackground = Color(0xFF1E293B)
 private val SurfaceColor = Color(0xFF334155)
 
 @Composable
-fun HistoryScreen(listState: LazyListState) {
+fun HistoryScreen(listState: LazyListState, onResumed: () -> Unit) {
     val completedWorkouts by SharedWorkoutState.completedWorkouts.collectAsState()
+    val activeWorkout by SharedWorkoutState.activeWorkout.collectAsState()
     val isLoading by SharedWorkoutState.isLoading.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
     var editingWorkout by remember { mutableStateOf<Workout?>(null) }
+    var resumeConfirmWorkout by remember { mutableStateOf<Workout?>(null) }
     var deleteConfirmationWorkout by remember { mutableStateOf<Workout?>(null) }
     var importMessage by remember { mutableStateOf<String?>(null) }
     var showImportInfo by remember { mutableStateOf(false) }
@@ -101,6 +103,16 @@ fun HistoryScreen(listState: LazyListState) {
                 items(completedWorkouts) { workout ->
                     HistoryWorkoutCard(
                         workout = workout,
+                        onResume = {
+                            if (activeWorkout != null && activeWorkout?.id != workout.id) {
+                                resumeConfirmWorkout = workout
+                            } else {
+                                coroutineScope.launch {
+                                    SharedWorkoutState.resumeWorkout(workout)
+                                    onResumed()
+                                }
+                            }
+                        },
                         onDelete = { deleteConfirmationWorkout = workout },
                         onEdit = { editingWorkout = workout }
                     )
@@ -169,6 +181,28 @@ fun HistoryScreen(listState: LazyListState) {
         )
     }
 
+    resumeConfirmWorkout?.let { workout ->
+        AlertDialog(
+            onDismissRequest = { resumeConfirmWorkout = null },
+            title = { Text("Resume Workout", color = TextPrimary, fontWeight = FontWeight.Bold) },
+            text = { Text("You have an active workout. Resuming \"${workout.name}\" will finish the current one and continue this session.", color = TextSecondary) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            SharedWorkoutState.resumeWorkout(workout)
+                            onResumed()
+                        }
+                        resumeConfirmWorkout = null
+                    },
+                    colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen)
+                ) { Text("Resume", color = Color.White, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = { TextButton(onClick = { resumeConfirmWorkout = null }) { Text("Cancel", color = TextSecondary) } },
+            backgroundColor = CardBackground
+        )
+    }
+
     deleteConfirmationWorkout?.let { workout ->
         AlertDialog(
             onDismissRequest = { deleteConfirmationWorkout = null },
@@ -204,7 +238,7 @@ private fun EmptyHistoryCard() {
 }
 
 @Composable
-private fun HistoryWorkoutCard(workout: Workout, onDelete: () -> Unit, onEdit: () -> Unit) {
+private fun HistoryWorkoutCard(workout: Workout, onResume: () -> Unit, onDelete: () -> Unit, onEdit: () -> Unit) {
     var showAllExercises by remember { mutableStateOf(false) }
     Card(backgroundColor = CardBackground, elevation = 2.dp, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -214,9 +248,10 @@ private fun HistoryWorkoutCard(workout: Workout, onDelete: () -> Unit, onEdit: (
                     val dateFormatter = SimpleDateFormat("dd.MM.yyyy 'at' HH:mm", Locale.getDefault())
                     Text(dateFormatter.format(Date(workout.startedAt.epochSeconds * 1000)), fontSize = 12.sp, color = TextSecondary)
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TextButton(onClick = onEdit) { Text("Edit", color = AccentBlue, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
-                    TextButton(onClick = onDelete) { Text("Delete", color = AccentRed, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    TextButton(onClick = onResume, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("Resume", color = AccentGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+                    TextButton(onClick = onEdit, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("Edit", color = AccentBlue, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+                    TextButton(onClick = onDelete, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("Delete", color = AccentRed, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
                 }
             }
 
