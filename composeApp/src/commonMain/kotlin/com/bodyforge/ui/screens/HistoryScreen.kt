@@ -244,7 +244,8 @@ private fun HistoryWorkoutCard(workout: Workout, onResume: () -> Unit, onDelete:
         Column(modifier = Modifier.padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(workout.name, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                    val displayTitle = if (workout.exercises.isNotEmpty() && workout.exercises.all { it.exercise.isCardio }) "Cardio" else workout.name
+                    Text(displayTitle, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                     val dateFormatter = SimpleDateFormat("dd.MM.yyyy 'at' HH:mm", Locale.getDefault())
                     Text(dateFormatter.format(Date(workout.startedAt.epochSeconds * 1000)), fontSize = 12.sp, color = TextSecondary)
                 }

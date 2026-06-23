@@ -960,6 +960,7 @@ private fun FrequencyDialog(
     var phaseId by remember { mutableStateOf<String?>(null) }
     var templateId by remember { mutableStateOf<String?>(null) }
     var split by remember { mutableStateOf<String?>(null) }
+    var type by remember { mutableStateOf<String?>(null) }
 
     val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
     val splitNames = remember(splitAssignments) { splitAssignments.values.filter { it.isNotBlank() }.distinct().sorted() }
@@ -970,7 +971,10 @@ private fun FrequencyDialog(
         (from == null || w.startDate >= from) &&
         (phase == null || (w.startDate >= phase.startDate && (phase.endDate?.let { e -> w.startDate <= e } ?: true))) &&
         (templateId == null || w.templateId == templateId) &&
-        (split == null || (w.templateId != null && splitAssignments[w.templateId] == split))
+        (split == null || (w.templateId != null && splitAssignments[w.templateId] == split)) &&
+        (type == null ||
+            (type == "cardio" && w.exercises.any { it.exercise.isCardio }) ||
+            (type == "strength" && w.exercises.any { !it.exercise.isCardio }))
     }
     val count = matched.size
 
@@ -1007,6 +1011,11 @@ private fun FrequencyDialog(
                             FilterChip("Any", split == null) { split = null }
                             splitNames.forEach { s -> FilterChip(s, split == s) { split = s } }
                         }
+                    }
+                    FreqChipRow("Type") {
+                        FilterChip("All", type == null) { type = null }
+                        FilterChip("Strength", type == "strength") { type = "strength" }
+                        FilterChip("Cardio", type == "cardio") { type = "cardio" }
                     }
                 }
                 Spacer(modifier = Modifier.height(12.dp))

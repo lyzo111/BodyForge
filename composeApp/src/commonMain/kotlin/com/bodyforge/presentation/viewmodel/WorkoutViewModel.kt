@@ -217,6 +217,7 @@ class WorkoutViewModel : ViewModel() {
         val currentWorkout = sharedState.activeWorkout.value ?: return
 
         viewModelScope.launch {
+            sharedState.skipRest()
             sharedState.setLoading(true)
             try {
                 val finishedWorkout = currentWorkout.finish()
@@ -239,6 +240,7 @@ class WorkoutViewModel : ViewModel() {
     fun stopWorkout() {
         val currentWorkout = sharedState.activeWorkout.value ?: return
         viewModelScope.launch {
+            sharedState.skipRest()
             sharedState.setLoading(true)
             try {
                 sharedState.workoutRepo.deleteWorkout(currentWorkout.id)

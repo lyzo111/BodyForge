@@ -3,6 +3,7 @@ package com.bodyforge
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -22,11 +23,16 @@ class RestAlarmReceiver : BroadcastReceiver() {
             context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         }
         val pattern = longArrayOf(0, 500, 250, 500, 250, 600)
+        // USAGE_ALARM so the buzz plays through Do-Not-Disturb and while the screen is locked.
+        val attrs = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ALARM)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1))
+            vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1), attrs)
         } else {
             @Suppress("DEPRECATION")
-            vibrator.vibrate(pattern, -1)
+            vibrator.vibrate(pattern, -1, attrs)
         }
     }
 }
