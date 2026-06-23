@@ -310,13 +310,15 @@ private fun ProgressContent(
 
 @Composable
 private fun ChipRow(label: String, content: @Composable RowScope.() -> Unit) {
+    val scrollState = rememberScrollState()
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(label, fontSize = 11.sp, color = TextSecondary)
         Row(
-            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            modifier = Modifier.fillMaxWidth().horizontalScroll(scrollState),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             content = content
         )
+        com.bodyforge.ui.components.HScrollIndicator(scrollState)
     }
 }
 
@@ -339,13 +341,17 @@ private fun SelectChip(text: String, selected: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun Legend(series: List<Series>) {
-    Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        series.forEach { s ->
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Box(modifier = Modifier.size(10.dp).background(s.color, CircleShape))
-                Text(s.label, fontSize = 11.sp, color = TextSecondary, maxLines = 1, softWrap = false)
+    val scrollState = rememberScrollState()
+    Column {
+        Row(modifier = Modifier.fillMaxWidth().horizontalScroll(scrollState), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            series.forEach { s ->
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Box(modifier = Modifier.size(10.dp).background(s.color, CircleShape))
+                    Text(s.label, fontSize = 11.sp, color = TextSecondary, maxLines = 1, softWrap = false)
+                }
             }
         }
+        com.bodyforge.ui.components.HScrollIndicator(scrollState)
     }
 }
 

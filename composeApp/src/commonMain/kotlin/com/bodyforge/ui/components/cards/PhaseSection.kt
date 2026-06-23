@@ -227,14 +227,16 @@ private fun PhaseEditorDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Text("Type", fontSize = 12.sp, color = TextSecondary)
+                val typeScrollState = rememberScrollState()
                 Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(typeScrollState),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     PhaseType.entries.forEach { option ->
                         PhaseTypeChip(option, option == type) { type = option }
                     }
                 }
+                com.bodyforge.ui.components.HScrollIndicator(typeScrollState)
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },

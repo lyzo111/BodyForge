@@ -373,14 +373,18 @@ private fun QuickStatsRow(workouts: List<com.bodyforge.domain.models.Workout>) {
 
     // Wider fixed-width cards in a horizontally scrollable row so labels like "Total Volume" and
     // "Avg Duration" are shown in full instead of being squeezed and clipped.
-    Row(
-        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        QuickStatCard(value = "${workouts.size}", label = "Workouts", color = AccentBlue)
-        QuickStatCard(value = "${Weights.formatRounded(totalVolume)} ${Weights.unit}", label = "Total Volume", color = AccentGreen)
-        QuickStatCard(value = "${avgDuration.roundToInt()}m", label = "Avg Duration", color = AccentOrange)
-        QuickStatCard(value = "$thisWeekWorkouts", label = "This Week", color = AccentPurple)
+    val scrollState = rememberScrollState()
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(scrollState),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            QuickStatCard(value = "${workouts.size}", label = "Workouts", color = AccentBlue)
+            QuickStatCard(value = "${Weights.formatRounded(totalVolume)} ${Weights.unit}", label = "Total Volume", color = AccentGreen)
+            QuickStatCard(value = "${avgDuration.roundToInt()}m", label = "Avg Duration", color = AccentOrange)
+            QuickStatCard(value = "$thisWeekWorkouts", label = "This Week", color = AccentPurple)
+        }
+        com.bodyforge.ui.components.HScrollIndicator(scrollState)
     }
 }
 
@@ -827,13 +831,15 @@ private enum class FreqRange(val label: String, val days: Int?) {
 
 @Composable
 private fun FreqChipRow(label: String, content: @Composable RowScope.() -> Unit) {
+    val scrollState = rememberScrollState()
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(label, fontSize = 12.sp, color = TextSecondary)
         Row(
-            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            modifier = Modifier.fillMaxWidth().horizontalScroll(scrollState),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             content = content
         )
+        com.bodyforge.ui.components.HScrollIndicator(scrollState)
     }
 }
 

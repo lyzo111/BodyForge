@@ -396,8 +396,8 @@ private fun TemplateCard(template: WorkoutTemplate, exercises: List<com.bodyforg
         Column(modifier = Modifier.padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(template.name, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(template.name, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                         if (template.hasVariation) {
                             Text(
                                 template.variationLabel,
@@ -563,9 +563,11 @@ private fun AssignSplitDialog(current: String, existingSplits: List<String>, onD
                 Text("Assign to split", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 18.sp)
                 if (existingSplits.isNotEmpty()) {
                     Text("Pick existing", fontSize = 12.sp, color = TextSecondary)
-                    Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    val splitScrollState = rememberScrollState()
+                    Row(modifier = Modifier.fillMaxWidth().horizontalScroll(splitScrollState), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         existingSplits.forEach { s -> GroupChip(s, s == name) { name = s } }
                     }
+                    com.bodyforge.ui.components.HScrollIndicator(splitScrollState)
                 }
                 OutlinedTextField(
                     value = name,

@@ -22,10 +22,10 @@ object Weights {
     // A value the user typed (in the display unit) converted back to kilograms for storage.
     fun toKg(displayValue: Double): Double = if (useLbs) displayValue / LB_PER_KG else displayValue
 
-    // Display-unit number without a trailing ".0"; otherwise rounded to one decimal place.
+    // Display-unit number without a trailing ".0"; otherwise rounded to two decimal places.
     fun format(kg: Double): String {
         val v = toDisplay(kg)
-        return if (v % 1.0 == 0.0) v.toInt().toString() else ((v * 10).roundToInt() / 10.0).toString()
+        return if (v % 1.0 == 0.0) v.toInt().toString() else ((v * 100).roundToInt() / 100.0).toString()
     }
 
     // Display-unit number with the unit label, e.g. "82.5 lbs".
