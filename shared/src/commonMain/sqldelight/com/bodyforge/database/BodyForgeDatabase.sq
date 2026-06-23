@@ -38,6 +38,7 @@ CREATE TABLE WorkoutSet (
     notes TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL DEFAULT 'COMPLETED', -- COMPLETED, SKIPPED, SUBSTITUTED
     original_exercise_id TEXT, -- Exercise this set replaced when status is SUBSTITUTED, NULL otherwise
+    metrics TEXT NOT NULL DEFAULT '', -- JSON map of cardio metrics (duration, distance, watts, ...)
     FOREIGN KEY (workout_id) REFERENCES Workout(id) ON DELETE CASCADE,
     FOREIGN KEY (exercise_id) REFERENCES Exercise(id) ON DELETE CASCADE
 );
@@ -242,8 +243,8 @@ DELETE FROM Workout WHERE id = ?;
 -- WORKOUT SET QUERIES
 
 insertWorkoutSet:
-INSERT INTO WorkoutSet (id, workout_id, exercise_id, order_in_workout, set_number, reps, weight_kg, rest_time_seconds, completed, completed_at, notes, status, original_exercise_id)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO WorkoutSet (id, workout_id, exercise_id, order_in_workout, set_number, reps, weight_kg, rest_time_seconds, completed, completed_at, notes, status, original_exercise_id, metrics)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateWorkoutSet:
 UPDATE WorkoutSet SET reps = ?, weight_kg = ?, rest_time_seconds = ?, completed = ?, completed_at = ?, notes = ?, status = ?, original_exercise_id = ?

@@ -17,6 +17,13 @@ import kotlinx.serialization.encodeToString
 
 object WorkoutMapper {
 
+    // Cardio metrics are stored as a JSON map of metric key -> value; blank means none.
+    fun serializeMetrics(metrics: Map<String, Double>): String =
+        if (metrics.isEmpty()) "" else Json.encodeToString(metrics)
+
+    fun parseMetrics(raw: String): Map<String, Double> =
+        if (raw.isBlank()) emptyMap() else runCatching { Json.decodeFromString<Map<String, Double>>(raw) }.getOrElse { emptyMap() }
+
     // Exercise Mappings
     fun ExerciseEntity.toDomain(): Exercise {
         return Exercise(
@@ -56,7 +63,8 @@ object WorkoutMapper {
             completedAt = completed_at?.let { Instant.fromEpochSeconds(it) },
             notes = notes,
             status = SetStatus.fromStorage(status),
-            originalExerciseId = original_exercise_id
+            originalExerciseId = original_exercise_id,
+            metrics = parseMetrics(metrics)
         )
     }
 
@@ -74,7 +82,8 @@ object WorkoutMapper {
             completed_at = completedAt?.epochSeconds,
             notes = notes,
             status = status.name,
-            original_exercise_id = originalExerciseId
+            original_exercise_id = originalExerciseId,
+            metrics = serializeMetrics(metrics)
         )
     }
 

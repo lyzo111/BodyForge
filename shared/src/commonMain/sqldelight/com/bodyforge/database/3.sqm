@@ -1,0 +1,7 @@
+-- Migration from schema version 3 to 4.
+-- Adds a free-form metrics column to WorkoutSet for cardio tracking, and reclassifies the cardio
+-- stock exercises as non-bodyweight (cardio is tracked with metrics, not as added bodyweight).
+
+ALTER TABLE WorkoutSet ADD COLUMN metrics TEXT NOT NULL DEFAULT '';
+
+UPDATE Exercise SET is_bodyweight = 0 WHERE id IN ('running', 'cycling', 'cross_stepper', 'rowing');

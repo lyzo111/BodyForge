@@ -10,6 +10,10 @@ data class Exercise(
     val isBodyweight: Boolean = false,  // NEW: Bodyweight exercise flag
     val defaultRestTimeSeconds: Int = 90
 ) {
+    // Cardio is modelled as a muscle-group category (no schema column needed). Cardio exercises are
+    // tracked with metrics (time, distance, watts, ...) instead of sets, reps and weight.
+    val isCardio: Boolean get() = muscleGroups.any { it.equals("Cardio", ignoreCase = true) }
+
     companion object {
         fun getStandardExercises() = listOf(
             Exercise("bench_press", "Bench Press", listOf("Chest", "Triceps"), equipmentNeeded = "Barbell", isBodyweight = false, defaultRestTimeSeconds = 120),

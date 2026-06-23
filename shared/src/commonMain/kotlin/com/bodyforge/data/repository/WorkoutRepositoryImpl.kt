@@ -74,7 +74,8 @@ class WorkoutRepositoryImpl(
                     completed_at = set.completedAt?.epochSeconds,
                     notes = if (setIndex == 0) exerciseInWorkout.notes else set.notes,
                     status = set.status.name,
-                    original_exercise_id = set.originalExerciseId
+                    original_exercise_id = set.originalExerciseId,
+                    metrics = com.bodyforge.data.mappers.WorkoutMapper.serializeMetrics(set.metrics)
                 )
             }
         }
@@ -108,7 +109,8 @@ class WorkoutRepositoryImpl(
                     completed_at = set.completedAt?.epochSeconds,
                     notes = set.notes,
                     status = set.status.name,
-                    original_exercise_id = set.originalExerciseId
+                    original_exercise_id = set.originalExerciseId,
+                    metrics = com.bodyforge.data.mappers.WorkoutMapper.serializeMetrics(set.metrics)
                 )
             }
         }
@@ -157,7 +159,8 @@ class WorkoutRepositoryImpl(
                     completedAt = setEntity.completed_at?.let { Instant.fromEpochSeconds(it) },
                     notes = setEntity.notes,
                     status = SetStatus.fromStorage(setEntity.status),
-                    originalExerciseId = setEntity.original_exercise_id
+                    originalExerciseId = setEntity.original_exercise_id,
+                    metrics = com.bodyforge.data.mappers.WorkoutMapper.parseMetrics(setEntity.metrics)
                 )
             }
 
@@ -239,7 +242,8 @@ class WorkoutRepositoryImpl(
                     completed_at = set.completedAt?.epochSeconds,
                     notes = if (setIndex == 0) exerciseInWorkout.notes else set.notes,
                     status = set.status.name,
-                    original_exercise_id = set.originalExerciseId
+                    original_exercise_id = set.originalExerciseId,
+                    metrics = com.bodyforge.data.mappers.WorkoutMapper.serializeMetrics(set.metrics)
                 )
             }
         }

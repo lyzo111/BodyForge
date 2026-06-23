@@ -12,7 +12,8 @@ data class WorkoutSet(
     val completedAt: Instant? = null,
     val notes: String = "",
     val status: SetStatus = SetStatus.COMPLETED,
-    val originalExerciseId: String? = null
+    val originalExerciseId: String? = null,
+    val metrics: Map<String, Double> = emptyMap()
 ) {
     val isSkipped: Boolean get() = status == SetStatus.SKIPPED
     val isSubstituted: Boolean get() = status == SetStatus.SUBSTITUTED

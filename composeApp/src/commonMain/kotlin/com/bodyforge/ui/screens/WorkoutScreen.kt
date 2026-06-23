@@ -320,7 +320,8 @@ private fun ActiveWorkoutView(
                 onNotesChange = { viewModel.updateExerciseNotes(exerciseInWorkout.exercise.id, it) },
                 expanded = expandedExercises[exId] ?: true,
                 onToggleExpand = { expandedExercises[exId] = !(expandedExercises[exId] ?: true) },
-                onBodyweightChange = { SharedWorkoutState.updateBodyweight(it) }
+                onBodyweightChange = { SharedWorkoutState.updateBodyweight(it) },
+                onUpdateMetric = { setId, key, value -> viewModel.updateSetMetric(exerciseInWorkout.exercise.id, setId, key, value) }
             )
             }
         }
@@ -564,7 +565,8 @@ private fun ActiveExerciseCard(
     onSkipToggle: () -> Unit,
     onSubstitute: (Exercise) -> Unit,
     onNotesChange: (String) -> Unit,
-    onBodyweightChange: (Double) -> Unit
+    onBodyweightChange: (Double) -> Unit,
+    onUpdateMetric: (String, String, Double?) -> Unit
 ) {
     val exercise = exerciseInWorkout.exercise
     val isSkipped = exerciseInWorkout.sets.isNotEmpty() && exerciseInWorkout.sets.all { it.isSkipped }
@@ -658,7 +660,8 @@ private fun ActiveExerciseCard(
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
-            // Set count controls with skip / substitute actions on the same row
+            // Set count controls with skip / substitute actions on the same row (cardio uses metrics).
+            if (!exercise.isCardio) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -696,6 +699,7 @@ private fun ActiveExerciseCard(
                     onClick = { showSubstitutePicker = true }
                 )
             }
+            }
 
             if (substitutedFromName != null) {
                 Spacer(modifier = Modifier.height(6.dp))
@@ -708,7 +712,14 @@ private fun ActiveExerciseCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            if (isSkipped) {
+            if (exercise.isCardio) {
+                val cardioSet = exerciseInWorkout.sets.firstOrNull()
+                CardioMetricsEditor(
+                    set = cardioSet,
+                    onUpdateMetric = { key, value -> if (cardioSet != null) onUpdateMetric(cardioSet.id, key, value) },
+                    onToggleComplete = { if (cardioSet != null) onUpdateSet(cardioSet.id, null, null, !cardioSet.completed) }
+                )
+            } else if (isSkipped) {
                 Text(
                     text = "Skipped for this workout — tap Resume to log sets.",
                     fontSize = 13.sp,
@@ -753,6 +764,127 @@ private fun ActiveExerciseCard(
             }
         )
     }
+}
+
+// Cardio exercises are tracked with machine metrics instead of sets/reps/weight. Each field is
+// optional; tapping one opens a number pad. Values are stored in the set's metrics map.
+@Composable
+private fun CardioMetricsEditor(
+    set: WorkoutSet?,
+    onUpdateMetric: (String, Double?) -> Unit,
+    onToggleComplete: () -> Unit
+) {
+    if (set == null) {
+        Text("No cardio entry.", fontSize = 13.sp, color = TextSecondary)
+        return
+    }
+    val fields = listOf(
+        CardioField("Duration", "duration_min", "min"),
+        CardioField("Distance", "distance_km", "km"),
+        CardioField("Avg watts", "watts", "W"),
+        CardioField("Level", "level", ""),
+        CardioField("Incline", "incline_pct", "%"),
+        CardioField("Calories", "calories", "kcal"),
+        CardioField("Avg HR", "hr", "bpm"),
+        CardioField("Bodyweight", "bodyweight", Weights.unit)
+    )
+    var editing by remember { mutableStateOf<CardioField?>(null) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        fields.chunked(2).forEach { rowFields ->
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                rowFields.forEach { field ->
+                    val value = set.metrics[field.key]
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(SurfaceColor.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                            .clickable { editing = field }
+                            .padding(horizontal = 12.dp, vertical = 10.dp)
+                    ) {
+                        Text(field.label, fontSize = 11.sp, color = TextSecondary)
+                        Text(
+                            if (value != null) formatMetric(value) + (if (field.unit.isNotEmpty()) " ${field.unit}" else "") else "—",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (value != null) TextPrimary else TextSecondary
+                        )
+                    }
+                }
+                if (rowFields.size == 1) Spacer(modifier = Modifier.weight(1f))
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Button(
+            onClick = onToggleComplete,
+            colors = ButtonDefaults.buttonColors(backgroundColor = if (set.completed) AccentGreen else SurfaceColor.copy(alpha = 0.5f)),
+            border = if (set.completed) null else BorderStroke(1.dp, TextSecondary.copy(alpha = 0.5f)),
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth().height(40.dp),
+            elevation = ButtonDefaults.elevation(0.dp)
+        ) {
+            Text(
+                if (set.completed) "✓ Done · tap to undo" else "Done",
+                color = if (set.completed) Color.White else TextSecondary,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+
+    editing?.let { field ->
+        CardioMetricDialog(
+            field = field,
+            current = set.metrics[field.key],
+            onDismiss = { editing = null },
+            onConfirm = { v -> onUpdateMetric(field.key, v); editing = null }
+        )
+    }
+}
+
+private data class CardioField(val label: String, val key: String, val unit: String)
+
+private fun formatMetric(v: Double): String = if (v % 1.0 == 0.0) v.toInt().toString() else v.toString()
+
+@Composable
+private fun CardioMetricDialog(
+    field: CardioField,
+    current: Double?,
+    onDismiss: () -> Unit,
+    onConfirm: (Double?) -> Unit
+) {
+    var textValue by remember { mutableStateOf(current?.let { formatMetric(it) } ?: "") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        text = {
+            Column {
+                Text(
+                    field.label + if (field.unit.isNotEmpty()) " (${field.unit})" else "",
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                BasicTextField(
+                    value = textValue,
+                    onValueChange = { newText ->
+                        val f = newText.filter { it.isDigit() || it == '.' }
+                        if (f.count { it == '.' } <= 1 && f.length <= 8) textValue = f
+                    },
+                    modifier = Modifier.fillMaxWidth().background(SurfaceColor, RoundedCornerShape(8.dp)).padding(16.dp),
+                    textStyle = TextStyle(fontSize = 24.sp, color = TextPrimary, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold),
+                    singleLine = true
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(textValue.toDoubleOrNull()) }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange)) {
+                Text("OK", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) } },
+        backgroundColor = CardBackground
+    )
 }
 
 @Composable

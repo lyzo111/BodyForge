@@ -137,6 +137,26 @@ class WorkoutViewModel : ViewModel() {
         }
     }
 
+    // Sets/clears a single cardio metric (e.g. "duration_min") on a set. A null or zero value removes
+    // the metric so empty fields are not persisted.
+    fun updateSetMetric(exerciseId: String, setId: String, key: String, value: Double?) {
+        val currentWorkout = sharedState.activeWorkout.value ?: return
+        viewModelScope.launch {
+            try {
+                val exerciseInWorkout = currentWorkout.exercises.find { it.exercise.id == exerciseId } ?: return@launch
+                val set = exerciseInWorkout.sets.find { it.id == setId } ?: return@launch
+                val newMetrics = if (value == null || value == 0.0) set.metrics - key else set.metrics + (key to value)
+                val updatedSet = set.copy(metrics = newMetrics)
+                val updatedExercise = exerciseInWorkout.updateSet(setId, updatedSet)
+                val updatedWorkout = currentWorkout.updateExercise(exerciseId, updatedExercise)
+                sharedState.workoutRepo.updateWorkout(updatedWorkout)
+                sharedState.updateActiveWorkout(updatedWorkout)
+            } catch (e: Exception) {
+                sharedState.setError("Failed to update metric: ${e.message ?: "Unknown error"}")
+            }
+        }
+    }
+
     fun updateExerciseNotes(exerciseId: String, notes: String) {
         val currentWorkout = sharedState.activeWorkout.value ?: return
         viewModelScope.launch {
