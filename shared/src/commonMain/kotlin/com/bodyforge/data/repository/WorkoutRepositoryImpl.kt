@@ -32,9 +32,12 @@ class WorkoutRepositoryImpl(
 
     private fun cleanupOrphanedActiveWorkouts() {
         try {
-            // Mark any unfinished workouts as finished (from previous app sessions)
-            // This prevents random workouts from appearing as "active"
-            queries.updateOrphanedWorkouts(Clock.System.now().epochSeconds)
+            // Only auto-finish workouts left open for over a day, so a recent active session survives
+            // an app restart and can simply be continued. Older orphans (forgotten sessions) are
+            // closed out, and they stay resumable from history.
+            val now = Clock.System.now().epochSeconds
+            val staleCutoff = now - 24 * 60 * 60
+            queries.updateOrphanedWorkouts(now, staleCutoff)
         } catch (e: Exception) {
             // Log error but don't crash the app
             println("Warning: Could not cleanup orphaned workouts: ${e.message}")

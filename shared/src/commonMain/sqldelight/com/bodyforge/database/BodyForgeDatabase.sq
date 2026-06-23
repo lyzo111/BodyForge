@@ -229,7 +229,7 @@ finishAllActiveWorkouts:
 UPDATE Workout SET finished_at = ? WHERE finished_at IS NULL;
 
 updateOrphanedWorkouts:
-UPDATE Workout SET finished_at = ? WHERE finished_at IS NULL;
+UPDATE Workout SET finished_at = ? WHERE finished_at IS NULL AND started_at < ?;
 
 selectWorkoutsByDateRange:
 SELECT * FROM Workout
