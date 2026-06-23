@@ -248,7 +248,7 @@ private fun ActiveWorkoutView(
     val hasBodyweightExercises = workout.exercises.any { it.exercise.isBodyweight }
     val availableExercises by SharedWorkoutState.exercises.collectAsState()
     val scope = rememberCoroutineScope()
-    val baseOffset = (if (hasBodyweightExercises) 1 else 0) + 1
+    val baseOffset = 1
 
     // Rest timer state is owned by SharedWorkoutState so it keeps running and stays visible when
     // the user leaves the Workout tab and returns.
@@ -273,15 +273,6 @@ private fun ActiveWorkoutView(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-        if (hasBodyweightExercises) {
-            item {
-                BodyweightInput(
-                    bodyweight = bodyweight,
-                    onBodyweightChange = { SharedWorkoutState.updateBodyweight(it) }
-                )
-            }
-        }
-
         item {
             WorkoutHeaderCard(
                 workout = workout,
@@ -328,7 +319,8 @@ private fun ActiveWorkoutView(
                 },
                 onNotesChange = { viewModel.updateExerciseNotes(exerciseInWorkout.exercise.id, it) },
                 expanded = expandedExercises[exId] ?: true,
-                onToggleExpand = { expandedExercises[exId] = !(expandedExercises[exId] ?: true) }
+                onToggleExpand = { expandedExercises[exId] = !(expandedExercises[exId] ?: true) },
+                onBodyweightChange = { SharedWorkoutState.updateBodyweight(it) }
             )
             }
         }
@@ -571,13 +563,15 @@ private fun ActiveExerciseCard(
     onRemoveSet: () -> Unit,
     onSkipToggle: () -> Unit,
     onSubstitute: (Exercise) -> Unit,
-    onNotesChange: (String) -> Unit
+    onNotesChange: (String) -> Unit,
+    onBodyweightChange: (Double) -> Unit
 ) {
     val exercise = exerciseInWorkout.exercise
     val isSkipped = exerciseInWorkout.sets.isNotEmpty() && exerciseInWorkout.sets.all { it.isSkipped }
     val substitutedFromId = exerciseInWorkout.sets.firstOrNull { it.originalExerciseId != null }?.originalExerciseId
     val substitutedFromName = substitutedFromId?.let { id -> availableExercises.firstOrNull { it.id == id }?.name }
     var showSubstitutePicker by remember { mutableStateOf(false) }
+    var showBodyweightEdit by remember { mutableStateOf(false) }
 
     Card(
         backgroundColor = CardBackground,
@@ -631,6 +625,38 @@ private fun ActiveExerciseCard(
 
             if (expanded) {
             Spacer(modifier = Modifier.height(8.dp))
+
+            if (exercise.isBodyweight) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(SurfaceColor.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Bodyweight", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = TextSecondary)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        SmallControlButton("−", AccentRed, { onBodyweightChange((bodyweight - Weights.toKg(0.5)).coerceAtLeast(30.0)) }, bodyweight > 30.0)
+                        Text(
+                            "${formatWeight(bodyweight)} ${Weights.unit}",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentGreen,
+                            modifier = Modifier.clickable { showBodyweightEdit = true }
+                        )
+                        SmallControlButton("+", AccentGreen, { onBodyweightChange((bodyweight + Weights.toKg(0.5)).coerceAtMost(999.0)) }, bodyweight < 999.0)
+                    }
+                }
+                if (showBodyweightEdit) {
+                    WeightEditDialog(
+                        currentWeight = bodyweight,
+                        onDismiss = { showBodyweightEdit = false },
+                        onConfirm = { kg -> onBodyweightChange(kg.coerceIn(30.0, 999.0)); showBodyweightEdit = false }
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
 
             // Set count controls with skip / substitute actions on the same row
             Row(
