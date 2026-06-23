@@ -1,6 +1,7 @@
 package com.bodyforge.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -752,6 +753,7 @@ private fun TrainingFrequencyCard(
     onToggle: () -> Unit
 ) {
     var showFreqDialog by remember { mutableStateOf(false) }
+    var showCalendar by remember { mutableStateOf(false) }
     CollapsibleCard("Training Frequency", expanded, onToggle) {
         val weeks = 16
         val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
@@ -774,7 +776,7 @@ private fun TrainingFrequencyCard(
         Spacer(modifier = Modifier.height(12.dp))
 
         // GitHub-style heatmap: one column per week, one cell per day, shaded by workout count.
-        Row(modifier = Modifier.clickable { showFreqDialog = true }, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        Row(modifier = Modifier.clickable { showCalendar = true }, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
             for (col in 0 until weeks) {
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     for (row in 0..6) {
@@ -822,6 +824,107 @@ private fun TrainingFrequencyCard(
             splitAssignments = splitAssignments,
             onDismiss = { showFreqDialog = false }
         )
+    }
+
+    if (showCalendar) {
+        WorkoutCalendarDialog(workouts = workouts, onDismiss = { showCalendar = false })
+    }
+}
+
+// Month calendar reached by tapping the frequency heatmap: workout days are filled, today is ringed,
+// and tapping a day lists that day's sessions below.
+@Composable
+private fun WorkoutCalendarDialog(workouts: List<com.bodyforge.domain.models.Workout>, onDismiss: () -> Unit) {
+    val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
+    val byDate = remember(workouts) { workouts.groupBy { it.startDate } }
+    var firstOfMonth by remember { mutableStateOf(LocalDate(today.year, today.monthNumber, 1)) }
+    var selected by remember { mutableStateOf<LocalDate?>(null) }
+
+    val daysInMonth = firstOfMonth.plus(1, DateTimeUnit.MONTH).plus(-1, DateTimeUnit.DAY).dayOfMonth
+    val leading = firstOfMonth.dayOfWeek.isoDayNumber - 1
+    val monthLabel = "${firstOfMonth.month.name.lowercase().replaceFirstChar { it.uppercase() }} ${firstOfMonth.year}"
+    val rows = (leading + daysInMonth + 6) / 7
+
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(shape = RoundedCornerShape(16.dp), color = CardBackground, modifier = Modifier.fillMaxWidth(0.95f)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { selected = null; firstOfMonth = firstOfMonth.plus(-1, DateTimeUnit.MONTH) }) {
+                        Text("‹", color = AccentOrange, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Text(monthLabel, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    TextButton(onClick = { selected = null; firstOfMonth = firstOfMonth.plus(1, DateTimeUnit.MONTH) }) {
+                        Text("›", color = AccentOrange, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun").forEach { d ->
+                        Text(d, fontSize = 11.sp, color = TextSecondary, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                for (rowIdx in 0 until rows) {
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        for (col in 0..6) {
+                            val dayNum = rowIdx * 7 + col - leading + 1
+                            if (dayNum in 1..daysInMonth) {
+                                val date = LocalDate(firstOfMonth.year, firstOfMonth.monthNumber, dayNum)
+                                val count = byDate[date]?.size ?: 0
+                                val isToday = date == today
+                                val isSelected = date == selected
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .aspectRatio(1f)
+                                        .padding(2.dp)
+                                        .background(
+                                            when {
+                                                count > 0 -> AccentGreen.copy(alpha = if (isSelected) 1f else 0.85f)
+                                                isSelected -> SurfaceColor
+                                                else -> Color.Transparent
+                                            },
+                                            RoundedCornerShape(8.dp)
+                                        )
+                                        .then(if (isToday) Modifier.border(1.dp, AccentOrange, RoundedCornerShape(8.dp)) else Modifier)
+                                        .clickable { selected = date },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        "$dayNum",
+                                        fontSize = 13.sp,
+                                        color = if (count > 0) Color.White else TextPrimary,
+                                        fontWeight = if (count > 0) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
+                            } else {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                val sel = selected
+                if (sel != null) {
+                    val dayWorkouts = byDate[sel].orEmpty()
+                    Text(fmtDay(sel), color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    if (dayWorkouts.isEmpty()) {
+                        Text("No workout logged", color = TextSecondary, fontSize = 12.sp)
+                    } else {
+                        dayWorkouts.forEach { w ->
+                            val dur = w.durationMinutes?.let { " · ${it}m" } ?: ""
+                            Text("• ${w.name}$dur", color = TextSecondary, fontSize = 12.sp)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange), elevation = ButtonDefaults.elevation(0.dp)) {
+                        Text("Done", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
     }
 }
 

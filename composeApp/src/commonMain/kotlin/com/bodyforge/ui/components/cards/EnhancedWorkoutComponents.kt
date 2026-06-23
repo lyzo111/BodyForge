@@ -516,7 +516,7 @@ fun CreateExerciseDialog(
     val availableMuscleGroups = listOf(
         "Chest", "Back", "Shoulders", "Biceps", "Triceps", "Forearms",
         "Quadriceps", "Hamstrings", "Glutes", "Calves", "Core", "Abs",
-        "Lower Back", "Upper Traps"
+        "Lower Back", "Upper Traps", "Cardio"
     )
 
     AlertDialog(
