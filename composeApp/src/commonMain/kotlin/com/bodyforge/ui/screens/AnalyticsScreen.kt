@@ -34,6 +34,7 @@ import com.bodyforge.domain.models.TrainingPhase
 import com.bodyforge.domain.models.analyzePhase
 import com.bodyforge.ui.components.cards.PhaseSection
 import com.bodyforge.ui.components.cards.ProgressCard
+import com.bodyforge.ui.components.cards.TagExercisesDialog
 import kotlinx.datetime.Clock
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -479,6 +480,9 @@ private fun VolumeChart(workouts: List<com.bodyforge.domain.models.Workout>) {
 
 @Composable
 private fun MuscleGroupBalanceCard(workouts: List<com.bodyforge.domain.models.Workout>, expanded: Boolean, onToggle: () -> Unit) {
+    val exercises by SharedWorkoutState.exercises.collectAsState()
+    val untaggedCustomCount = exercises.count { it.isCustom && it.muscleGroups.isEmpty() }
+    var showTagDialog by remember { mutableStateOf(false) }
     CollapsibleCard("Muscle Group Balance", expanded, onToggle) {
         var bySets by remember { mutableStateOf(false) }
         Text(
@@ -524,6 +528,30 @@ private fun MuscleGroupBalanceCard(workouts: List<com.bodyforge.domain.models.Wo
                 Spacer(modifier = Modifier.height(8.dp))
             }
         }
+
+        // Imported/custom exercises saved without muscle groups never reach the bars above; offer to
+        // tag them so they start counting.
+        if (untaggedCustomCount > 0) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = { showTagDialog = true },
+                colors = ButtonDefaults.buttonColors(backgroundColor = SurfaceColor),
+                shape = RoundedCornerShape(8.dp),
+                elevation = ButtonDefaults.elevation(0.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    "Tag $untaggedCustomCount exercise${if (untaggedCustomCount == 1) "" else "s"} without muscle groups",
+                    color = AccentOrange,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 13.sp
+                )
+            }
+        }
+    }
+
+    if (showTagDialog) {
+        TagExercisesDialog(onDismiss = { showTagDialog = false })
     }
 }
 

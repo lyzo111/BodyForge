@@ -440,13 +440,22 @@ object SharedWorkoutState {
 
     // Imports completed workouts from a "date,workout,exercise,reps,weight" CSV (one row per set),
     // back-dated into history. Returns (workoutsImported, rowsSkipped).
+    // Normalizes an exercise name for fuzzy matching: lowercase, letters and digits only, so spacing
+    // and punctuation differences ("Bench Press" vs "bench-press") collapse to the same key.
+    private fun normalizeExerciseName(name: String): String = name.lowercase().filter { it.isLetterOrDigit() }
+
     suspend fun importWorkoutsFromCsv(csv: String): Pair<Int, Int> {
         val parsed = com.bodyforge.data.parseWorkoutCsv(csv)
         if (parsed.workouts.isEmpty()) {
             loadCompletedWorkouts()
             return 0 to parsed.skippedRows
         }
-        val byName = exerciseRepo.getAllExercises().associateBy { it.name.trim().lowercase() }.toMutableMap()
+        val allExercises = exerciseRepo.getAllExercises()
+        val byName = allExercises.associateBy { it.name.trim().lowercase() }.toMutableMap()
+        // Fuzzy index over exercises that already carry muscle groups, keyed by a space/punctuation-
+        // insensitive form, so an imported "bench press" inherits the tags of a stock "Bench Press".
+        val byNorm = allExercises.filter { it.muscleGroups.isNotEmpty() }
+            .associateBy { normalizeExerciseName(it.name) }
         val tz = TimeZone.currentSystemDefault()
         val base = Clock.System.now().epochSeconds
         var seq = 0
@@ -457,7 +466,7 @@ object SharedWorkoutState {
                 val finish = Instant.fromEpochSeconds(start.epochSeconds + 1800)
                 val exercisesInWorkout = cw.exercises.mapIndexed { index, ce ->
                     val key = ce.name.trim().lowercase()
-                    val exercise = byName[key] ?: run {
+                    val exercise = byName[key] ?: byNorm[normalizeExerciseName(ce.name)] ?: run {
                         val created = createCustomExercise(ce.name.trim(), emptyList(), "", false)
                         byName[key] = created
                         created
