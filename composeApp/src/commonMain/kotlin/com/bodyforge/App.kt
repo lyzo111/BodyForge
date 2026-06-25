@@ -4,6 +4,10 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -33,6 +37,7 @@ import com.bodyforge.data.AppSettings
 import com.bodyforge.data.Weights
 import com.bodyforge.presentation.state.SharedWorkoutState
 import com.bodyforge.presentation.state.SettingsState
+import com.bodyforge.ui.theme.*
 import com.bodyforge.ui.screens.WorkoutScreen
 import com.bodyforge.ui.screens.TemplatesScreen
 import com.bodyforge.ui.screens.AnalyticsScreen
@@ -43,22 +48,13 @@ import org.jetbrains.compose.resources.painterResource
 import java.text.SimpleDateFormat
 import java.util.*
 
-// Modern Color Palette
-private val DarkBackground = Color(0xFF0F172A)
-private val CardBackground = Color(0xFF1E293B)
-private val SurfaceColor = Color(0xFF334155)
-private val AccentOrange = Color(0xFFFF6B35)
-private val AccentRed = Color(0xFFEF4444)
-private val AccentGreen = Color(0xFF10B981)
-private val AccentBlue = Color(0xFF3B82F6)
-private val TextPrimary = Color(0xFFE2E8F0)
-private val TextSecondary = Color(0xFF94A3B8)
+// Colours come from com.bodyforge.ui.theme so the palette can be switched at runtime.
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun App() {
     // Route weight formatting through the reactive unit setting so unit changes recompose instantly.
-    remember { Weights.useLbsProvider = { SettingsState.useLbs }; Unit }
+    remember { Weights.useLbsProvider = { SettingsState.useLbs }; ThemeState.reload(); Unit }
 
     // Initialize shared state
     LaunchedEffect(Unit) {
@@ -153,12 +149,13 @@ private fun SettingsDialog(onDismiss: () -> Unit) {
     var editCompleted by remember { mutableStateOf(AppSettings.editCompletedSets) }
     var useLbs by remember { mutableStateOf(AppSettings.useLbs) }
     var emojiMode by remember { mutableStateOf(AppSettings.emojiMode) }
+    var themeName by remember { mutableStateOf(AppSettings.themeName) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Settings", fontWeight = FontWeight.Bold, color = TextPrimary) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text("Rest timer", fontWeight = FontWeight.Bold, color = TextSecondary, fontSize = 13.sp)
                 RestSetting("Isolation rest", isolationRest) { isolationRest = it.coerceIn(15, 600) }
                 RestSetting("Compound rest", compoundRest) { compoundRest = it.coerceIn(15, 600) }
@@ -209,6 +206,15 @@ private fun SettingsDialog(onDismiss: () -> Unit) {
                         colors = SwitchDefaults.colors(checkedThumbColor = AccentOrange, checkedTrackColor = AccentOrange.copy(alpha = 0.5f))
                     )
                 }
+                Text("Theme", fontWeight = FontWeight.Bold, color = TextSecondary, fontSize = 13.sp)
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    appThemes.forEach { option ->
+                        ThemeChip(option, option.name == themeName) { themeName = option.name }
+                    }
+                }
             }
         },
         confirmButton = {
@@ -220,6 +226,8 @@ private fun SettingsDialog(onDismiss: () -> Unit) {
                     AppSettings.editCompletedSets = editCompleted
                     AppSettings.useLbs = useLbs
                     AppSettings.emojiMode = emojiMode
+                    AppSettings.themeName = themeName
+                    ThemeState.applyTheme(themeName)
                     SettingsState.reload()
                     onDismiss()
                 },
@@ -264,6 +272,38 @@ private fun RestSetting(label: String, seconds: Int, onChange: (Int) -> Unit) {
                 elevation = ButtonDefaults.elevation(0.dp)
             ) { Text("+", color = Color.White, fontSize = 18.sp) }
         }
+    }
+}
+
+// A theme option in the settings picker: a small swatch preview (background + accent dots) and the
+// theme name, drawn in the option's own colours so the user previews each palette before choosing.
+@Composable
+private fun ThemeChip(option: AppThemeOption, selected: Boolean, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .background(option.colors.cardBackground)
+            .border(
+                width = if (selected) 2.dp else 1.dp,
+                color = if (selected) option.colors.accentOrange else option.colors.surface,
+                shape = RoundedCornerShape(10.dp)
+            )
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+            Box(Modifier.size(10.dp).clip(RoundedCornerShape(50)).background(option.colors.accentOrange))
+            Box(Modifier.size(10.dp).clip(RoundedCornerShape(50)).background(option.colors.accentBlue))
+            Box(Modifier.size(10.dp).clip(RoundedCornerShape(50)).background(option.colors.accentGreen))
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            option.name,
+            color = if (selected) option.colors.textPrimary else option.colors.textSecondary,
+            fontSize = 11.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+        )
     }
 }
 

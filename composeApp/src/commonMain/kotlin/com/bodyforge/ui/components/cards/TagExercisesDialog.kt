@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import com.bodyforge.ui.theme.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -19,13 +20,6 @@ import androidx.compose.ui.window.DialogProperties
 import com.bodyforge.domain.models.Exercise
 import com.bodyforge.presentation.state.SharedWorkoutState
 import kotlinx.coroutines.launch
-
-private val CardBg = Color(0xFF1E293B)
-private val SurfaceColor = Color(0xFF334155)
-private val TextPrimary = Color(0xFFE2E8F0)
-private val TextSecondary = Color(0xFF94A3B8)
-private val AccentOrange = Color(0xFFFF6B35)
-private val AccentGreen = Color(0xFF10B981)
 
 // Lets the user assign muscle groups to their custom and imported exercises. Untagged ones are
 // listed first because those are the exercises missing from Muscle Group Balance. Editing reuses the

@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import com.bodyforge.ui.theme.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -33,18 +34,8 @@ import com.bodyforge.presentation.state.SettingsState
 import kotlinx.datetime.LocalDate
 import kotlin.math.roundToInt
 
-private val AccentOrange = Color(0xFFFF6B35)
-private val AccentBlue = Color(0xFF3B82F6)
-private val AccentGreen = Color(0xFF10B981)
-private val AccentPurple = Color(0xFF8B5CF6)
-private val AccentRed = Color(0xFFEF4444)
-private val TextPrimary = Color(0xFFE2E8F0)
-private val TextSecondary = Color(0xFF94A3B8)
-private val CardBackground = Color(0xFF1E293B)
-private val SurfaceColor = Color(0xFF334155)
-
-// Distinct colours for up to five simultaneous series.
-private val seriesPalette = listOf(AccentBlue, AccentOrange, AccentGreen, AccentPurple, AccentRed)
+// Distinct colours for up to five simultaneous series. A getter so it re-reads the active theme.
+private val seriesPalette: List<Color> get() = listOf(AccentBlue, AccentOrange, AccentGreen, AccentPurple, AccentRed)
 private const val MAX_SUBJECTS = 5
 
 private enum class Metric(val label: String) {

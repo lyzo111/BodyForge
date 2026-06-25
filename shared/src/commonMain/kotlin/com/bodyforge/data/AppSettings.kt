@@ -80,6 +80,11 @@ object AppSettings {
     var groupTemplatesBySplit: Boolean
         get() = prefs.getBoolean("group_templates_by_split", false)
         set(value) { prefs.edit().putBoolean("group_templates_by_split", value).apply() }
+
+    // Name of the selected colour theme (see com.bodyforge.ui.theme). Defaults to the first theme.
+    var themeName: String
+        get() = prefs.getString("theme_name", "Midnight") ?: "Midnight"
+        set(value) { prefs.edit().putString("theme_name", value).apply() }
 }
 
 // A noticeable vibration pattern, used when the rest timer reaches zero. Several pulses so it's

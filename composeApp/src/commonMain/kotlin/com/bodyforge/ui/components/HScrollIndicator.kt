@@ -26,12 +26,10 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.graphics.Color
+import com.bodyforge.ui.theme.*
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-
-private val TrackColor = Color(0xFF334155).copy(alpha = 0.4f)
-private val ThumbColor = Color(0xFF3B82F6).copy(alpha = 0.8f)
 
 // A thin, purely visual horizontal scroll-position indicator (track + thumb) for a horizontally
 // scrollable row. The thumb's width and offset reflect how far the row is scrolled. It renders

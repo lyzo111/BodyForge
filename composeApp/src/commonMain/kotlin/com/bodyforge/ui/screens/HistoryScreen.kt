@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import com.bodyforge.ui.theme.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -37,15 +38,6 @@ import com.bodyforge.ui.rememberCsvImporter
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
-
-private val AccentOrange = Color(0xFFFF6B35)
-private val AccentRed = Color(0xFFEF4444)
-private val AccentGreen = Color(0xFF10B981)
-private val AccentBlue = Color(0xFF3B82F6)
-private val TextPrimary = Color(0xFFE2E8F0)
-private val TextSecondary = Color(0xFF94A3B8)
-private val CardBackground = Color(0xFF1E293B)
-private val SurfaceColor = Color(0xFF334155)
 
 @Composable
 fun HistoryScreen(listState: LazyListState, onResumed: () -> Unit) {

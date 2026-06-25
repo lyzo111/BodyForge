@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import com.bodyforge.ui.theme.*
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -22,15 +23,6 @@ import androidx.compose.ui.unit.sp
 import com.bodyforge.presentation.state.SharedWorkoutState
 import com.bodyforge.ui.components.cards.CreateExerciseDialog
 import kotlinx.coroutines.launch
-
-// Colors
-private val AccentOrange = Color(0xFFFF6B35)
-private val AccentRed = Color(0xFFEF4444)
-private val AccentGreen = Color(0xFF10B981)
-private val TextPrimary = Color(0xFFE2E8F0)
-private val TextSecondary = Color(0xFF94A3B8)
-private val CardBackground = Color(0xFF1E293B)
-private val SurfaceColor = Color(0xFF334155)
 
 @Composable
 fun LibraryScreen() {
