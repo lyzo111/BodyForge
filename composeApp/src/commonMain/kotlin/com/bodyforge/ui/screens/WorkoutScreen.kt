@@ -76,7 +76,6 @@ fun WorkoutScreen(listState: LazyListState, onGoToTemplates: () -> Unit = {}) {
     val viewModel: WorkoutViewModel = viewModel()
     val activeWorkout by SharedWorkoutState.activeWorkout.collectAsState()
     val bodyweight by SharedWorkoutState.bodyweight.collectAsState()
-    val completedWorkouts by SharedWorkoutState.completedWorkouts.collectAsState()
     val isLoading by SharedWorkoutState.isLoading.collectAsState()
 
     LaunchedEffect(Unit) {
@@ -109,6 +108,7 @@ private fun QuickStartView(
     onGoToTemplates: () -> Unit
 ) {
     var showQuickWorkoutFlow by remember { mutableStateOf(false) }
+    val completedWorkouts by SharedWorkoutState.completedWorkouts.collectAsState()
 
     if (showQuickWorkoutFlow) {
         QuickWorkoutFlow(

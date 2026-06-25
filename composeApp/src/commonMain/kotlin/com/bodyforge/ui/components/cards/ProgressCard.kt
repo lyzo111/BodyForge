@@ -290,9 +290,17 @@ private fun ProgressContent(
                 Legend(series)
                 Spacer(Modifier.height(8.dp))
             }
-            val sel = selected?.let { (s, p) -> series.getOrNull(s)?.let { ser -> ser.points.getOrNull(p)?.let { ser to it } } }
-            if (sel != null) {
-                SelectedPointCard(sel.first.label, sel.first.color, sel.second)
+            val selDate = selected?.let { (s, p) -> series.getOrNull(s)?.points?.getOrNull(p)?.date }
+            if (selDate != null) {
+                // Show every series that has a point on the tapped date, so overlapping nodes are
+                // not hidden behind whichever one happened to be nearest.
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    series.forEach { ser ->
+                        ser.points.firstOrNull { it.date == selDate }?.let { pt ->
+                            SelectedPointCard(ser.label, ser.color, pt)
+                        }
+                    }
+                }
             } else {
                 Text("Tap a point to read that day's notes.", fontSize = 11.sp, color = TextSecondary.copy(alpha = 0.7f))
             }

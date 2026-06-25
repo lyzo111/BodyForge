@@ -86,17 +86,22 @@ fun HistoryScreen(listState: LazyListState, onResumed: () -> Unit) {
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
             )
-            IconButton(onClick = { showImportInfo = true }, modifier = Modifier.size(22.dp)) {
-                Icon(Icons.Filled.Info, contentDescription = "About CSV import", tint = AccentBlue, modifier = Modifier.size(20.dp))
-            }
-            Button(
-                onClick = launchCsvImport,
-                colors = ButtonDefaults.buttonColors(backgroundColor = AccentBlue),
-                shape = RoundedCornerShape(20.dp),
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                elevation = ButtonDefaults.elevation(0.dp)
-            ) {
-                Text("Import CSV", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            Box {
+                Button(
+                    onClick = launchCsvImport,
+                    colors = ButtonDefaults.buttonColors(backgroundColor = AccentBlue),
+                    shape = RoundedCornerShape(20.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                    elevation = ButtonDefaults.elevation(0.dp)
+                ) {
+                    Text("Import CSV", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+                IconButton(
+                    onClick = { showImportInfo = true },
+                    modifier = Modifier.align(Alignment.TopEnd).offset(x = 6.dp, y = (-10).dp).size(24.dp)
+                ) {
+                    Icon(Icons.Filled.Info, contentDescription = "About CSV import", tint = AccentBlue, modifier = Modifier.size(22.dp))
+                }
             }
         }
 
