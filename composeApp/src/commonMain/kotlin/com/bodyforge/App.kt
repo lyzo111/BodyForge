@@ -207,14 +207,16 @@ private fun SettingsDialog(onDismiss: () -> Unit) {
                     )
                 }
                 Text("Theme", fontWeight = FontWeight.Bold, color = TextSecondary, fontSize = 13.sp)
+                val themeScrollState = rememberScrollState()
                 Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(themeScrollState),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     appThemes.forEach { option ->
                         ThemeChip(option, option.name == themeName) { themeName = option.name }
                     }
                 }
+                com.bodyforge.ui.components.HScrollIndicator(themeScrollState)
             }
         },
         confirmButton = {
@@ -474,7 +476,7 @@ private fun TabNavigationBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF1E293B))
+            .background(CardBackground)
             .padding(horizontal = 4.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
