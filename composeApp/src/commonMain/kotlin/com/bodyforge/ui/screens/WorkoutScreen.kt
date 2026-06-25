@@ -53,6 +53,10 @@ import com.bodyforge.ui.components.inputs.BodyweightInput
 import com.bodyforge.ui.components.EmojiIcon
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.plus
+import kotlinx.datetime.todayIn
 
 // Colors matching the screenshot
 private val AccentOrange = Color(0xFFFF6B35)
@@ -72,6 +76,7 @@ fun WorkoutScreen(listState: LazyListState, onGoToTemplates: () -> Unit = {}) {
     val viewModel: WorkoutViewModel = viewModel()
     val activeWorkout by SharedWorkoutState.activeWorkout.collectAsState()
     val bodyweight by SharedWorkoutState.bodyweight.collectAsState()
+    val completedWorkouts by SharedWorkoutState.completedWorkouts.collectAsState()
     val isLoading by SharedWorkoutState.isLoading.collectAsState()
 
     LaunchedEffect(Unit) {
@@ -162,6 +167,12 @@ private fun QuickStartView(
                 )
             }
 
+            if (completedWorkouts.isNotEmpty()) {
+                item {
+                    ReadyActivitySummary(completedWorkouts)
+                }
+            }
+
             item {
                 if (isLoading) {
                     Row(
@@ -179,6 +190,46 @@ private fun QuickStartView(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+// Small glanceable activity strip under the start options, so the otherwise-empty start screen
+// shows this week's count and the most recent session at a glance.
+@Composable
+private fun ReadyActivitySummary(completedWorkouts: List<Workout>) {
+    val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+    val weekAgo = today.plus(-6, DateTimeUnit.DAY)
+    val thisWeek = completedWorkouts.count { it.startDate >= weekAgo }
+    val last = completedWorkouts.maxByOrNull { it.startedAt }
+
+    Card(
+        backgroundColor = CardBackground,
+        elevation = 0.dp,
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("This week", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Text(
+                    "$thisWeek ${if (thisWeek == 1) "workout" else "workouts"}",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = AccentOrange
+                )
+            }
+            last?.let { w ->
+                Spacer(modifier = Modifier.height(6.dp))
+                val name = if (w.exercises.isNotEmpty() && w.exercises.all { it.exercise.isCardio }) "Cardio" else w.name
+                val agoDays = (today.toEpochDays() - w.startDate.toEpochDays()).toInt()
+                val ago = when (agoDays) {
+                    0 -> "today"
+                    1 -> "yesterday"
+                    else -> "$agoDays days ago"
+                }
+                Text("Last: $name · $ago", fontSize = 13.sp, color = TextSecondary)
             }
         }
     }

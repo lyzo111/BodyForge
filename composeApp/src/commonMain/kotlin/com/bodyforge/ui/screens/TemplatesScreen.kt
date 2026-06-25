@@ -395,29 +395,29 @@ private fun TemplateCard(template: WorkoutTemplate, exercises: List<com.bodyforg
 
     Card(backgroundColor = CardBackground, elevation = 2.dp, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(template.name, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                        if (template.hasVariation) {
-                            Text(
-                                template.variationLabel,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                modifier = Modifier.background(AccentBlue, RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-                    Text("${template.exerciseIds.size} exercises", fontSize = 14.sp, color = TextSecondary)
-                    if (template.description.isNotEmpty()) Text(template.description, fontSize = 12.sp, color = TextSecondary, modifier = Modifier.padding(top = 4.dp))
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (template.hasVariation) {
+                    Text(
+                        template.variationLabel,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.background(AccentBlue, RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = onShare) { Text("Share", color = AccentBlue, fontSize = 12.sp) }
-                    TextButton(onClick = onEdit) { Text("Edit", color = TextSecondary, fontSize = 12.sp) }
-                    TextButton(onClick = onDelete) { Text("Delete", color = AccentRed, fontSize = 12.sp) }
-                }
+                Text(
+                    template.name,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary,
+                    maxLines = 2,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
             }
+            Spacer(modifier = Modifier.height(2.dp))
+            Text("${template.exerciseIds.size} exercises", fontSize = 14.sp, color = TextSecondary)
+            if (template.description.isNotEmpty()) Text(template.description, fontSize = 12.sp, color = TextSecondary, modifier = Modifier.padding(top = 4.dp))
             Spacer(modifier = Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("Split", fontSize = 12.sp, color = TextSecondary)
@@ -451,6 +451,12 @@ private fun TemplateCard(template: WorkoutTemplate, exercises: List<com.bodyforg
                         modifier = Modifier.padding(top = 4.dp).clickable { showAllExercises = !showAllExercises }
                     )
                 }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(onClick = onShare, contentPadding = PaddingValues(horizontal = 10.dp)) { Text("Share", color = AccentBlue, fontSize = 12.sp) }
+                TextButton(onClick = onEdit, contentPadding = PaddingValues(horizontal = 10.dp)) { Text("Edit", color = TextSecondary, fontSize = 12.sp) }
+                TextButton(onClick = onDelete, contentPadding = PaddingValues(horizontal = 10.dp)) { Text("Delete", color = AccentRed, fontSize = 12.sp) }
             }
             Spacer(modifier = Modifier.height(12.dp))
             Button(
