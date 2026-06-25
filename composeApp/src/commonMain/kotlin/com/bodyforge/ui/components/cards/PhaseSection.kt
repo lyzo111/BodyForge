@@ -45,6 +45,7 @@ private fun formatDate(date: LocalDate): String {
 fun PhaseSection() {
     val phases by SharedWorkoutState.phases.collectAsState()
     val activePhase by SharedWorkoutState.activePhase.collectAsState()
+    val phaseSplits by SharedWorkoutState.phaseSplits.collectAsState()
     val scope = rememberCoroutineScope()
 
     var showCreate by remember { mutableStateOf(false) }
@@ -94,6 +95,9 @@ fun PhaseSection() {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(if (SettingsState.emojiMode) "${active.phaseType.emoji} ${active.name}" else active.name, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                             Text("${active.phaseType.displayName} · since ${formatDate(active.startDate)}", fontSize = 12.sp, color = TextSecondary)
+                            phaseSplits[active.id]?.takeIf { it.isNotBlank() }?.let { sp ->
+                                Text("Split: $sp", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = TextPrimary, modifier = Modifier.padding(top = 2.dp))
+                            }
                             if (active.description.isNotBlank()) {
                                 Text(active.description, fontSize = 12.sp, color = TextSecondary, modifier = Modifier.padding(top = 4.dp))
                             }
@@ -134,7 +138,8 @@ fun PhaseSection() {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(if (SettingsState.emojiMode) "${phase.phaseType.emoji} ${phase.name}" else phase.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
                                 val range = phase.endDate?.let { "${formatDate(phase.startDate)} – ${formatDate(it)}" } ?: "since ${formatDate(phase.startDate)}"
-                                Text("${phase.phaseType.displayName} · $range", fontSize = 11.sp, color = TextSecondary)
+                                val splitSuffix = phaseSplits[phase.id]?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""
+                                Text("${phase.phaseType.displayName} · $range$splitSuffix", fontSize = 11.sp, color = TextSecondary)
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 TextButton(onClick = { scope.launch { SharedWorkoutState.resumePhase(phase.id) } }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
@@ -158,10 +163,11 @@ fun PhaseSection() {
         PhaseEditorDialog(
             heading = "New Training Phase",
             initial = null,
+            initialSplit = "",
             confirmLabel = "Start Phase",
             onDismiss = { showCreate = false },
-            onConfirm = { name, type, description ->
-                scope.launch { SharedWorkoutState.startPhase(name, type, description) }
+            onConfirm = { name, type, description, split ->
+                scope.launch { SharedWorkoutState.startPhase(name, type, description, split) }
                 showCreate = false
             }
         )
@@ -171,10 +177,14 @@ fun PhaseSection() {
         PhaseEditorDialog(
             heading = "Edit Phase",
             initial = phase,
+            initialSplit = phaseSplits[phase.id] ?: "",
             confirmLabel = "Save",
             onDismiss = { editing = null },
-            onConfirm = { name, type, description ->
-                scope.launch { SharedWorkoutState.updatePhase(phase.copy(name = name, phaseType = type, description = description)) }
+            onConfirm = { name, type, description, split ->
+                scope.launch {
+                    SharedWorkoutState.updatePhase(phase.copy(name = name, phaseType = type, description = description))
+                    SharedWorkoutState.setPhaseSplit(phase.id, split)
+                }
                 editing = null
             }
         )
@@ -205,13 +215,15 @@ fun PhaseSection() {
 private fun PhaseEditorDialog(
     heading: String,
     initial: TrainingPhase?,
+    initialSplit: String,
     confirmLabel: String,
     onDismiss: () -> Unit,
-    onConfirm: (String, PhaseType, String) -> Unit
+    onConfirm: (String, PhaseType, String, String) -> Unit
 ) {
     var name by remember { mutableStateOf(initial?.name ?: "") }
     var type by remember { mutableStateOf(initial?.phaseType ?: PhaseType.HYPERTROPHY) }
     var description by remember { mutableStateOf(initial?.description ?: "") }
+    var split by remember { mutableStateOf(initialSplit) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -246,11 +258,33 @@ private fun PhaseEditorDialog(
                     modifier = Modifier.fillMaxWidth(),
                     maxLines = 2
                 )
+                Text("Split used (optional)", fontSize = 12.sp, color = TextSecondary)
+                val splitScrollState = rememberScrollState()
+                Row(
+                    modifier = Modifier.fillMaxWidth().pagerSafeHorizontalScroll(splitScrollState),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf("PPL", "Upper/Lower", "Full Body", "Bro Split").forEach { preset ->
+                        PhaseSplitChip(preset, split.equals(preset, ignoreCase = true)) {
+                            split = if (split.equals(preset, ignoreCase = true)) "" else preset
+                        }
+                    }
+                }
+                com.bodyforge.ui.components.HScrollIndicator(splitScrollState)
+                OutlinedTextField(
+                    value = split,
+                    onValueChange = { split = it },
+                    label = { Text("Split name") },
+                    placeholder = { Text("e.g., PPL, Upper/Lower") },
+                    singleLine = true,
+                    colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentPurple, unfocusedBorderColor = SurfaceColor),
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         },
         confirmButton = {
             Button(
-                onClick = { if (name.isNotBlank()) onConfirm(name.trim(), type, description.trim()) },
+                onClick = { if (name.isNotBlank()) onConfirm(name.trim(), type, description.trim(), split.trim()) },
                 colors = ButtonDefaults.buttonColors(backgroundColor = AccentPurple),
                 enabled = name.isNotBlank(),
                 elevation = ButtonDefaults.elevation(0.dp)
@@ -271,6 +305,23 @@ private fun PhaseTypeChip(type: PhaseType, selected: Boolean, onClick: () -> Uni
     ) {
         Text(
             "${type.emoji} ${type.displayName}",
+            color = if (selected) Color.White else TextSecondary,
+            fontSize = 12.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+        )
+    }
+}
+
+@Composable
+private fun PhaseSplitChip(text: String, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .background(if (selected) AccentPurple else SurfaceColor, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    ) {
+        Text(
+            text,
             color = if (selected) Color.White else TextSecondary,
             fontSize = 12.sp,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal

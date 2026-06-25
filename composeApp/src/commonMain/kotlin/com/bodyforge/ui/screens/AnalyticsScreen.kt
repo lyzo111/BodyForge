@@ -66,6 +66,7 @@ fun AnalyticsScreen(listState: LazyListState) {
     val templates by SharedWorkoutState.templates.collectAsState()
     val phases by SharedWorkoutState.phases.collectAsState()
     val splitAssignments by SharedWorkoutState.splitAssignments.collectAsState()
+    val phaseSplits by SharedWorkoutState.phaseSplits.collectAsState()
     val isLoading by SharedWorkoutState.isLoading.collectAsState()
 
     // Expand state for the analytics dropdowns, hoisted here so "Open all" / "Close all" can drive
@@ -160,6 +161,7 @@ fun AnalyticsScreen(listState: LazyListState) {
                     PhaseComparisonCard(
                         completedWorkouts,
                         phases,
+                        phaseSplits,
                         expandedSections["phase"] == true
                     ) { expandedSections["phase"] = !(expandedSections["phase"] == true) }
                 }
@@ -236,18 +238,22 @@ private fun CollapsibleCard(
 private fun fmtDay(d: LocalDate): String =
     "${d.dayOfMonth.toString().padStart(2, '0')}.${d.monthNumber.toString().padStart(2, '0')}.${d.year}"
 
+// One-decimal sessions-per-week, e.g. 3.5. Kept unit-free since frequency isn't a weight.
+private fun formatFrequency(freq: Double): String = ((freq * 10).toInt() / 10.0).toString()
+
 // Groups completed workouts into each training phase by date (via analyzePhase) so blocks of
 // training can be compared — the point of the phase feature.
 @Composable
 private fun PhaseComparisonCard(
     workouts: List<com.bodyforge.domain.models.Workout>,
     phases: List<TrainingPhase>,
+    phaseSplits: Map<String, String>,
     expanded: Boolean,
     onToggle: () -> Unit
 ) {
     CollapsibleCard("Phase Comparison", expanded, onToggle) {
         Text(
-            "Workouts are grouped into your phases by date, so you can compare training blocks.",
+            "Workouts are grouped into your phases by date, so you can compare training blocks — including which split you ran.",
             fontSize = 12.sp,
             color = TextSecondary
         )
@@ -256,6 +262,7 @@ private fun PhaseComparisonCard(
         )
         ordered.forEach { phase ->
             val a = workouts.analyzePhase(phase)
+            val split = phaseSplits[phase.id]?.takeIf { it.isNotBlank() }
             Spacer(modifier = Modifier.height(12.dp))
             Column(
                 modifier = Modifier
@@ -263,7 +270,20 @@ private fun PhaseComparisonCard(
                     .background(SurfaceColor, RoundedCornerShape(8.dp))
                     .padding(12.dp)
             ) {
-                Text(if (SettingsState.emojiMode) "${phase.phaseType.emoji} ${phase.name}" else phase.name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+                    Text(
+                        if (SettingsState.emojiMode) "${phase.phaseType.emoji} ${phase.name}" else phase.name,
+                        fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (split != null) {
+                        Text(
+                            split, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White,
+                            maxLines = 1, softWrap = false,
+                            modifier = Modifier.background(AccentPurple, RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
                 val range = phase.endDate?.let { "${fmtDay(phase.startDate)} – ${fmtDay(it)}" } ?: "since ${fmtDay(phase.startDate)}"
                 Text("${phase.phaseType.displayName} · $range", fontSize = 11.sp, color = TextSecondary)
                 Spacer(modifier = Modifier.height(8.dp))
@@ -275,6 +295,28 @@ private fun PhaseComparisonCard(
                         PhaseStat("${a.totalWorkouts}", "Workouts")
                         PhaseStat("${Weights.formatRounded(a.totalVolume)} ${Weights.unit}", "Volume")
                         PhaseStat("${Weights.formatRounded(avgPerSession)} ${Weights.unit}", "Avg/session")
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text("≈ ${formatFrequency(a.weeklyFrequency)} sessions/week", fontSize = 11.sp, color = TextSecondary)
+                    val topMuscles = a.volumeByMuscleGroup.entries.sortedByDescending { it.value }.take(4)
+                    if (topMuscles.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Volume by muscle", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = TextSecondary)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        val maxVol = topMuscles.first().value.coerceAtLeast(1.0)
+                        topMuscles.forEach { (muscle, vol) ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(muscle, fontSize = 11.sp, color = TextPrimary, maxLines = 1, softWrap = false, modifier = Modifier.width(76.dp))
+                                Box(modifier = Modifier.weight(1f).height(6.dp).background(CardBackground, RoundedCornerShape(3.dp))) {
+                                    Box(modifier = Modifier.fillMaxWidth((vol / maxVol).toFloat().coerceIn(0.02f, 1f)).height(6.dp).background(AccentPurple, RoundedCornerShape(3.dp)))
+                                }
+                                Text("${Weights.formatRounded(vol)} ${Weights.unit}", fontSize = 10.sp, color = TextSecondary, maxLines = 1, softWrap = false)
+                            }
+                        }
                     }
                 }
             }

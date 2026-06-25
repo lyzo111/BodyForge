@@ -63,6 +63,10 @@ object SharedWorkoutState {
     private val _activePhase = MutableStateFlow<TrainingPhase?>(null)
     val activePhase: StateFlow<TrainingPhase?> = _activePhase.asStateFlow()
 
+    // phaseId -> split name run during that phase (e.g. "PPL"). Mirror of AppSettings.phaseSplits.
+    private val _phaseSplits = MutableStateFlow<Map<String, String>>(emptyMap())
+    val phaseSplits: StateFlow<Map<String, String>> = _phaseSplits.asStateFlow()
+
     private val _bodyweight = MutableStateFlow(75.0)
     val bodyweight: StateFlow<Double> = _bodyweight.asStateFlow()
 
@@ -213,6 +217,7 @@ object SharedWorkoutState {
 
     fun loadSplitAssignments() {
         _splitAssignments.value = com.bodyforge.data.AppSettings.splitAssignments
+        _phaseSplits.value = com.bodyforge.data.AppSettings.phaseSplits
     }
 
     // Assigns a template to a split (blank removes it). Persists to settings and updates state.
@@ -222,6 +227,15 @@ object SharedWorkoutState {
         if (trimmed.isBlank()) updated.remove(templateId) else updated[templateId] = trimmed
         com.bodyforge.data.AppSettings.splitAssignments = updated
         _splitAssignments.value = updated
+    }
+
+    // Records which split (e.g. "PPL") was run during a phase. Blank removes the link.
+    fun setPhaseSplit(phaseId: String, splitName: String) {
+        val updated = com.bodyforge.data.AppSettings.phaseSplits.toMutableMap()
+        val trimmed = splitName.trim()
+        if (trimmed.isBlank()) updated.remove(phaseId) else updated[phaseId] = trimmed
+        com.bodyforge.data.AppSettings.phaseSplits = updated
+        _phaseSplits.value = updated
     }
 
     suspend fun loadPhases() {
@@ -239,7 +253,7 @@ object SharedWorkoutState {
 
     // Starts a new phase: ends the currently active one (today) so phases form a continuous
     // timeline, then inserts the new active phase starting today.
-    suspend fun startPhase(name: String, phaseType: PhaseType, description: String = "", goals: List<String> = emptyList()): TrainingPhase {
+    suspend fun startPhase(name: String, phaseType: PhaseType, description: String = "", split: String = "", goals: List<String> = emptyList()): TrainingPhase {
         val today = today()
         phaseRepo.deactivateActivePhases(today)
         val phase = TrainingPhase(
@@ -252,6 +266,7 @@ object SharedWorkoutState {
             isActive = true
         )
         phaseRepo.savePhase(phase)
+        setPhaseSplit(phase.id, split)
         loadPhases()
         return phase
     }

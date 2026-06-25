@@ -132,6 +132,7 @@ data class PhaseAnalytics(
     val totalVolume: Double,
     val averageIntensity: Double,
     val muscleGroupDistribution: Map<String, Int>,
+    val volumeByMuscleGroup: Map<String, Double>,
     val weeklyFrequency: Double,
     val progressMetrics: List<ProgressMetric>
 )
@@ -173,16 +174,22 @@ fun List<com.bodyforge.domain.models.Workout>.analyzePhase(phase: TrainingPhase)
 
     val totalVolume = phaseWorkouts.sumOf { it.totalVolumePerformed }
     val muscleGroups = mutableMapOf<String, Int>()
+    val muscleVolume = mutableMapOf<String, Double>()
 
     phaseWorkouts.forEach { workout ->
         workout.exercises.forEach { exerciseInWorkout ->
+            val exerciseVolume = exerciseInWorkout.totalVolumePerformed
             exerciseInWorkout.exercise.muscleGroups.forEach { muscleGroup ->
                 muscleGroups[muscleGroup] = muscleGroups.getOrDefault(muscleGroup, 0) + 1
+                muscleVolume[muscleGroup] = muscleVolume.getOrDefault(muscleGroup, 0.0) + exerciseVolume
             }
         }
     }
 
-    val weeksDuration = phase.durationDays?.let { it / 7.0 } ?: 1.0
+    // For an ongoing phase there is no end date, so measure the span up to the latest logged
+    // workout instead; floor at one week so a fresh phase doesn't report an inflated frequency.
+    val spanEnd = phase.endDate ?: phaseWorkouts.maxOfOrNull { it.startDate } ?: phase.startDate
+    val weeksDuration = ((spanEnd.toEpochDays() - phase.startDate.toEpochDays()) / 7.0).coerceAtLeast(1.0)
     val weeklyFrequency = phaseWorkouts.size / weeksDuration
 
     return PhaseAnalytics(
@@ -191,6 +198,7 @@ fun List<com.bodyforge.domain.models.Workout>.analyzePhase(phase: TrainingPhase)
         totalVolume = totalVolume,
         averageIntensity = 0.0, // TODO: Calculate based on RPE or %1RM
         muscleGroupDistribution = muscleGroups,
+        volumeByMuscleGroup = muscleVolume,
         weeklyFrequency = weeklyFrequency,
         progressMetrics = emptyList() // TODO: Calculate from workout progression
     )

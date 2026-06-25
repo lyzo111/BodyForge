@@ -60,6 +60,13 @@ private val CardBackground = Color(0xFF1E293B)
 private val SurfaceColor = Color(0xFF334155)
 private val SelectedGreen = Color(0xFF065F46)
 
+// Stable accent colour per folder name, so routine/split folders are visually distinguishable.
+private val folderPalette = listOf(
+    Color(0xFF3B82F6), Color(0xFF8B5CF6), Color(0xFF10B981), Color(0xFFFF6B35),
+    Color(0xFFEF4444), Color(0xFFEAB308), Color(0xFF06B6D4), Color(0xFFEC4899)
+)
+private fun folderColor(name: String): Color = folderPalette[(name.hashCode() and 0x7fffffff) % folderPalette.size]
+
 @Composable
 fun TemplatesScreen(listState: LazyListState, onStartWorkout: () -> Unit = {}) {
     val templates by SharedWorkoutState.templates.collectAsState()
@@ -509,6 +516,7 @@ private fun RoutineVariationFields(
 // A collapsible routine folder. Tapping toggles whether its variations are listed below it.
 @Composable
 private fun RoutineFolderHeader(name: String, subtitle: String, expanded: Boolean, onToggle: () -> Unit) {
+    val accent = folderColor(name)
     Card(
         backgroundColor = SurfaceColor,
         elevation = 0.dp,
@@ -520,7 +528,8 @@ private fun RoutineFolderHeader(name: String, subtitle: String, expanded: Boolea
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(if (expanded) "▾" else "▸", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AccentBlue)
+            Box(modifier = Modifier.size(10.dp).background(accent, RoundedCornerShape(50)))
+            Text(if (expanded) "▾" else "▸", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = accent)
             Column(modifier = Modifier.weight(1f)) {
                 Text(name, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                 Text(
@@ -568,6 +577,12 @@ private fun AssignSplitDialog(current: String, existingSplits: List<String>, onD
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Assign to split", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 18.sp)
+                Text("Common splits", fontSize = 12.sp, color = TextSecondary)
+                val presetScrollState = rememberScrollState()
+                Row(modifier = Modifier.fillMaxWidth().pagerSafeHorizontalScroll(presetScrollState), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("PPL", "Upper/Lower", "Full Body", "Push", "Pull", "Legs", "Upper", "Lower", "Arms").forEach { s -> GroupChip(s, s == name) { name = s } }
+                }
+                com.bodyforge.ui.components.HScrollIndicator(presetScrollState)
                 if (existingSplits.isNotEmpty()) {
                     Text("Pick existing", fontSize = 12.sp, color = TextSecondary)
                     val splitScrollState = rememberScrollState()

@@ -60,6 +60,22 @@ object AppSettings {
             prefs.edit().putString("split_assignments", raw).apply()
         }
 
+    // phaseId -> split name used during that training phase (e.g. "PPL"). Persisted alongside the
+    // template split assignments, so linking a phase to a split needs no database migration.
+    var phaseSplits: Map<String, String>
+        get() {
+            val raw = prefs.getString("phase_splits", "") ?: ""
+            if (raw.isEmpty()) return emptyMap()
+            return raw.split(RECORD_SEP).mapNotNull { entry ->
+                val parts = entry.split(UNIT_SEP)
+                if (parts.size == 2 && parts[0].isNotEmpty()) parts[0] to parts[1] else null
+            }.toMap()
+        }
+        set(value) {
+            val raw = value.entries.joinToString(RECORD_SEP) { "${it.key}$UNIT_SEP${it.value}" }
+            prefs.edit().putString("phase_splits", raw).apply()
+        }
+
     // Whether the Templates list groups by split (true) or routine (false). Remembered across launches.
     var groupTemplatesBySplit: Boolean
         get() = prefs.getBoolean("group_templates_by_split", false)
