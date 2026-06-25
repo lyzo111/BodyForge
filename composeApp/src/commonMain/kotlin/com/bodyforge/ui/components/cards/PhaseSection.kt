@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import com.bodyforge.ui.components.pagerSafeHorizontalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
@@ -229,7 +230,7 @@ private fun PhaseEditorDialog(
                 Text("Type", fontSize = 12.sp, color = TextSecondary)
                 val typeScrollState = rememberScrollState()
                 Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(typeScrollState),
+                    modifier = Modifier.fillMaxWidth().pagerSafeHorizontalScroll(typeScrollState),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     PhaseType.entries.forEach { option ->

@@ -9,6 +9,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import com.bodyforge.ui.components.pagerSafeHorizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -397,7 +398,7 @@ private fun ExerciseJumpBar(
     val scrollState = rememberScrollState()
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
         Row(
-            modifier = Modifier.fillMaxWidth().horizontalScroll(scrollState),
+            modifier = Modifier.fillMaxWidth().pagerSafeHorizontalScroll(scrollState),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             exercises.forEachIndexed { index, exerciseInWorkout ->

@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import com.bodyforge.ui.components.pagerSafeHorizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -564,7 +565,7 @@ private fun AssignSplitDialog(current: String, existingSplits: List<String>, onD
                 if (existingSplits.isNotEmpty()) {
                     Text("Pick existing", fontSize = 12.sp, color = TextSecondary)
                     val splitScrollState = rememberScrollState()
-                    Row(modifier = Modifier.fillMaxWidth().horizontalScroll(splitScrollState), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth().pagerSafeHorizontalScroll(splitScrollState), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         existingSplits.forEach { s -> GroupChip(s, s == name) { name = s } }
                     }
                     com.bodyforge.ui.components.HScrollIndicator(splitScrollState)

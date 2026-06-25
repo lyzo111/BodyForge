@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import com.bodyforge.ui.components.pagerSafeHorizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -377,7 +378,7 @@ private fun QuickStatsRow(workouts: List<com.bodyforge.domain.models.Workout>) {
     val scrollState = rememberScrollState()
     Column {
         Row(
-            modifier = Modifier.fillMaxWidth().horizontalScroll(scrollState),
+            modifier = Modifier.fillMaxWidth().pagerSafeHorizontalScroll(scrollState),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             QuickStatCard(value = "${workouts.size}", label = "Workouts", color = AccentBlue)
@@ -938,7 +939,7 @@ private fun FreqChipRow(label: String, content: @Composable RowScope.() -> Unit)
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(label, fontSize = 12.sp, color = TextSecondary)
         Row(
-            modifier = Modifier.fillMaxWidth().horizontalScroll(scrollState),
+            modifier = Modifier.fillMaxWidth().pagerSafeHorizontalScroll(scrollState),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             content = content
         )

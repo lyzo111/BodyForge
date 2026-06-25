@@ -8,6 +8,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import com.bodyforge.ui.components.pagerSafeHorizontalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -314,7 +315,7 @@ private fun ChipRow(label: String, content: @Composable RowScope.() -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(label, fontSize = 11.sp, color = TextSecondary)
         Row(
-            modifier = Modifier.fillMaxWidth().horizontalScroll(scrollState),
+            modifier = Modifier.fillMaxWidth().pagerSafeHorizontalScroll(scrollState),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             content = content
         )
@@ -343,7 +344,7 @@ private fun SelectChip(text: String, selected: Boolean, onClick: () -> Unit) {
 private fun Legend(series: List<Series>) {
     val scrollState = rememberScrollState()
     Column {
-        Row(modifier = Modifier.fillMaxWidth().horizontalScroll(scrollState), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(modifier = Modifier.fillMaxWidth().pagerSafeHorizontalScroll(scrollState), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             series.forEach { s ->
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Box(modifier = Modifier.size(10.dp).background(s.color, CircleShape))
@@ -442,16 +443,24 @@ private fun MultiLineChart(series: List<Series>, selected: Pair<Int, Int>?, onSe
     val minDay = flat.minOf { it.third.date.toEpochDays() }
     val maxDay = flat.maxOf { it.third.date.toEpochDays() }
     val dayRange = (maxDay - minDay).let { if (it > 0) it else 1 }
-    val maxV = flat.maxOf { it.third.value }
-    val minV = flat.minOf { it.third.value }
-    val vRange = (maxV - minV).let { if (it > 0.0) it else 1.0 }
+    // Each series is scaled to its own min/max so a large-magnitude line (e.g. volume) doesn't
+    // flatten the others. Lines may cross — that's expected once every line uses the full height.
+    val seriesRanges = remember(series) {
+        series.map { s ->
+            val values = s.points.map { it.value }
+            val mn = values.minOrNull() ?: 0.0
+            val mx = values.maxOrNull() ?: 1.0
+            mn to (mx - mn).let { if (it > 0.0) it else 1.0 }
+        }
+    }
 
     fun nearest(x: Float, y: Float, leftPad: Float, topPad: Float, chartW: Float, chartH: Float): Pair<Int, Int>? {
         var best: Pair<Int, Int>? = null
         var bestD = Float.MAX_VALUE
         flat.forEach { (si, pi, p) ->
             val px = leftPad + chartW * (p.date.toEpochDays() - minDay).toFloat() / dayRange.toFloat()
-            val py = topPad + chartH * (1f - ((p.value - minV) / vRange).toFloat())
+            val (mn, range) = seriesRanges[si]
+            val py = topPad + chartH * (1f - ((p.value - mn) / range).toFloat())
             val d = (x - px) * (x - px) + (y - py) * (y - py)
             if (d < bestD) { bestD = d; best = si to pi }
         }
@@ -484,20 +493,23 @@ private fun MultiLineChart(series: List<Series>, selected: Pair<Int, Int>?, onSe
         val chartH = size.height - topPad - botPad
 
         fun xAt(day: Int): Float = leftPad + chartW * (day - minDay).toFloat() / dayRange.toFloat()
-        fun yAt(v: Double): Float = topPad + chartH * (1f - ((v - minV) / vRange).toFloat())
+        fun yAt(si: Int, v: Double): Float {
+            val (mn, range) = seriesRanges[si]
+            return topPad + chartH * (1f - ((v - mn) / range).toFloat())
+        }
 
         drawLine(SurfaceColor, Offset(leftPad, topPad + chartH), Offset(leftPad + chartW, topPad + chartH), strokeWidth = 1.dp.toPx())
-        series.forEach { s ->
+        series.forEachIndexed { si, s ->
             val sorted = s.points.sortedBy { it.date.toEpochDays() }
             for (i in 0 until sorted.size - 1) {
-                drawLine(s.color, Offset(xAt(sorted[i].date.toEpochDays()), yAt(sorted[i].value)), Offset(xAt(sorted[i + 1].date.toEpochDays()), yAt(sorted[i + 1].value)), strokeWidth = 3.dp.toPx())
+                drawLine(s.color, Offset(xAt(sorted[i].date.toEpochDays()), yAt(si, sorted[i].value)), Offset(xAt(sorted[i + 1].date.toEpochDays()), yAt(si, sorted[i + 1].value)), strokeWidth = 3.dp.toPx())
             }
-            s.points.forEach { p -> drawCircle(s.color, radius = 5.dp.toPx(), center = Offset(xAt(p.date.toEpochDays()), yAt(p.value))) }
+            s.points.forEach { p -> drawCircle(s.color, radius = 5.dp.toPx(), center = Offset(xAt(p.date.toEpochDays()), yAt(si, p.value))) }
         }
         selected?.let { (si, pi) ->
             series.getOrNull(si)?.points?.getOrNull(pi)?.let { p ->
                 val cx = xAt(p.date.toEpochDays())
-                val cy = yAt(p.value)
+                val cy = yAt(si, p.value)
                 drawLine(TextSecondary, Offset(cx, topPad), Offset(cx, topPad + chartH), strokeWidth = 1.dp.toPx())
                 drawCircle(Color.White, radius = 8.dp.toPx(), center = Offset(cx, cy))
                 drawCircle(series[si].color, radius = 5.dp.toPx(), center = Offset(cx, cy))

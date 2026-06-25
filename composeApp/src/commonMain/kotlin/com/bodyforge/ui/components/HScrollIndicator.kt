@@ -2,6 +2,7 @@ package com.bodyforge.ui.components
 
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -17,7 +18,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -64,4 +71,19 @@ fun HScrollIndicator(scrollState: ScrollState, modifier: Modifier = Modifier) {
             }
         }
     }
+}
+
+// Wraps horizontalScroll so any horizontal scroll or fling the row itself can't consume is absorbed
+// here instead of bubbling up to an enclosing HorizontalPager. Scrolling such a slider to its edge
+// then no longer flips to the next tab.
+fun Modifier.pagerSafeHorizontalScroll(state: ScrollState): Modifier = composed {
+    val connection = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset =
+                Offset(available.x, 0f)
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity =
+                Velocity(available.x, 0f)
+        }
+    }
+    nestedScroll(connection).horizontalScroll(state)
 }

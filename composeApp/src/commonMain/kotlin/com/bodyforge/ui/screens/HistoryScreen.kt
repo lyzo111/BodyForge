@@ -74,23 +74,29 @@ fun HistoryScreen(listState: LazyListState, onResumed: () -> Unit) {
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Workout History", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                IconButton(onClick = { showImportInfo = true }, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.Filled.Info, contentDescription = "About CSV import", tint = AccentBlue, modifier = Modifier.size(22.dp))
-                }
-                Button(
-                    onClick = launchCsvImport,
-                    colors = ButtonDefaults.buttonColors(backgroundColor = AccentBlue),
-                    shape = RoundedCornerShape(20.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                    elevation = ButtonDefaults.elevation(0.dp)
-                ) {
-                    Text("Import CSV", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                }
+            Text(
+                "Workout History",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            IconButton(onClick = { showImportInfo = true }, modifier = Modifier.size(22.dp)) {
+                Icon(Icons.Filled.Info, contentDescription = "About CSV import", tint = AccentBlue, modifier = Modifier.size(20.dp))
+            }
+            Button(
+                onClick = launchCsvImport,
+                colors = ButtonDefaults.buttonColors(backgroundColor = AccentBlue),
+                shape = RoundedCornerShape(20.dp),
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                elevation = ButtonDefaults.elevation(0.dp)
+            ) {
+                Text("Import CSV", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
         }
 
