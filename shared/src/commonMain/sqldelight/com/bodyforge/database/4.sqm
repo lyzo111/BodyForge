@@ -1,0 +1,12 @@
+-- Migration from schema version 4 to 5.
+-- Adds the BodyMetric table for tracking body weight and composition over time.
+
+CREATE TABLE BodyMetric (
+    id TEXT NOT NULL PRIMARY KEY,
+    date INTEGER NOT NULL,
+    weight_kg REAL NOT NULL,
+    body_fat_pct REAL,
+    muscle_mass_kg REAL,
+    notes TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL
+);

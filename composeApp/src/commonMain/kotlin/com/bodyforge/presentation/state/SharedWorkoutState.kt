@@ -5,11 +5,13 @@ import com.bodyforge.data.SharedTemplate
 import com.bodyforge.data.TemplateSharing
 import com.bodyforge.data.repository.ExerciseRepositoryImpl
 import com.bodyforge.data.repository.TrainingPhaseRepositoryImpl
+import com.bodyforge.data.repository.BodyMetricRepositoryImpl
 import com.bodyforge.data.repository.WorkoutRepositoryImpl
 import com.bodyforge.data.repository.WorkoutTemplateRepositoryImpl
 import com.bodyforge.domain.models.Exercise
 import com.bodyforge.domain.models.PhaseType
 import com.bodyforge.domain.models.TrainingPhase
+import com.bodyforge.domain.models.BodyMetric
 import com.bodyforge.domain.models.Workout
 import com.bodyforge.domain.models.ExerciseInWorkout
 import com.bodyforge.domain.models.SetStatus
@@ -39,6 +41,7 @@ object SharedWorkoutState {
     val workoutRepo = WorkoutRepositoryImpl()
     val templateRepo = WorkoutTemplateRepositoryImpl()
     val phaseRepo = TrainingPhaseRepositoryImpl()
+    val bodyMetricRepo = BodyMetricRepositoryImpl()
 
     // Shared State Flows - Single source of truth
     private val _exercises = MutableStateFlow<List<Exercise>>(emptyList())
@@ -66,6 +69,9 @@ object SharedWorkoutState {
     // phaseId -> split name run during that phase (e.g. "PPL"). Mirror of AppSettings.phaseSplits.
     private val _phaseSplits = MutableStateFlow<Map<String, String>>(emptyMap())
     val phaseSplits: StateFlow<Map<String, String>> = _phaseSplits.asStateFlow()
+
+    private val _bodyMetrics = MutableStateFlow<List<BodyMetric>>(emptyList())
+    val bodyMetrics: StateFlow<List<BodyMetric>> = _bodyMetrics.asStateFlow()
 
     private val _bodyweight = MutableStateFlow(75.0)
     val bodyweight: StateFlow<Double> = _bodyweight.asStateFlow()
@@ -295,6 +301,26 @@ object SharedWorkoutState {
     suspend fun deletePhase(id: String) {
         phaseRepo.deletePhase(id)
         loadPhases()
+    }
+
+    suspend fun loadBodyMetrics() {
+        try {
+            _bodyMetrics.value = bodyMetricRepo.getAllMetrics()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _error.value = "Failed to load body metrics: ${e.message}"
+        }
+    }
+
+    suspend fun addBodyMetric(metric: BodyMetric) {
+        bodyMetricRepo.saveMetric(metric)
+        loadBodyMetrics()
+    }
+
+    suspend fun deleteBodyMetric(id: String) {
+        bodyMetricRepo.deleteMetric(id)
+        loadBodyMetrics()
     }
 
     // Persists a user-created exercise, refreshes the shared list and returns the saved instance
@@ -555,5 +581,6 @@ object SharedWorkoutState {
         loadTemplates()
         loadPhases()
         loadSplitAssignments()
+        loadBodyMetrics()
     }
 }

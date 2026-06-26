@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,7 +35,10 @@ import com.bodyforge.presentation.state.SharedWorkoutState
 import com.bodyforge.presentation.state.SettingsState
 import com.bodyforge.data.Weights
 import com.bodyforge.domain.models.TrainingPhase
+import com.bodyforge.domain.models.BodyMetric
 import com.bodyforge.domain.models.analyzePhase
+import com.bodyforge.ui.components.EmojiIcon
+import kotlinx.coroutines.launch
 import com.bodyforge.ui.components.cards.PhaseSection
 import com.bodyforge.ui.components.cards.ProgressCard
 import com.bodyforge.ui.components.cards.TagExercisesDialog
@@ -57,7 +61,9 @@ fun AnalyticsScreen(listState: LazyListState) {
     val phases by SharedWorkoutState.phases.collectAsState()
     val splitAssignments by SharedWorkoutState.splitAssignments.collectAsState()
     val phaseSplits by SharedWorkoutState.phaseSplits.collectAsState()
+    val bodyMetrics by SharedWorkoutState.bodyMetrics.collectAsState()
     val isLoading by SharedWorkoutState.isLoading.collectAsState()
+    val bodyScope = rememberCoroutineScope()
 
     // Expand state for the analytics dropdowns, hoisted here so "Open all" / "Close all" can drive
     // every section at once while each section keeps its own toggle.
@@ -69,6 +75,7 @@ fun AnalyticsScreen(listState: LazyListState) {
         if (completedWorkouts.isEmpty()) SharedWorkoutState.loadCompletedWorkouts()
         SharedWorkoutState.loadTemplates()
         SharedWorkoutState.loadPhases()
+        SharedWorkoutState.loadBodyMetrics()
     }
 
     LazyColumn(
@@ -91,6 +98,15 @@ fun AnalyticsScreen(listState: LazyListState) {
         // Training phases (periodization) — independent of whether workouts exist yet
         item {
             PhaseSection()
+        }
+
+        // Body data (weight & composition) — independent of whether workouts exist yet
+        item {
+            BodyDataCard(
+                metrics = bodyMetrics,
+                onAdd = { m -> bodyScope.launch { SharedWorkoutState.addBodyMetric(m) } },
+                onDelete = { id -> bodyScope.launch { SharedWorkoutState.deleteBodyMetric(id) } }
+            )
         }
 
         if (isLoading) {
@@ -320,6 +336,149 @@ private fun PhaseStat(value: String, label: String) {
         Text(value, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary, maxLines = 1, softWrap = false)
         Text(label, fontSize = 10.sp, color = TextSecondary, maxLines = 1, softWrap = false)
     }
+}
+
+// One-decimal number without a trailing ".0" — used for body-fat percentages.
+private fun num1(v: Double): String = if (v % 1.0 == 0.0) v.toInt().toString() else ((v * 10).toInt() / 10.0).toString()
+
+// Body weight & composition: latest value, trend, a weight line graph and recent entries, with a
+// dialog to log a new measurement. Independent of workout data.
+@Composable
+private fun BodyDataCard(
+    metrics: List<BodyMetric>,
+    onAdd: (BodyMetric) -> Unit,
+    onDelete: (String) -> Unit
+) {
+    var showLog by remember { mutableStateOf(false) }
+    Card(backgroundColor = CardBackground, elevation = 2.dp, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    EmojiIcon("⚖️", Icons.Filled.FitnessCenter, fontSize = 18.sp, iconSize = 20.dp)
+                    Text("Body", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                }
+                Button(onClick = { showLog = true }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentBlue), shape = RoundedCornerShape(20.dp), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp), elevation = ButtonDefaults.elevation(0.dp)) {
+                    Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Log", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            if (metrics.isEmpty()) {
+                Text("Log your body weight to start tracking your trend over time.", fontSize = 13.sp, color = TextSecondary)
+            } else {
+                val latest = metrics.last()
+                val prev = metrics.getOrNull(metrics.size - 2)
+                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(Weights.formatWithUnit(latest.weightKg), fontSize = 26.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                    if (prev != null) {
+                        val diff = latest.weightKg - prev.weightKg
+                        val ad = if (diff < 0) -diff else diff
+                        val arrow = if (diff > 0) "▲" else if (diff < 0) "▼" else "→"
+                        Text("$arrow ${Weights.format(ad)} ${Weights.unit}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TextSecondary, modifier = Modifier.padding(bottom = 5.dp))
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    latest.bodyFatPct?.let { Text("Body fat ${num1(it)}%", fontSize = 12.sp, color = TextSecondary) }
+                    latest.muscleMassKg?.let { Text("Muscle ${Weights.formatWithUnit(it)}", fontSize = 12.sp, color = TextSecondary) }
+                }
+                if (metrics.size >= 2) {
+                    Spacer(Modifier.height(12.dp))
+                    WeightChart(metrics)
+                }
+                Spacer(Modifier.height(12.dp))
+                Text("Recent", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = TextSecondary)
+                Spacer(Modifier.height(2.dp))
+                metrics.asReversed().take(5).forEach { m ->
+                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(fmtDay(m.date), fontSize = 12.sp, color = TextSecondary, modifier = Modifier.width(92.dp))
+                        Text(Weights.formatWithUnit(m.weightKg), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = TextPrimary, modifier = Modifier.weight(1f))
+                        Text("✕", fontSize = 14.sp, color = AccentRed, modifier = Modifier.clickable { onDelete(m.id) }.padding(horizontal = 6.dp, vertical = 2.dp))
+                    }
+                }
+            }
+        }
+    }
+    if (showLog) {
+        BodyLogDialog(onDismiss = { showLog = false }, onSave = { m -> onAdd(m); showLog = false })
+    }
+}
+
+@Composable
+private fun WeightChart(metrics: List<BodyMetric>) {
+    val weights = metrics.map { it.weightKg }
+    val minW = weights.minOrNull() ?: 0.0
+    val maxW = weights.maxOrNull() ?: 0.0
+    val range = (maxW - minW).takeIf { it > 0.0001 } ?: 1.0
+    Column {
+        Canvas(modifier = Modifier.fillMaxWidth().height(110.dp)) {
+            val n = metrics.size
+            val wd = size.width
+            val ht = size.height
+            val pad = 10f
+            fun px(i: Int): Float = if (n <= 1) wd / 2f else pad + (wd - 2 * pad) * i / (n - 1)
+            fun py(v: Double): Float = (ht - pad) - (((v - minW) / range).toFloat()) * (ht - 2 * pad)
+            for (i in 0 until n - 1) {
+                drawLine(AccentBlue, Offset(px(i), py(weights[i])), Offset(px(i + 1), py(weights[i + 1])), strokeWidth = 3f)
+            }
+            for (i in metrics.indices) {
+                drawCircle(AccentBlue, radius = 4f, center = Offset(px(i), py(weights[i])))
+            }
+        }
+        Text(
+            "${fmtDay(metrics.first().date)} → ${fmtDay(metrics.last().date)} · ${Weights.formatWithUnit(minW)}–${Weights.formatWithUnit(maxW)}",
+            fontSize = 10.sp, color = TextSecondary
+        )
+    }
+}
+
+@Composable
+private fun BodyLogDialog(onDismiss: () -> Unit, onSave: (BodyMetric) -> Unit) {
+    val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+    var date by remember { mutableStateOf(today) }
+    var weight by remember { mutableStateOf("") }
+    var bodyFat by remember { mutableStateOf("") }
+    var muscle by remember { mutableStateOf("") }
+    val weightVal = weight.replace(",", ".").toDoubleOrNull()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Log measurement", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Date", fontSize = 13.sp, color = TextSecondary, modifier = Modifier.width(44.dp))
+                    TextButton(onClick = { date = date.plus(-1, DateTimeUnit.DAY) }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("◀", color = AccentBlue, fontSize = 16.sp) }
+                    Text(fmtDay(date), fontSize = 14.sp, color = TextPrimary, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { if (date < today) date = date.plus(1, DateTimeUnit.DAY) }, enabled = date < today, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("▶", color = if (date < today) AccentBlue else TextSecondary, fontSize = 16.sp) }
+                }
+                OutlinedTextField(value = weight, onValueChange = { weight = it }, label = { Text("Weight (${Weights.unit})") }, singleLine = true, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentBlue, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = bodyFat, onValueChange = { bodyFat = it }, label = { Text("Body fat % (optional)") }, singleLine = true, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentBlue, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = muscle, onValueChange = { muscle = it }, label = { Text("Muscle mass ${Weights.unit} (optional)") }, singleLine = true, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentBlue, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth())
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val wv = weightVal
+                    if (wv != null && wv > 0) {
+                        onSave(
+                            BodyMetric.create(
+                                date = date,
+                                weightKg = Weights.toKg(wv),
+                                bodyFatPct = bodyFat.replace(",", ".").toDoubleOrNull(),
+                                muscleMassKg = muscle.replace(",", ".").toDoubleOrNull()?.let { Weights.toKg(it) }
+                            )
+                        )
+                    }
+                },
+                enabled = weightVal != null && weightVal > 0,
+                colors = ButtonDefaults.buttonColors(backgroundColor = AccentBlue),
+                elevation = ButtonDefaults.elevation(0.dp)
+            ) { Text("Save", color = Color.White, fontWeight = FontWeight.Bold) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) } },
+        backgroundColor = CardBackground
+    )
 }
 
 @Composable
