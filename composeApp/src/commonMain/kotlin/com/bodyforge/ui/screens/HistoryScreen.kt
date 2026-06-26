@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Notes
 import androidx.compose.runtime.*
@@ -264,7 +265,7 @@ private fun HistoryWorkoutCard(workout: Workout, onResume: () -> Unit, onDelete:
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 WorkoutStat("🏋️", Icons.Filled.FitnessCenter, "${workout.exercises.size}", "Exercises")
-                WorkoutStat("💪", Icons.Filled.FitnessCenter, "${workout.performedSets}", "Sets")
+                WorkoutStat("💪", Icons.Filled.Repeat, "${workout.performedSets}", "Sets")
                 WorkoutStat("⏱️", Icons.Filled.Timer, "${workout.durationMinutes ?: 0}m", "Duration")
                 if (workout.totalVolumePerformed > 0) WorkoutStat("📊", Icons.Filled.BarChart, "${Weights.formatRounded(workout.totalVolumePerformed)}${Weights.unit}", "Volume")
             }

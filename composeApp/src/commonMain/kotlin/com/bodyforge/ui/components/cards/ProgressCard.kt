@@ -190,9 +190,15 @@ private fun ProgressContent(
                 val v = subjectValue(w, subj, effMetric) ?: return@mapNotNull null
                 val eiw = w.exercises.firstOrNull { it.exercise.id == subj }
                 val setCount = if (subj == null) w.performedSets else (eiw?.performedSets ?: 0)
-                // Per-set notes for the day, joined with semicolons, after any exercise-level note.
-                val setNotes = eiw?.sets?.mapNotNull { it.notes.trim().ifBlank { null } }?.distinct().orEmpty()
-                val combinedNote = (listOf(eiw?.notes?.trim().orEmpty()) + setNotes).filter { it.isNotBlank() }.joinToString("; ")
+                // Notes for the day: for a single exercise, its note plus its set notes; for Total
+                // Volume, every exercise and set note that day so the aggregate point isn't noteless.
+                val combinedNote = if (subj == null) {
+                    w.exercises.flatMap { e -> listOf(e.notes.trim()) + e.sets.map { it.notes.trim() } }
+                        .filter { it.isNotBlank() }.distinct().joinToString("; ")
+                } else {
+                    val setNotes = eiw?.sets?.mapNotNull { it.notes.trim().ifBlank { null } }?.distinct().orEmpty()
+                    (listOf(eiw?.notes?.trim().orEmpty()) + setNotes).filter { it.isNotBlank() }.joinToString("; ")
+                }
                 Point(v, w.startDate, combinedNote, w.notes, setCount)
             }
             val label = subj?.let { id -> exercises.firstOrNull { it.id == id }?.name ?: "Exercise" } ?: "Total Volume"
@@ -357,13 +363,25 @@ private fun Legend(series: List<Series>) {
 
 @Composable
 private fun SelectedPointCard(label: String, color: Color, point: Point) {
+    var showNotes by remember(point) { mutableStateOf(false) }
+    val hasNotes = point.exerciseNote.isNotBlank() || point.workoutNote.isNotBlank()
     Card(backgroundColor = SurfaceColor, shape = RoundedCornerShape(8.dp), elevation = 0.dp, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("$label · ${formatDate(point.date)} · ${Weights.formatRounded(point.value)} ${Weights.unit}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = color)
             Text("${point.sets} ${if (point.sets == 1) "set" else "sets"} this day", fontSize = 12.sp, color = TextSecondary)
-            if (point.exerciseNote.isNotBlank()) Text(point.exerciseNote, fontSize = 13.sp, color = TextPrimary)
-            if (point.workoutNote.isNotBlank()) Text("Workout: ${point.workoutNote}", fontSize = 12.sp, color = TextSecondary)
-            if (point.exerciseNote.isBlank() && point.workoutNote.isBlank()) Text("No notes recorded for this day.", fontSize = 12.sp, color = TextSecondary)
+            if (hasNotes) {
+                Text(
+                    if (showNotes) "Hide notes" else "Show notes",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextSecondary,
+                    modifier = Modifier.clickable { showNotes = !showNotes }
+                )
+                if (showNotes) {
+                    if (point.exerciseNote.isNotBlank()) Text(point.exerciseNote, fontSize = 13.sp, color = TextPrimary)
+                    if (point.workoutNote.isNotBlank()) Text("Workout: ${point.workoutNote}", fontSize = 12.sp, color = TextSecondary)
+                }
+            }
         }
     }
 }

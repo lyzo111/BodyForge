@@ -58,6 +58,7 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
+import kotlinx.datetime.isoDayNumber
 
 @Composable
 fun WorkoutScreen(listState: LazyListState, onGoToTemplates: () -> Unit = {}) {
@@ -188,37 +189,47 @@ private fun QuickStartView(
 @Composable
 private fun ReadyActivitySummary(completedWorkouts: List<Workout>) {
     val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
-    val weekAgo = today.plus(-6, DateTimeUnit.DAY)
-    val thisWeek = completedWorkouts.count { it.startDate >= weekAgo }
+    val monday = today.plus(-(today.dayOfWeek.isoDayNumber - 1), DateTimeUnit.DAY)
+    val sevenAgo = today.plus(-6, DateTimeUnit.DAY)
+    val thisWeek = completedWorkouts.count { it.startDate >= monday }
+    val last7 = completedWorkouts.count { it.startDate >= sevenAgo }
     val last = completedWorkouts.maxByOrNull { it.startedAt }
 
-    Card(
-        backgroundColor = CardBackground,
-        elevation = 0.dp,
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.fillMaxWidth()
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            ActivityBox(thisWeek, "This week", "since Monday", Modifier.weight(1f))
+            ActivityBox(last7, "Last 7 days", "rolling", Modifier.weight(1f))
+        }
+        last?.let { w ->
+            Spacer(modifier = Modifier.height(10.dp))
+            val name = if (w.exercises.isNotEmpty() && w.exercises.all { it.exercise.isCardio }) "Cardio" else w.name
+            val agoDays = (today.toEpochDays() - w.startDate.toEpochDays()).toInt()
+            val ago = when (agoDays) {
+                0 -> "today"
+                1 -> "yesterday"
+                else -> "$agoDays days ago"
+            }
+            Text("Last: $name · $ago", fontSize = 13.sp, color = TextSecondary)
+        }
+    }
+}
+
+// A square, rounded activity tile: a big count over a title and a short qualifier.
+@Composable
+private fun ActivityBox(count: Int, title: String, subtitle: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .aspectRatio(1f)
+            .background(CardBackground, RoundedCornerShape(16.dp))
+            .padding(12.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("This week", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                Text(
-                    "$thisWeek ${if (thisWeek == 1) "workout" else "workouts"}",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = AccentOrange
-                )
-            }
-            last?.let { w ->
-                Spacer(modifier = Modifier.height(6.dp))
-                val name = if (w.exercises.isNotEmpty() && w.exercises.all { it.exercise.isCardio }) "Cardio" else w.name
-                val agoDays = (today.toEpochDays() - w.startDate.toEpochDays()).toInt()
-                val ago = when (agoDays) {
-                    0 -> "today"
-                    1 -> "yesterday"
-                    else -> "$agoDays days ago"
-                }
-                Text("Last: $name · $ago", fontSize = 13.sp, color = TextSecondary)
-            }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("$count", fontSize = 40.sp, fontWeight = FontWeight.Bold, color = AccentOrange)
+            Text(if (count == 1) "workout" else "workouts", fontSize = 12.sp, color = TextSecondary)
+            Spacer(Modifier.height(8.dp))
+            Text(title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary, textAlign = TextAlign.Center)
+            Text(subtitle, fontSize = 11.sp, color = TextSecondary, textAlign = TextAlign.Center)
         }
     }
 }
