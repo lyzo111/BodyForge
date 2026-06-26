@@ -44,6 +44,8 @@ import com.bodyforge.data.Weights
 import com.bodyforge.domain.models.Exercise
 import com.bodyforge.domain.models.ExerciseInWorkout
 import com.bodyforge.domain.models.Workout
+import com.bodyforge.domain.models.recordsFor
+import com.bodyforge.domain.models.bestCompletedE1RM
 import com.bodyforge.domain.models.WorkoutSet
 import com.bodyforge.domain.models.WorkoutTemplate
 import com.bodyforge.presentation.state.SharedWorkoutState
@@ -298,6 +300,7 @@ private fun ActiveWorkoutView(
 ) {
     val hasBodyweightExercises = workout.exercises.any { it.exercise.isBodyweight }
     val availableExercises by SharedWorkoutState.exercises.collectAsState()
+    val completedWorkouts by SharedWorkoutState.completedWorkouts.collectAsState()
     val scope = rememberCoroutineScope()
     val baseOffset = 1
 
@@ -336,9 +339,14 @@ private fun ActiveWorkoutView(
         items(workout.exercises) { exerciseInWorkout ->
             val isSkipped = exerciseInWorkout.sets.isNotEmpty() && exerciseInWorkout.sets.all { it.isSkipped }
             val exId = exerciseInWorkout.exercise.id
+            val isNewPR = run {
+                val historical = completedWorkouts.recordsFor(exId).bestE1RM
+                historical > 0.0 && exerciseInWorkout.bestCompletedE1RM() > historical
+            }
             ActiveExerciseCard(
                 exerciseInWorkout = exerciseInWorkout,
                 bodyweight = bodyweight,
+                isNewPR = isNewPR,
                 availableExercises = availableExercises,
                 onUpdateSet = { setId, reps, weight, completed ->
                     viewModel.updateSet(exerciseInWorkout.exercise.id, setId, reps, weight, completed)
@@ -610,6 +618,7 @@ private fun WorkoutHeaderCard(
 private fun ActiveExerciseCard(
     exerciseInWorkout: ExerciseInWorkout,
     bodyweight: Double,
+    isNewPR: Boolean,
     availableExercises: List<Exercise>,
     expanded: Boolean,
     onToggleExpand: () -> Unit,
@@ -656,6 +665,18 @@ private fun ActiveExerciseCard(
                     color = TextPrimary,
                     modifier = Modifier.weight(1f)
                 )
+
+                if (isNewPR) {
+                    Text(
+                        text = if (com.bodyforge.presentation.state.SettingsState.emojiMode) "🏆 PR" else "PR",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier
+                            .background(AccentGreen, RoundedCornerShape(6.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
 
                 if (exercise.isBodyweight) {
                     Text(

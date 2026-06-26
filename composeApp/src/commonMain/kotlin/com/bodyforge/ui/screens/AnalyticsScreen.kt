@@ -37,6 +37,7 @@ import com.bodyforge.data.Weights
 import com.bodyforge.domain.models.TrainingPhase
 import com.bodyforge.domain.models.BodyMetric
 import com.bodyforge.domain.models.analyzePhase
+import com.bodyforge.domain.models.recordsFor
 import com.bodyforge.ui.components.EmojiIcon
 import kotlinx.coroutines.launch
 import com.bodyforge.ui.components.cards.PhaseSection
@@ -127,7 +128,7 @@ fun AnalyticsScreen(listState: LazyListState) {
             val sectionKeys = buildList {
                 add("progress")
                 if (phases.isNotEmpty()) add("phase")
-                add("muscle"); add("achievements")
+                add("muscle"); add("achievements"); add("records")
                 if (plateaus.isNotEmpty()) add("plateau")
                 add("frequency")
             }
@@ -185,6 +186,13 @@ fun AnalyticsScreen(listState: LazyListState) {
                     completedWorkouts,
                     expandedSections["achievements"] == true
                 ) { expandedSections["achievements"] = !(expandedSections["achievements"] == true) }
+            }
+
+            item {
+                PersonalRecordsCard(
+                    completedWorkouts,
+                    expandedSections["records"] == true
+                ) { expandedSections["records"] = !(expandedSections["records"] == true) }
             }
 
             if (plateaus.isNotEmpty()) {
@@ -797,6 +805,32 @@ private fun MuscleGroupBar(
             modifier = Modifier.width(32.dp),
             textAlign = TextAlign.End
         )
+    }
+}
+
+@Composable
+private fun PersonalRecordsCard(workouts: List<com.bodyforge.domain.models.Workout>, expanded: Boolean, onToggle: () -> Unit) {
+    CollapsibleCard("Personal Records", expanded, onToggle) {
+        val records = remember(workouts) {
+            workouts.flatMap { w -> w.exercises.map { it.exercise.id to it.exercise.name } }
+                .distinct()
+                .map { (id, name) -> Triple(id, name, workouts.recordsFor(id)) }
+                .filter { it.third.hasAny }
+                .sortedByDescending { it.third.bestE1RM }
+        }
+        if (records.isEmpty()) {
+            Text("Complete some weighted sets to set personal records.", fontSize = 12.sp, color = TextSecondary)
+        } else {
+            Text("Best estimated 1RM and heaviest lift per exercise.", fontSize = 11.sp, color = TextSecondary)
+            Spacer(modifier = Modifier.height(8.dp))
+            records.forEach { (_, name, rec) ->
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(name, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = TextPrimary, maxLines = 1, softWrap = false, modifier = Modifier.weight(1f))
+                    Text("1RM ${Weights.formatRounded(rec.bestE1RM)} ${Weights.unit}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AccentBlue, modifier = Modifier.padding(end = 10.dp))
+                    Text("best ${Weights.formatRounded(rec.heaviestKg)} ${Weights.unit}", fontSize = 11.sp, color = TextSecondary)
+                }
+            }
+        }
     }
 }
 
