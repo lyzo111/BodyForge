@@ -403,13 +403,18 @@ object SharedWorkoutState {
         val updated = workout.exercises.map { eiw ->
             val target = template.targets[eiw.exercise.id] ?: return@map eiw
             val count = target.sets.coerceIn(1, 20)
+            val reps = target.minReps.coerceAtLeast(0)
+            // Weight is not a template target, so keep the history-prefilled weights (matched per
+            // set, repeating the last one for any extra sets).
+            val historySets = eiw.sets
             val sets = (1..count).map { n ->
+                val histWeight = historySets.getOrNull(n - 1)?.weightKg ?: historySets.lastOrNull()?.weightKg ?: 0.0
                 WorkoutSet.createEmpty(
                     exerciseId = eiw.exercise.id,
                     setNumber = n,
                     defaultRestTime = eiw.exercise.defaultRestTimeSeconds,
                     workoutId = workout.id
-                ).copy(reps = target.reps.coerceAtLeast(0), weightKg = target.weightKg.coerceAtLeast(0.0))
+                ).copy(reps = reps, weightKg = histWeight)
             }
             eiw.copy(sets = sets)
         }

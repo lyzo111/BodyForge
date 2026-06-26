@@ -4,13 +4,14 @@ import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 
-// Optional planned target for one exercise in a template: how many sets, the rep goal and a
-// starting weight (kg). Used to pre-fill the sets when a workout is started from the template.
+// Optional planned target for one exercise in a template: how many sets and a target rep range.
+// Weight is deliberately not a template target (that belongs to a periodization phase). Used to
+// pre-fill the set count and rep goal when a workout is started from the template.
 @Serializable
 data class ExerciseTarget(
     val sets: Int = 3,
-    val reps: Int = 8,
-    val weightKg: Double = 0.0
+    val minReps: Int = 8,
+    val maxReps: Int = 12
 )
 
 data class WorkoutTemplate(

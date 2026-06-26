@@ -30,7 +30,6 @@ import androidx.compose.ui.window.DialogProperties
 import com.bodyforge.domain.models.Exercise
 import com.bodyforge.domain.models.WorkoutTemplate
 import com.bodyforge.domain.models.ExerciseTarget
-import com.bodyforge.data.Weights
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.text.TextStyle
 import com.bodyforge.presentation.state.SharedWorkoutState
@@ -737,10 +736,8 @@ private fun TargetRow(name: String, target: ExerciseTarget?, onChange: (Exercise
             Spacer(modifier = Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TargetField("Sets", target.sets.toString()) { v -> onChange(target.copy(sets = v.toIntOrNull() ?: target.sets)) }
-                TargetField("Reps", target.reps.toString()) { v -> onChange(target.copy(reps = v.toIntOrNull() ?: target.reps)) }
-                TargetField(Weights.unit, if (target.weightKg > 0.0) Weights.format(target.weightKg) else "") { v ->
-                    onChange(target.copy(weightKg = v.replace(",", ".").toDoubleOrNull()?.let { Weights.toKg(it) } ?: 0.0))
-                }
+                TargetField("Min reps", target.minReps.toString()) { v -> onChange(target.copy(minReps = v.toIntOrNull() ?: target.minReps)) }
+                TargetField("Max reps", target.maxReps.toString()) { v -> onChange(target.copy(maxReps = v.toIntOrNull() ?: target.maxReps)) }
             }
         }
     }

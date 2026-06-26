@@ -38,6 +38,7 @@ import com.bodyforge.domain.models.TrainingPhase
 import com.bodyforge.domain.models.BodyMetric
 import com.bodyforge.domain.models.analyzePhase
 import com.bodyforge.domain.models.recordsFor
+import com.bodyforge.domain.models.ExerciseRecords
 import com.bodyforge.ui.components.EmojiIcon
 import kotlinx.coroutines.launch
 import com.bodyforge.ui.components.cards.PhaseSection
@@ -824,13 +825,30 @@ private fun PersonalRecordsCard(workouts: List<com.bodyforge.domain.models.Worko
             Text("Best estimated 1RM and heaviest lift per exercise.", fontSize = 11.sp, color = TextSecondary)
             Spacer(modifier = Modifier.height(8.dp))
             records.forEach { (_, name, rec) ->
-                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(name, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = TextPrimary, maxLines = 1, softWrap = false, modifier = Modifier.weight(1f))
-                    Text("1RM ${Weights.formatRounded(rec.bestE1RM)} ${Weights.unit}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AccentBlue, modifier = Modifier.padding(end = 10.dp))
-                    Text("best ${Weights.formatRounded(rec.heaviestKg)} ${Weights.unit}", fontSize = 11.sp, color = TextSecondary)
-                }
+                PrRecordRow(name, rec)
             }
         }
+    }
+}
+
+// One records row. The exercise name ellipsizes when long; tapping the row expands it to wrap onto
+// further lines so the full name is readable without crowding the numbers.
+@Composable
+private fun PrRecordRow(name: String, rec: ExerciseRecords) {
+    var expanded by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            name,
+            fontSize = 13.sp, fontWeight = FontWeight.Medium, color = TextPrimary,
+            maxLines = if (expanded) Int.MAX_VALUE else 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).padding(end = 8.dp)
+        )
+        Text("1RM ${Weights.formatRounded(rec.bestE1RM)} ${Weights.unit}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AccentBlue, maxLines = 1, softWrap = false, modifier = Modifier.padding(end = 10.dp))
+        Text("best ${Weights.formatRounded(rec.heaviestKg)} ${Weights.unit}", fontSize = 11.sp, color = TextSecondary, maxLines = 1, softWrap = false)
     }
 }
 
