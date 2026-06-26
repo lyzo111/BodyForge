@@ -2121,7 +2121,7 @@ private fun TemplateSelectionFlow(
                 SharedWorkoutState.createCustomExercise(name, muscleGroups, equipment, isBodyweight)
             },
             onDismiss = { showCreateDialog = false },
-            onCreateTemplate = { name, selected, desc, routine, variation ->
+            onCreateTemplate = { name, selected, desc, routine, variation, targets ->
                 scope.launch {
                     val template = WorkoutTemplate(
                         id = "template_${Clock.System.now().epochSeconds}",
@@ -2131,7 +2131,8 @@ private fun TemplateSelectionFlow(
                         description = desc,
                         routineId = routineKey(routine),
                         routineName = routine.trim(),
-                        variationLabel = variation.trim()
+                        variationLabel = variation.trim(),
+                        targets = targets
                     )
                     SharedWorkoutState.templateRepo.saveTemplate(template)
                     SharedWorkoutState.loadTemplates()
