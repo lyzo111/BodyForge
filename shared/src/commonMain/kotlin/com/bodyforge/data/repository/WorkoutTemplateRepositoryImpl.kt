@@ -37,7 +37,8 @@ class WorkoutTemplateRepositoryImpl(
             description = template.description,
             routine_id = template.routineId,
             routine_name = template.routineName,
-            variation_label = template.variationLabel
+            variation_label = template.variationLabel,
+            exercise_targets = Json.encodeToString(template.targets)
         )
         template
     }
@@ -50,6 +51,7 @@ class WorkoutTemplateRepositoryImpl(
             routine_id = template.routineId,
             routine_name = template.routineName,
             variation_label = template.variationLabel,
+            exercise_targets = Json.encodeToString(template.targets),
             id = template.id
         )
         template

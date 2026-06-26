@@ -8,6 +8,7 @@ import com.bodyforge.domain.models.Exercise
 import com.bodyforge.domain.models.Workout
 import com.bodyforge.domain.models.WorkoutSet
 import com.bodyforge.domain.models.WorkoutTemplate
+import com.bodyforge.domain.models.ExerciseTarget
 import com.bodyforge.domain.models.SetStatus
 import com.bodyforge.domain.models.ExerciseInWorkout
 import kotlinx.datetime.Instant
@@ -121,7 +122,9 @@ object WorkoutMapper {
             description = description,
             routineId = routine_id,
             routineName = routine_name,
-            variationLabel = variation_label
+            variationLabel = variation_label,
+            targets = if (exercise_targets.isBlank()) emptyMap()
+                      else runCatching { Json.decodeFromString<Map<String, ExerciseTarget>>(exercise_targets) }.getOrDefault(emptyMap())
         )
     }
 
@@ -134,7 +137,8 @@ object WorkoutMapper {
             description = description,
             routine_id = routineId,
             routine_name = routineName,
-            variation_label = variationLabel
+            variation_label = variationLabel,
+            exercise_targets = Json.encodeToString(targets)
         )
     }
 

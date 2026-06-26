@@ -1,0 +1,4 @@
+-- Migration from schema version 5 to 6.
+-- Adds optional per-exercise targets (sets/reps/weight) to templates, stored as a JSON map.
+
+ALTER TABLE WorkoutTemplate ADD COLUMN exercise_targets TEXT NOT NULL DEFAULT '{}';

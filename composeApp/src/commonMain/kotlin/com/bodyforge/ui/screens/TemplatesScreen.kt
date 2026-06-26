@@ -29,6 +29,10 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.bodyforge.domain.models.Exercise
 import com.bodyforge.domain.models.WorkoutTemplate
+import com.bodyforge.domain.models.ExerciseTarget
+import com.bodyforge.data.Weights
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.text.TextStyle
 import com.bodyforge.presentation.state.SharedWorkoutState
 import com.bodyforge.ui.components.cards.CreateExerciseDialog
 import com.bodyforge.ui.components.EmojiIcon
@@ -239,7 +243,7 @@ fun TemplatesScreen(listState: LazyListState, onStartWorkout: () -> Unit = {}) {
             exercises = exercises,
             onCreateExercise = onCreateExercise,
             onDismiss = { showCreateTemplateDialog = false },
-            onCreateTemplate = { name, selected, desc, routine, variation ->
+            onCreateTemplate = { name, selected, desc, routine, variation, targets ->
                 coroutineScope.launch {
                     val template = WorkoutTemplate(
                         id = "template_${Clock.System.now().epochSeconds}",
@@ -249,7 +253,8 @@ fun TemplatesScreen(listState: LazyListState, onStartWorkout: () -> Unit = {}) {
                         description = desc,
                         routineId = routineKey(routine),
                         routineName = routine.trim(),
-                        variationLabel = variation.trim()
+                        variationLabel = variation.trim(),
+                        targets = targets
                     )
                     SharedWorkoutState.templateRepo.saveTemplate(template)
                     SharedWorkoutState.loadTemplates()
@@ -677,8 +682,88 @@ private fun ReorderDialog(
     }
 }
 
+// Per-exercise target editor: toggle a target on, then set planned sets/reps/starting weight.
+// Without a target an exercise still pre-fills from the last session when the workout starts.
 @Composable
-fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exercise>, onCreateExercise: suspend (String, List<String>, String, Boolean) -> Exercise, onDismiss: () -> Unit, onCreateTemplate: (String, List<com.bodyforge.domain.models.Exercise>, String, String, String) -> Unit) {
+private fun TargetsDialog(
+    exercises: List<com.bodyforge.domain.models.Exercise>,
+    targets: Map<String, ExerciseTarget>,
+    onUpdate: (Map<String, ExerciseTarget>) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val working = remember { mutableStateMapOf<String, ExerciseTarget>().apply { putAll(targets) } }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(shape = RoundedCornerShape(16.dp), color = CardBackground, modifier = Modifier.fillMaxWidth(0.95f).fillMaxHeight(0.85f)) {
+            Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
+                Text("Set Targets", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 20.sp)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("Optional planned sets, reps and starting weight. Without a target, the workout pre-fills from your last session.", fontSize = 12.sp, color = TextSecondary)
+                Spacer(modifier = Modifier.height(12.dp))
+                Column(modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (exercises.isEmpty()) Text("Select exercises first.", fontSize = 13.sp, color = TextSecondary)
+                    exercises.forEach { ex ->
+                        TargetRow(
+                            name = ex.name,
+                            target = working[ex.id],
+                            onChange = { newT -> if (newT == null) working.remove(ex.id) else working[ex.id] = newT }
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(onClick = { onUpdate(working.toMap()); onDismiss() }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen), elevation = ButtonDefaults.elevation(0.dp)) {
+                        Text("Done", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TargetRow(name: String, target: ExerciseTarget?, onChange: (ExerciseTarget?) -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth().background(SurfaceColor, RoundedCornerShape(8.dp)).padding(10.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(name, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Switch(
+                checked = target != null,
+                onCheckedChange = { on -> onChange(if (on) ExerciseTarget() else null) },
+                colors = SwitchDefaults.colors(checkedThumbColor = AccentGreen, checkedTrackColor = AccentGreen.copy(alpha = 0.5f))
+            )
+        }
+        if (target != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TargetField("Sets", target.sets.toString()) { v -> onChange(target.copy(sets = v.toIntOrNull() ?: target.sets)) }
+                TargetField("Reps", target.reps.toString()) { v -> onChange(target.copy(reps = v.toIntOrNull() ?: target.reps)) }
+                TargetField(Weights.unit, if (target.weightKg > 0.0) Weights.format(target.weightKg) else "") { v ->
+                    onChange(target.copy(weightKg = v.replace(",", ".").toDoubleOrNull()?.let { Weights.toKg(it) } ?: 0.0))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TargetField(label: String, initial: String, onChange: (String) -> Unit) {
+    var text by remember { mutableStateOf(initial) }
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(label, fontSize = 10.sp, color = TextSecondary)
+        Spacer(modifier = Modifier.height(2.dp))
+        BasicTextField(
+            value = text,
+            onValueChange = { text = it; onChange(it) },
+            textStyle = TextStyle(fontSize = 15.sp, color = TextPrimary, textAlign = TextAlign.Center),
+            singleLine = true,
+            modifier = Modifier.width(58.dp).background(CardBackground, RoundedCornerShape(6.dp)).padding(vertical = 8.dp)
+        )
+    }
+}
+
+@Composable
+fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exercise>, onCreateExercise: suspend (String, List<String>, String, Boolean) -> Exercise, onDismiss: () -> Unit, onCreateTemplate: (String, List<com.bodyforge.domain.models.Exercise>, String, String, String, Map<String, ExerciseTarget>) -> Unit) {
     var templateName by remember { mutableStateOf("") }
     var templateDescription by remember { mutableStateOf("") }
     var routineName by remember { mutableStateOf("") }
@@ -687,6 +772,8 @@ fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exercise>, 
     var searchQuery by remember { mutableStateOf("") }
     var showCreateExerciseDialog by remember { mutableStateOf(false) }
     var showOrderDialog by remember { mutableStateOf(false) }
+    var showTargetsDialog by remember { mutableStateOf(false) }
+    var targets by remember { mutableStateOf<Map<String, ExerciseTarget>>(emptyMap()) }
     val scope = rememberCoroutineScope()
 
     val filteredExercises = remember(exercises, searchQuery) {
@@ -726,6 +813,23 @@ fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exercise>, 
                         fontWeight = FontWeight.Medium
                     )
                 }
+                Button(
+                    onClick = { showTargetsDialog = true },
+                    enabled = selectedExercises.isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        backgroundColor = SurfaceColor,
+                        disabledBackgroundColor = SurfaceColor.copy(alpha = 0.4f)
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    elevation = ButtonDefaults.elevation(0.dp)
+                ) {
+                    Text(
+                        "🎯 Set Targets",
+                        color = if (selectedExercises.isNotEmpty()) TextPrimary else TextSecondary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
                 OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, label = { Text("Search") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth())
                 filteredExercises.forEach { exercise ->
                     val isSelected = selectedExercises.contains(exercise)
@@ -747,7 +851,7 @@ fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exercise>, 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) }
                     Spacer(modifier = Modifier.width(8.dp))
-                    Button(onClick = { if (templateName.isNotBlank() && selectedExercises.isNotEmpty()) onCreateTemplate(templateName, selectedExercises.toList(), templateDescription, routineName, variationLabel) }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen), enabled = templateName.isNotBlank() && selectedExercises.isNotEmpty(), elevation = ButtonDefaults.elevation(0.dp)) { Text("Create", color = Color.White, fontWeight = FontWeight.Bold) }
+                    Button(onClick = { if (templateName.isNotBlank() && selectedExercises.isNotEmpty()) onCreateTemplate(templateName, selectedExercises.toList(), templateDescription, routineName, variationLabel, targets) }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen), enabled = templateName.isNotBlank() && selectedExercises.isNotEmpty(), elevation = ButtonDefaults.elevation(0.dp)) { Text("Create", color = Color.White, fontWeight = FontWeight.Bold) }
                 }
             }
         }
@@ -758,6 +862,15 @@ fun CreateTemplateDialog(exercises: List<com.bodyforge.domain.models.Exercise>, 
             selected = selectedExercises,
             onReorder = { selectedExercises = it },
             onDismiss = { showOrderDialog = false }
+        )
+    }
+
+    if (showTargetsDialog) {
+        TargetsDialog(
+            exercises = selectedExercises,
+            targets = targets,
+            onUpdate = { targets = it },
+            onDismiss = { showTargetsDialog = false }
         )
     }
 
@@ -785,6 +898,8 @@ private fun EditTemplateDialog(template: WorkoutTemplate, exercises: List<com.bo
     var searchQuery by remember { mutableStateOf("") }
     var showCreateExerciseDialog by remember { mutableStateOf(false) }
     var showOrderDialog by remember { mutableStateOf(false) }
+    var showTargetsDialog by remember { mutableStateOf(false) }
+    var targets by remember { mutableStateOf(template.targets) }
     val scope = rememberCoroutineScope()
 
     val filteredExercises = remember(exercises, searchQuery) {
@@ -821,6 +936,23 @@ private fun EditTemplateDialog(template: WorkoutTemplate, exercises: List<com.bo
                         fontWeight = FontWeight.Medium
                     )
                 }
+                Button(
+                    onClick = { showTargetsDialog = true },
+                    enabled = selectedExercises.isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        backgroundColor = SurfaceColor,
+                        disabledBackgroundColor = SurfaceColor.copy(alpha = 0.4f)
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    elevation = ButtonDefaults.elevation(0.dp)
+                ) {
+                    Text(
+                        "🎯 Set Targets",
+                        color = if (selectedExercises.isNotEmpty()) TextPrimary else TextSecondary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
                 OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, label = { Text("Search") }, colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentOrange, unfocusedBorderColor = SurfaceColor), modifier = Modifier.fillMaxWidth())
                 filteredExercises.forEach { exercise ->
                     val isSelected = selectedExercises.contains(exercise)
@@ -839,7 +971,7 @@ private fun EditTemplateDialog(template: WorkoutTemplate, exercises: List<com.bo
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) }
                     Spacer(modifier = Modifier.width(8.dp))
-                    Button(onClick = { if (templateName.isNotBlank() && selectedExercises.isNotEmpty()) onUpdateTemplate(template.copy(name = templateName, description = templateDescription, exerciseIds = selectedExercises.map { it.id }, routineId = routineKey(routineName), routineName = routineName.trim(), variationLabel = variationLabel.trim())) }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange), enabled = templateName.isNotBlank() && selectedExercises.isNotEmpty(), elevation = ButtonDefaults.elevation(0.dp)) { Text("Save", color = Color.White, fontWeight = FontWeight.Bold) }
+                    Button(onClick = { if (templateName.isNotBlank() && selectedExercises.isNotEmpty()) onUpdateTemplate(template.copy(name = templateName, description = templateDescription, exerciseIds = selectedExercises.map { it.id }, routineId = routineKey(routineName), routineName = routineName.trim(), variationLabel = variationLabel.trim(), targets = targets)) }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange), enabled = templateName.isNotBlank() && selectedExercises.isNotEmpty(), elevation = ButtonDefaults.elevation(0.dp)) { Text("Save", color = Color.White, fontWeight = FontWeight.Bold) }
                 }
             }
         }
@@ -850,6 +982,15 @@ private fun EditTemplateDialog(template: WorkoutTemplate, exercises: List<com.bo
             selected = selectedExercises,
             onReorder = { selectedExercises = it },
             onDismiss = { showOrderDialog = false }
+        )
+    }
+
+    if (showTargetsDialog) {
+        TargetsDialog(
+            exercises = selectedExercises,
+            targets = targets,
+            onUpdate = { targets = it },
+            onDismiss = { showTargetsDialog = false }
         )
     }
 

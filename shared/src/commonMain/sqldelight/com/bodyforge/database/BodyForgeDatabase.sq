@@ -52,7 +52,8 @@ CREATE TABLE WorkoutTemplate (
     description TEXT NOT NULL DEFAULT '',
     routine_id TEXT NOT NULL DEFAULT '', -- Groups variations of one routine, empty when ungrouped
     routine_name TEXT NOT NULL DEFAULT '', -- Display name of the parent routine, e.g. "Upper"
-    variation_label TEXT NOT NULL DEFAULT '' -- Variation within the routine, e.g. "A" or "B"
+    variation_label TEXT NOT NULL DEFAULT '', -- Variation within the routine, e.g. "A" or "B"
+    exercise_targets TEXT NOT NULL DEFAULT '{}' -- JSON map exerciseId -> {sets, reps, weightKg}
 );
 
 -- Nutrition Log Table
@@ -289,11 +290,11 @@ WHERE name LIKE '%' || ? || '%' OR description LIKE '%' || ? || '%'
 ORDER BY created_at DESC;
 
 insertTemplate:
-INSERT INTO WorkoutTemplate (id, name, exercise_ids, created_at, description, routine_id, routine_name, variation_label)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO WorkoutTemplate (id, name, exercise_ids, created_at, description, routine_id, routine_name, variation_label, exercise_targets)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateTemplate:
-UPDATE WorkoutTemplate SET name = ?, exercise_ids = ?, description = ?, routine_id = ?, routine_name = ?, variation_label = ? WHERE id = ?;
+UPDATE WorkoutTemplate SET name = ?, exercise_ids = ?, description = ?, routine_id = ?, routine_name = ?, variation_label = ?, exercise_targets = ? WHERE id = ?;
 
 deleteTemplate:
 DELETE FROM WorkoutTemplate WHERE id = ?;

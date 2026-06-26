@@ -2,6 +2,16 @@ package com.bodyforge.domain.models
 
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
+import kotlinx.serialization.Serializable
+
+// Optional planned target for one exercise in a template: how many sets, the rep goal and a
+// starting weight (kg). Used to pre-fill the sets when a workout is started from the template.
+@Serializable
+data class ExerciseTarget(
+    val sets: Int = 3,
+    val reps: Int = 8,
+    val weightKg: Double = 0.0
+)
 
 data class WorkoutTemplate(
     val id: String,
@@ -11,7 +21,9 @@ data class WorkoutTemplate(
     val description: String = "",
     val routineId: String = "",
     val routineName: String = "",
-    val variationLabel: String = ""
+    val variationLabel: String = "",
+    // exerciseId -> planned target; empty when the template has no explicit targets.
+    val targets: Map<String, ExerciseTarget> = emptyMap()
 ) {
     companion object {
         fun create(

@@ -396,6 +396,26 @@ object SharedWorkoutState {
         return workout.copy(exercises = updatedExercises)
     }
 
+    // Overrides sets for exercises that carry an explicit template target (sets/reps/weight),
+    // taking precedence over the history-based prefill.
+    private fun applyTemplateTargets(workout: Workout, template: WorkoutTemplate): Workout {
+        if (template.targets.isEmpty()) return workout
+        val updated = workout.exercises.map { eiw ->
+            val target = template.targets[eiw.exercise.id] ?: return@map eiw
+            val count = target.sets.coerceIn(1, 20)
+            val sets = (1..count).map { n ->
+                WorkoutSet.createEmpty(
+                    exerciseId = eiw.exercise.id,
+                    setNumber = n,
+                    defaultRestTime = eiw.exercise.defaultRestTimeSeconds,
+                    workoutId = workout.id
+                ).copy(reps = target.reps.coerceAtLeast(0), weightKg = target.weightKg.coerceAtLeast(0.0))
+            }
+            eiw.copy(sets = sets)
+        }
+        return workout.copy(exercises = updated)
+    }
+
     // Starts a workout from a template: resolves its exercises, records the template origin
     // (so workouts can be compared per template / variation) and makes it the active workout.
     // Returns the started workout, or null if the template has no resolvable exercises.
@@ -407,12 +427,15 @@ object SharedWorkoutState {
                 setError("Template contains no valid exercises")
                 null
             } else {
-                val workout = prefillFromHistory(
-                    Workout.create(
-                        template.name.ifEmpty { "Template Workout" },
-                        exercises,
-                        templateId = template.id
-                    )
+                val workout = applyTemplateTargets(
+                    prefillFromHistory(
+                        Workout.create(
+                            template.name.ifEmpty { "Template Workout" },
+                            exercises,
+                            templateId = template.id
+                        )
+                    ),
+                    template
                 )
                 val saved = workoutRepo.saveWorkout(workout)
                 updateActiveWorkout(saved)
