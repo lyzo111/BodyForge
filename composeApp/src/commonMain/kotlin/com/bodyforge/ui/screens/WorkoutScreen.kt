@@ -350,6 +350,9 @@ private fun ActiveWorkoutView(
                         SharedWorkoutState.startRest(rest)
                     }
                 },
+                onUpdateSetNotes = { setId, notes ->
+                    viewModel.updateSetNotes(exerciseInWorkout.exercise.id, setId, notes)
+                },
                 onAddSet = {
                     viewModel.addSetToExercise(exerciseInWorkout.exercise.id)
                 },
@@ -611,6 +614,7 @@ private fun ActiveExerciseCard(
     expanded: Boolean,
     onToggleExpand: () -> Unit,
     onUpdateSet: (String, Int?, Double?, Boolean?) -> Unit,
+    onUpdateSetNotes: (String, String) -> Unit,
     onAddSet: () -> Unit,
     onRemoveSet: () -> Unit,
     onSkipToggle: () -> Unit,
@@ -785,7 +789,8 @@ private fun ActiveExerciseCard(
                         bodyweight = bodyweight,
                         onUpdateSet = { reps, weight, completed ->
                             onUpdateSet(set.id, reps, weight, completed)
-                        }
+                        },
+                        onUpdateNotes = { notes -> onUpdateSetNotes(set.id, notes) }
                     )
 
                     if (index < exerciseInWorkout.sets.size - 1) {
@@ -967,6 +972,55 @@ private fun ExerciseNotesField(exerciseId: String, notes: String, onNotesChange:
     }
 }
 
+// Compact per-set note: collapsed to a faint "＋ note" (or the note text) until tapped, then a
+// one-line field. Sits under each set so notes can be granular without crowding the row.
+@Composable
+private fun SetNoteField(set: WorkoutSet, onUpdateNotes: (String) -> Unit) {
+    var editing by remember(set.id) { mutableStateOf(false) }
+    var text by remember(set.id) { mutableStateOf(set.notes) }
+    // Debounce persistence so the workout isn't rewritten on every keystroke.
+    LaunchedEffect(set.id, text) {
+        if (editing && text != set.notes) {
+            kotlinx.coroutines.delay(700L)
+            onUpdateNotes(text)
+        }
+    }
+    Spacer(modifier = Modifier.height(8.dp))
+    when {
+        editing -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            EmojiIcon("📝", Icons.Filled.Notes, fontSize = 12.sp, iconSize = 14.dp)
+            BasicTextField(
+                value = text,
+                onValueChange = { text = it },
+                modifier = Modifier.weight(1f).background(SurfaceColor, RoundedCornerShape(8.dp)).padding(8.dp),
+                textStyle = TextStyle(fontSize = 12.sp, color = TextPrimary),
+                singleLine = true,
+                decorationBox = { inner ->
+                    if (text.isEmpty()) Text("Note for this set…", color = TextSecondary.copy(alpha = 0.7f), fontSize = 12.sp)
+                    inner()
+                }
+            )
+            TextButton(onClick = { editing = false; onUpdateNotes(text.trim()) }, contentPadding = PaddingValues(horizontal = 8.dp)) {
+                Text("Done", color = AccentBlue, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        set.notes.isNotBlank() -> Row(
+            modifier = Modifier.clickable { editing = true },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            EmojiIcon("📝", Icons.Filled.Notes, fontSize = 11.sp, iconSize = 13.dp)
+            Text(set.notes, fontSize = 11.sp, color = TextSecondary, modifier = Modifier.weight(1f))
+        }
+        else -> Text(
+            "＋ note",
+            fontSize = 11.sp,
+            color = TextSecondary.copy(alpha = 0.7f),
+            modifier = Modifier.clickable { editing = true }
+        )
+    }
+}
+
 @Composable
 private fun ExerciseActionChip(text: String, color: Color, onClick: () -> Unit) {
     Box(
@@ -1074,7 +1128,8 @@ private fun SetRowWithButtons(
     set: WorkoutSet,
     exercise: Exercise,
     bodyweight: Double,
-    onUpdateSet: (Int?, Double?, Boolean?) -> Unit
+    onUpdateSet: (Int?, Double?, Boolean?) -> Unit,
+    onUpdateNotes: (String) -> Unit
 ) {
     val isCompleted = set.completed
     // Completed sets are locked by default; a Settings toggle re-enables editing them.
@@ -1218,6 +1273,7 @@ private fun SetRowWithButtons(
                     )
                 }
             }
+            SetNoteField(set = set, onUpdateNotes = onUpdateNotes)
         }
     }
 }
