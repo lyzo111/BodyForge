@@ -301,6 +301,11 @@ private fun ActiveWorkoutView(
     val hasBodyweightExercises = workout.exercises.any { it.exercise.isBodyweight }
     val availableExercises by SharedWorkoutState.exercises.collectAsState()
     val completedWorkouts by SharedWorkoutState.completedWorkouts.collectAsState()
+    val templates by SharedWorkoutState.templates.collectAsState()
+    // Targets from the template this workout was started from, shown small under each exercise.
+    val sourceTargets = remember(templates, workout.templateId) {
+        templates.firstOrNull { it.id == workout.templateId }?.targets ?: emptyMap()
+    }
     val scope = rememberCoroutineScope()
     val baseOffset = 1
 
@@ -347,6 +352,7 @@ private fun ActiveWorkoutView(
                 exerciseInWorkout = exerciseInWorkout,
                 bodyweight = bodyweight,
                 isNewPR = isNewPR,
+                target = sourceTargets[exId],
                 availableExercises = availableExercises,
                 onUpdateSet = { setId, reps, weight, completed ->
                     viewModel.updateSet(exerciseInWorkout.exercise.id, setId, reps, weight, completed)
@@ -619,6 +625,7 @@ private fun ActiveExerciseCard(
     exerciseInWorkout: ExerciseInWorkout,
     bodyweight: Double,
     isNewPR: Boolean,
+    target: com.bodyforge.domain.models.ExerciseTarget?,
     availableExercises: List<Exercise>,
     expanded: Boolean,
     onToggleExpand: () -> Unit,
@@ -698,6 +705,16 @@ private fun ActiveExerciseCard(
                     fontSize = 26.sp,
                     fontWeight = FontWeight.Bold,
                     color = AccentBlue
+                )
+            }
+
+            target?.let { t ->
+                val reps = if (t.minReps == t.maxReps) "${t.minReps}" else "${t.minReps}–${t.maxReps}"
+                Text(
+                    text = (if (com.bodyforge.presentation.state.SettingsState.emojiMode) "🎯 " else "Target ") + "${t.sets} × $reps reps",
+                    fontSize = 11.sp,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(top = 2.dp, start = 2.dp)
                 )
             }
 
