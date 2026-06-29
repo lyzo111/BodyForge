@@ -16,8 +16,24 @@ data class Workout(
 ) {
     val isActive: Boolean get() = finishedAt == null
     val isCompleted: Boolean get() = finishedAt != null
-    val durationMinutes: Long? get() = finishedAt?.let {
-        (it.epochSeconds - startedAt.epochSeconds) / 60
+    // Active training time: total elapsed minus long idle gaps. Built from the start, each completed
+    // set's time and the finish; only gaps shorter than the pause threshold count, so resuming a
+    // workout hours later does not count the break as training.
+    val durationMinutes: Long? get() {
+        val end = finishedAt ?: return null
+        val wallSeconds = (end.epochSeconds - startedAt.epochSeconds).coerceAtLeast(0)
+        val setTimes = exercises.flatMap { it.sets }.mapNotNull { it.completedAt?.epochSeconds }
+        // Without any completed-set timestamps there is nothing to detect a pause from, so fall back
+        // to the plain elapsed time.
+        if (setTimes.isEmpty()) return wallSeconds / 60
+        val pauseThresholdSeconds = 20 * 60L
+        val stamps = (setTimes + listOf(startedAt.epochSeconds, end.epochSeconds)).sorted()
+        var active = 0L
+        for (i in 1 until stamps.size) {
+            val gap = stamps[i] - stamps[i - 1]
+            if (gap in 0..pauseThresholdSeconds) active += gap
+        }
+        return active / 60
     }
 
     val totalSets: Int get() = exercises.sumOf { it.sets.size }
