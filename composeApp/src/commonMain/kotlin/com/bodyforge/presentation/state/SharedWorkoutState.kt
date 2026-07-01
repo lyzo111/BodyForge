@@ -189,7 +189,15 @@ object SharedWorkoutState {
                     workoutRepo.updateWorkout(active.copy(finishedAt = Clock.System.now()))
                 }
             }
-            workoutRepo.updateWorkout(workout.copy(finishedAt = null))
+            // Exclude the break between finishing and resuming: shift startedAt forward by the pause
+            // so only actively-trained time counts toward the workout's duration.
+            val now = Clock.System.now()
+            val pauseSeconds = workout.finishedAt?.let { (now.epochSeconds - it.epochSeconds).coerceAtLeast(0L) } ?: 0L
+            val resumed = workout.copy(
+                finishedAt = null,
+                startedAt = kotlinx.datetime.Instant.fromEpochSeconds(workout.startedAt.epochSeconds + pauseSeconds)
+            )
+            workoutRepo.updateWorkout(resumed)
             loadActiveWorkout()
             loadCompletedWorkouts()
         } catch (e: CancellationException) {
