@@ -16,6 +16,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Assignment
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -164,16 +167,18 @@ fun TemplatesScreen(listState: LazyListState, onStartWorkout: () -> Unit = {}) {
                         }
                         if (isExpanded) {
                             items(inSplit, key = { "sp_${it.id}" }) { template ->
-                                TemplateCard(
-                                    template = template,
-                                    exercises = exercises,
-                                    split = splitAssignments[template.id],
-                                    onStart = { requestStart(template) },
-                                    onEdit = { editingTemplate = template },
-                                    onDelete = { deleteConfirmationTemplate = template },
-                                    onShare = { SharedWorkoutState.shareTemplate(template) },
-                                    onAssignSplit = { assigningSplitTemplate = template }
-                                )
+                                Box(modifier = Modifier.padding(start = 20.dp)) {
+                                    TemplateCard(
+                                        template = template,
+                                        exercises = exercises,
+                                        split = splitAssignments[template.id],
+                                        onStart = { requestStart(template) },
+                                        onEdit = { editingTemplate = template },
+                                        onDelete = { deleteConfirmationTemplate = template },
+                                        onShare = { SharedWorkoutState.shareTemplate(template) },
+                                        onAssignSplit = { assigningSplitTemplate = template }
+                                    )
+                                }
                             }
                         }
                     }
@@ -194,16 +199,18 @@ fun TemplatesScreen(listState: LazyListState, onStartWorkout: () -> Unit = {}) {
                         }
                         if (isExpanded) {
                             items(variations, key = { it.id }) { template ->
-                                TemplateCard(
-                                    template = template,
-                                    exercises = exercises,
-                                    split = splitAssignments[template.id],
-                                    onStart = { requestStart(template) },
-                                    onEdit = { editingTemplate = template },
-                                    onDelete = { deleteConfirmationTemplate = template },
-                                    onShare = { SharedWorkoutState.shareTemplate(template) },
-                                    onAssignSplit = { assigningSplitTemplate = template }
-                                )
+                                Box(modifier = Modifier.padding(start = 20.dp)) {
+                                    TemplateCard(
+                                        template = template,
+                                        exercises = exercises,
+                                        split = splitAssignments[template.id],
+                                        onStart = { requestStart(template) },
+                                        onEdit = { editingTemplate = template },
+                                        onDelete = { deleteConfirmationTemplate = template },
+                                        onShare = { SharedWorkoutState.shareTemplate(template) },
+                                        onAssignSplit = { assigningSplitTemplate = template }
+                                    )
+                                }
                             }
                         }
                     }
@@ -454,10 +461,16 @@ private fun TemplateCard(template: WorkoutTemplate, exercises: List<com.bodyforg
                 }
             }
             Spacer(modifier = Modifier.height(10.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextButton(onClick = onShare, contentPadding = PaddingValues(horizontal = 10.dp)) { Text("Share", color = AccentBlue, fontSize = 12.sp) }
-                TextButton(onClick = onEdit, contentPadding = PaddingValues(horizontal = 10.dp)) { Text("Edit", color = TextSecondary, fontSize = 12.sp) }
-                TextButton(onClick = onDelete, contentPadding = PaddingValues(horizontal = 10.dp)) { Text("Delete", color = AccentRed, fontSize = 12.sp) }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                IconButton(onClick = onShare, modifier = Modifier.size(40.dp)) {
+                    Icon(Icons.Filled.Share, contentDescription = "Share template", tint = TextSecondary, modifier = Modifier.size(18.dp))
+                }
+                IconButton(onClick = onEdit, modifier = Modifier.size(40.dp)) {
+                    Icon(Icons.Filled.Edit, contentDescription = "Edit template", tint = TextSecondary, modifier = Modifier.size(18.dp))
+                }
+                IconButton(onClick = onDelete, modifier = Modifier.size(40.dp)) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Delete template", tint = AccentRed, modifier = Modifier.size(18.dp))
+                }
             }
             Spacer(modifier = Modifier.height(12.dp))
             Button(

@@ -16,6 +16,8 @@ import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Notes
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bodyforge.data.Weights
 import com.bodyforge.ui.components.EmojiIcon
+import com.bodyforge.ui.util.formatThousands
 import com.bodyforge.domain.models.Workout
 import com.bodyforge.presentation.state.SharedWorkoutState
 import com.bodyforge.ui.rememberCsvImporter
@@ -254,10 +257,14 @@ private fun HistoryWorkoutCard(workout: Workout, onResume: () -> Unit, onDelete:
                     val dateFormatter = SimpleDateFormat("dd.MM.yyyy 'at' HH:mm", Locale.getDefault())
                     Text(dateFormatter.format(Date(workout.startedAt.epochSeconds * 1000)), fontSize = 12.sp, color = TextSecondary)
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     TextButton(onClick = onResume, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("Resume", color = AccentGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
-                    TextButton(onClick = onEdit, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("Edit", color = AccentBlue, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
-                    TextButton(onClick = onDelete, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("Delete", color = AccentRed, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+                    IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
+                        EmojiIcon("✏️", Icons.Filled.Edit, fontSize = 16.sp, iconSize = 18.dp)
+                    }
+                    IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                        EmojiIcon("🗑️", Icons.Filled.Delete, fontSize = 16.sp, iconSize = 18.dp)
+                    }
                 }
             }
 
@@ -267,7 +274,7 @@ private fun HistoryWorkoutCard(workout: Workout, onResume: () -> Unit, onDelete:
                 WorkoutStat("🏋️", Icons.Filled.FitnessCenter, "${workout.exercises.size}", "Exercises")
                 WorkoutStat("💪", Icons.Filled.Repeat, "${workout.performedSets}", "Sets")
                 WorkoutStat("⏱️", Icons.Filled.Timer, "${workout.durationMinutes ?: 0}m", "Duration")
-                if (workout.totalVolumePerformed > 0) WorkoutStat("📊", Icons.Filled.BarChart, "${Weights.formatRounded(workout.totalVolumePerformed)}${Weights.unit}", "Volume")
+                if (workout.totalVolumePerformed > 0) WorkoutStat("📊", Icons.Filled.BarChart, "${formatThousands(Weights.toDisplay(workout.totalVolumePerformed))}${Weights.unit}", "Volume")
             }
 
             if (workout.exercises.isNotEmpty()) {

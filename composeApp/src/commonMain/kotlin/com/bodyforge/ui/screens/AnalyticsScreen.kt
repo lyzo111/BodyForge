@@ -42,6 +42,8 @@ import com.bodyforge.domain.models.ExerciseRecords
 import com.bodyforge.ui.components.EmojiIcon
 import kotlinx.coroutines.launch
 import com.bodyforge.ui.components.cards.PhaseSection
+import com.bodyforge.ui.components.cards.VariationProgressCard
+import com.bodyforge.ui.util.formatThousands
 import com.bodyforge.ui.components.cards.ProgressCard
 import com.bodyforge.ui.components.cards.TagExercisesDialog
 import kotlinx.datetime.Clock
@@ -152,6 +154,12 @@ fun AnalyticsScreen(listState: LazyListState) {
                         sectionKeys.forEach { expandedSections[it] = target }
                     }
                 )
+            }
+
+            // Per-variation progress (volume / est. 1RM), comparing workout-to-workout across
+            // variations vs. only the same variation (e.g. Upper A vs Upper A/B interleaved).
+            item {
+                VariationProgressCard(completedWorkouts, templates)
             }
 
             item {
@@ -308,8 +316,8 @@ private fun PhaseComparisonCard(
                     val avgPerSession = a.totalVolume / a.totalWorkouts
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         PhaseStat("${a.totalWorkouts}", "Workouts")
-                        PhaseStat("${Weights.formatRounded(a.totalVolume)} ${Weights.unit}", "Volume")
-                        PhaseStat("${Weights.formatRounded(avgPerSession)} ${Weights.unit}", "Avg/session")
+                        PhaseStat("${formatThousands(Weights.toDisplay(a.totalVolume))} ${Weights.unit}", "Volume")
+                        PhaseStat("${formatThousands(Weights.toDisplay(avgPerSession))} ${Weights.unit}", "Avg/session")
                     }
                     Spacer(modifier = Modifier.height(6.dp))
                     Text("≈ ${formatFrequency(a.weeklyFrequency)} sessions/week", fontSize = 11.sp, color = TextSecondary)
@@ -329,7 +337,7 @@ private fun PhaseComparisonCard(
                                 Box(modifier = Modifier.weight(1f).height(6.dp).background(CardBackground, RoundedCornerShape(3.dp))) {
                                     Box(modifier = Modifier.fillMaxWidth((vol / maxVol).toFloat().coerceIn(0.02f, 1f)).height(6.dp).background(AccentPurple, RoundedCornerShape(3.dp)))
                                 }
-                                Text("${Weights.formatRounded(vol)} ${Weights.unit}", fontSize = 10.sp, color = TextSecondary, maxLines = 1, softWrap = false)
+                                Text("${formatThousands(Weights.toDisplay(vol))} ${Weights.unit}", fontSize = 10.sp, color = TextSecondary, maxLines = 1, softWrap = false)
                             }
                         }
                     }
@@ -582,7 +590,7 @@ private fun QuickStatsRow(workouts: List<com.bodyforge.domain.models.Workout>) {
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             QuickStatCard(value = "${workouts.size}", label = "Workouts", color = AccentBlue)
-            QuickStatCard(value = "${Weights.formatRounded(totalVolume)} ${Weights.unit}", label = "Total Volume", color = AccentGreen)
+            QuickStatCard(value = "${formatThousands(Weights.toDisplay(totalVolume))} ${Weights.unit}", label = "Total Volume", color = AccentGreen)
             QuickStatCard(value = "${avgDuration.roundToInt()}m", label = "Avg Duration", color = AccentOrange)
             QuickStatCard(value = "$thisWeekWorkouts", label = "This Week", color = AccentPurple)
         }
@@ -677,7 +685,7 @@ private fun VolumeChart(workouts: List<com.bodyforge.domain.models.Workout>) {
         }
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            "${series.size} workouts · latest ${Weights.formatRounded(series.last())} ${Weights.unit} · best ${Weights.formatRounded(maxV)} ${Weights.unit}",
+            "${series.size} workouts · latest ${formatThousands(Weights.toDisplay(series.last()))} ${Weights.unit} · best ${formatThousands(Weights.toDisplay(maxV))} ${Weights.unit}",
             fontSize = 12.sp,
             color = TextSecondary
         )
@@ -732,6 +740,16 @@ private fun MuscleGroupBalanceCard(workouts: List<com.bodyforge.domain.models.Wo
                     maxCount = maxCount
                 )
                 Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                BalanceLegendItem(color = AccentGreen, label = "Frequent")
+                BalanceLegendItem(color = AccentOrange, label = "Moderate")
+                BalanceLegendItem(color = AccentRed, label = "Rare")
             }
         }
 
@@ -810,6 +828,14 @@ private fun MuscleGroupBar(
 }
 
 @Composable
+private fun BalanceLegendItem(color: Color, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Box(modifier = Modifier.size(8.dp).background(color, RoundedCornerShape(50)))
+        Text(label, fontSize = 11.sp, color = TextSecondary)
+    }
+}
+
+@Composable
 private fun PersonalRecordsCard(workouts: List<com.bodyforge.domain.models.Workout>, expanded: Boolean, onToggle: () -> Unit) {
     CollapsibleCard("Personal Records", expanded, onToggle) {
         val records = remember(workouts) {
@@ -847,8 +873,8 @@ private fun PrRecordRow(name: String, rec: ExerciseRecords) {
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f).padding(end = 8.dp)
         )
-        Text("1RM ${Weights.formatRounded(rec.bestE1RM)} ${Weights.unit}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AccentBlue, maxLines = 1, softWrap = false, modifier = Modifier.padding(end = 10.dp))
-        Text("best ${Weights.formatRounded(rec.heaviestKg)} ${Weights.unit}", fontSize = 11.sp, color = TextSecondary, maxLines = 1, softWrap = false)
+        Text("1RM ${formatThousands(Weights.toDisplay(rec.bestE1RM))} ${Weights.unit}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AccentBlue, maxLines = 1, softWrap = false, modifier = Modifier.padding(end = 10.dp))
+        Text("best ${formatThousands(Weights.toDisplay(rec.heaviestKg))} ${Weights.unit}", fontSize = 11.sp, color = TextSecondary, maxLines = 1, softWrap = false)
     }
 }
 
@@ -880,7 +906,7 @@ private fun AchievementsCard(workouts: List<com.bodyforge.domain.models.Workout>
             if (totalVolume >= 10000) {
                 AchievementItem(
                     title = "Volume Monster",
-                    description = "${totalVolume.roundToInt()}kg total volume moved"
+                    description = "${formatThousands(totalVolume)}kg total volume moved"
                 )
             }
 
@@ -979,7 +1005,7 @@ private fun PlateauDetectionCard(plateaus: List<PlateauInfo>, expanded: Boolean,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(p.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
-                    Text("best ${Weights.formatRounded(p.best)} ${Weights.unit} est. 1RM", fontSize = 11.sp, color = TextSecondary)
+                    Text("best ${formatThousands(Weights.toDisplay(p.best))} ${Weights.unit} est. 1RM", fontSize = 11.sp, color = TextSecondary)
                 }
                 Text("${p.sessionsSince} sessions", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AccentOrange)
             }

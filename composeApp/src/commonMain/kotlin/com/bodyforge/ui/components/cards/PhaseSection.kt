@@ -27,6 +27,11 @@ import com.bodyforge.ui.components.EmojiIcon
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 
+// One shared color per action role, so Edit/Resume/Complete/Delete read consistently: orange for
+// the primary forward action, neutral grey for secondary actions, red exclusively for destructive.
+private val ActionPrimary = AccentOrange
+private val ActionSecondary = TextSecondary
+
 private fun formatDate(date: LocalDate): String {
     val day = date.dayOfMonth.toString().padStart(2, '0')
     val month = date.monthNumber.toString().padStart(2, '0')
@@ -62,7 +67,7 @@ fun PhaseSection() {
                 }
                 Button(
                     onClick = { showCreate = true },
-                    colors = ButtonDefaults.buttonColors(backgroundColor = AccentPurple),
+                    colors = ButtonDefaults.buttonColors(backgroundColor = ActionPrimary),
                     shape = RoundedCornerShape(20.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                     elevation = ButtonDefaults.elevation(0.dp)
@@ -96,10 +101,10 @@ fun PhaseSection() {
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             TextButton(onClick = { editing = active }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
-                                Text("Edit", color = AccentBlue, fontSize = 12.sp)
+                                Text("Edit", color = ActionSecondary, fontSize = 12.sp)
                             }
                             TextButton(onClick = { scope.launch { SharedWorkoutState.completePhase(active.id) } }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
-                                Text("Complete", color = AccentGreen, fontSize = 12.sp)
+                                Text("Complete", color = ActionPrimary, fontSize = 12.sp)
                             }
                         }
                     }
@@ -135,10 +140,10 @@ fun PhaseSection() {
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 TextButton(onClick = { scope.launch { SharedWorkoutState.resumePhase(phase.id) } }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
-                                    Text("Resume", color = AccentGreen, fontSize = 11.sp)
+                                    Text("Resume", color = ActionSecondary, fontSize = 11.sp)
                                 }
                                 TextButton(onClick = { editing = phase }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
-                                    Text("Edit", color = AccentBlue, fontSize = 11.sp)
+                                    Text("Edit", color = ActionSecondary, fontSize = 11.sp)
                                 }
                                 TextButton(onClick = { deleting = phase }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
                                     Text("Delete", color = AccentRed, fontSize = 11.sp)
@@ -277,7 +282,7 @@ private fun PhaseEditorDialog(
         confirmButton = {
             Button(
                 onClick = { if (name.isNotBlank()) onConfirm(name.trim(), type, description.trim(), split.trim()) },
-                colors = ButtonDefaults.buttonColors(backgroundColor = AccentPurple),
+                colors = ButtonDefaults.buttonColors(backgroundColor = ActionPrimary),
                 enabled = name.isNotBlank(),
                 elevation = ButtonDefaults.elevation(0.dp)
             ) { Text(confirmLabel, color = Color.White, fontWeight = FontWeight.Bold) }
