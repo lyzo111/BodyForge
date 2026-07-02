@@ -99,6 +99,12 @@ fun AnalyticsScreen(listState: LazyListState) {
             )
         }
 
+        // Quick stats: fixed at the top, non-scrolling, so they're visible before scrolling
+        // through phases, body data and the rest of the sections below.
+        item {
+            QuickStatsRow(completedWorkouts)
+        }
+
         // Training phases (periodization) — independent of whether workouts exist yet
         item {
             PhaseSection()
@@ -136,11 +142,6 @@ fun AnalyticsScreen(listState: LazyListState) {
                 add("frequency")
             }
             val allOpen = sectionKeys.all { expandedSections[it] == true }
-
-            // Quick Stats Row
-            item {
-                QuickStatsRow(completedWorkouts)
-            }
 
             // Open all / Close all for the dropdowns below.
             item {
@@ -581,20 +582,25 @@ private fun QuickStatsRow(workouts: List<com.bodyforge.domain.models.Workout>) {
         daysDiff <= 7
     }.size
 
-    // Wider fixed-width cards in a horizontally scrollable row so labels like "Total Volume" and
-    // "Avg Duration" are shown in full instead of being squeezed and clipped.
-    val scrollState = rememberScrollState()
-    Column {
-        Row(
-            modifier = Modifier.fillMaxWidth().pagerSafeHorizontalScroll(scrollState),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            QuickStatCard(value = "${workouts.size}", label = "Workouts", color = AccentBlue)
-            QuickStatCard(value = "${formatThousands(Weights.toDisplay(totalVolume))} ${Weights.unit}", label = "Total Volume", color = AccentGreen)
-            QuickStatCard(value = "${avgDuration.roundToInt()}m", label = "Avg Duration", color = AccentOrange)
-            QuickStatCard(value = "$thisWeekWorkouts", label = "This Week", color = AccentPurple)
+    val stats = listOf(
+        Triple("${workouts.size}", "Workouts", AccentBlue),
+        Triple("${formatThousands(Weights.toDisplay(totalVolume))} ${Weights.unit}", "Total Volume", AccentGreen),
+        Triple("${avgDuration.roundToInt()}m", "Avg Duration", AccentOrange),
+        Triple("$thisWeekWorkouts", "This Week", AccentPurple)
+    )
+
+    // Fixed 2x2 grid, no scrolling — matches the redesign's static stat tiles.
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        stats.chunked(2).forEach { rowStats ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                rowStats.forEach { (value, label, color) ->
+                    QuickStatCard(value = value, label = label, color = color, modifier = Modifier.weight(1f))
+                }
+            }
         }
-        com.bodyforge.ui.components.HScrollIndicator(scrollState)
     }
 }
 
@@ -606,23 +612,21 @@ private fun QuickStatCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        backgroundColor = color.copy(alpha = 0.1f),
+        backgroundColor = CardBackground,
         elevation = 0.dp,
-        shape = RoundedCornerShape(8.dp),
-        modifier = modifier.width(120.dp)
+        shape = RoundedCornerShape(14.dp),
+        modifier = modifier
     ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        Column(modifier = Modifier.padding(14.dp)) {
             Text(
                 text = value,
-                fontSize = 18.sp,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = color,
                 maxLines = 1,
                 softWrap = false
             )
+            Spacer(modifier = Modifier.height(3.dp))
             Text(
                 text = label,
                 fontSize = 12.sp,
