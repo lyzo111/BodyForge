@@ -14,11 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Assignment
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,13 +51,6 @@ fun routineKey(routineName: String): String = buildString {
         }
     }
 }.trim('_')
-
-// Stable accent colour per folder name, so routine/split folders are visually distinguishable.
-private val folderPalette = listOf(
-    Color(0xFF3B82F6), Color(0xFF8B5CF6), Color(0xFF10B981), Color(0xFFFF6B35),
-    Color(0xFFEF4444), Color(0xFFEAB308), Color(0xFF06B6D4), Color(0xFFEC4899)
-)
-private fun folderColor(name: String): Color = folderPalette[(name.hashCode() and 0x7fffffff) % folderPalette.size]
 
 @Composable
 fun TemplatesScreen(listState: LazyListState, onStartWorkout: () -> Unit = {}) {
@@ -167,7 +156,7 @@ fun TemplatesScreen(listState: LazyListState, onStartWorkout: () -> Unit = {}) {
                         }
                         if (isExpanded) {
                             items(inSplit, key = { "sp_${it.id}" }) { template ->
-                                Box(modifier = Modifier.padding(start = 20.dp)) {
+                                GroupedTemplateRow {
                                     TemplateCard(
                                         template = template,
                                         exercises = exercises,
@@ -199,7 +188,7 @@ fun TemplatesScreen(listState: LazyListState, onStartWorkout: () -> Unit = {}) {
                         }
                         if (isExpanded) {
                             items(variations, key = { it.id }) { template ->
-                                Box(modifier = Modifier.padding(start = 20.dp)) {
+                                GroupedTemplateRow {
                                     TemplateCard(
                                         template = template,
                                         exercises = exercises,
@@ -399,90 +388,101 @@ private fun EmptyTemplatesCard(onCreateClick: () -> Unit) {
 @Composable
 private fun TemplateCard(template: WorkoutTemplate, exercises: List<com.bodyforge.domain.models.Exercise>, split: String?, onStart: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit, onShare: () -> Unit, onAssignSplit: () -> Unit) {
     val templateExercises = remember(template, exercises) { template.exerciseIds.mapNotNull { id -> exercises.firstOrNull { it.id == id } } }
-    var showAllExercises by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
 
-    Card(backgroundColor = CardBackground, elevation = 2.dp, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (template.hasVariation) {
+    val exerciseCount = template.exerciseIds.size
+    val metaText = buildString {
+        append("$exerciseCount exercise${if (exerciseCount == 1) "" else "s"}")
+        if (templateExercises.isNotEmpty()) {
+            append(" · ")
+            append(templateExercises.take(3).joinToString(", ") { it.name })
+        }
+        if (template.description.isNotEmpty()) {
+            append(" · ")
+            append(template.description)
+        }
+    }
+
+    Card(backgroundColor = CardBackground, elevation = 0.dp, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        template.variationLabel,
-                        fontSize = 12.sp,
+                        template.name,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        modifier = Modifier.background(AccentBlue, RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 3.dp)
+                        color = TextPrimary,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
-                }
-                Text(
-                    template.name,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary,
-                    maxLines = 2,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-            Spacer(modifier = Modifier.height(2.dp))
-            Text("${template.exerciseIds.size} exercises", fontSize = 14.sp, color = TextSecondary)
-            if (template.description.isNotEmpty()) Text(template.description, fontSize = 12.sp, color = TextSecondary, modifier = Modifier.padding(top = 4.dp))
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Split", fontSize = 12.sp, color = TextSecondary)
-                Text(
-                    if (!split.isNullOrBlank()) split else "+ Add",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (!split.isNullOrBlank()) Color.White else TextSecondary,
-                    maxLines = 1,
-                    softWrap = false,
-                    modifier = Modifier
-                        .background(if (!split.isNullOrBlank()) AccentOrange else SurfaceColor, RoundedCornerShape(6.dp))
-                        .clickable { onAssignSplit() }
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                )
-            }
-            if (templateExercises.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                val shownExercises = if (showAllExercises) templateExercises else templateExercises.take(3)
-                Text(
-                    shownExercises.joinToString(", ") { it.name },
-                    fontSize = 12.sp,
-                    color = TextSecondary.copy(alpha = 0.7f)
-                )
-                if (templateExercises.size > 3) {
+                    if (template.hasVariation) {
+                        Text(
+                            template.variationLabel,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentOrange,
+                            maxLines = 1,
+                            softWrap = false,
+                            modifier = Modifier.background(TextSecondary.copy(alpha = 0.14f), RoundedCornerShape(6.dp)).padding(horizontal = 7.dp, vertical = 3.dp)
+                        )
+                    }
                     Text(
-                        if (showAllExercises) "Show less..." else "Show more...",
-                        fontSize = 12.sp,
+                        if (!split.isNullOrBlank()) split else "+ split",
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         color = TextSecondary,
-                        modifier = Modifier.padding(top = 4.dp).clickable { showAllExercises = !showAllExercises }
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier
+                            .background(TextSecondary.copy(alpha = 0.14f), RoundedCornerShape(5.dp))
+                            .clickable { onAssignSplit() }
+                            .padding(horizontal = 6.dp, vertical = 3.dp)
                     )
                 }
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    metaText,
+                    fontSize = 12.sp,
+                    color = TextSecondary,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
             }
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                IconButton(onClick = onShare, modifier = Modifier.size(40.dp)) {
-                    Icon(Icons.Filled.Share, contentDescription = "Share template", tint = TextSecondary, modifier = Modifier.size(18.dp))
-                }
-                IconButton(onClick = onEdit, modifier = Modifier.size(40.dp)) {
-                    Icon(Icons.Filled.Edit, contentDescription = "Edit template", tint = TextSecondary, modifier = Modifier.size(18.dp))
-                }
-                IconButton(onClick = onDelete, modifier = Modifier.size(40.dp)) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Delete template", tint = AccentRed, modifier = Modifier.size(18.dp))
-                }
-            }
-            Spacer(modifier = Modifier.height(12.dp))
+
             Button(
                 onClick = onStart,
-                colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen),
-                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange),
+                shape = RoundedCornerShape(12.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
                 elevation = ButtonDefaults.elevation(0.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.heightIn(min = 44.dp)
             ) {
-                Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Start Workout", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Start", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            }
+
+            Box {
+                IconButton(onClick = { showMenu = true }, modifier = Modifier.size(44.dp)) {
+                    Text("⋯", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TextSecondary)
+                }
+                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                    DropdownMenuItem(onClick = { showMenu = false; onEdit() }) {
+                        Text("Edit", color = TextPrimary)
+                    }
+                    DropdownMenuItem(onClick = { showMenu = false; onAssignSplit() }) {
+                        Text("Assign split", color = TextPrimary)
+                    }
+                    DropdownMenuItem(onClick = { showMenu = false; onShare() }) {
+                        Text("Share code", color = TextPrimary)
+                    }
+                    DropdownMenuItem(onClick = { showMenu = false; onDelete() }) {
+                        Text("Delete", color = AccentRed)
+                    }
+                }
             }
         }
     }
@@ -523,28 +523,28 @@ private fun RoutineVariationFields(
 // A collapsible routine folder. Tapping toggles whether its variations are listed below it.
 @Composable
 private fun RoutineFolderHeader(name: String, subtitle: String, expanded: Boolean, onToggle: () -> Unit) {
-    val accent = folderColor(name)
-    Card(
-        backgroundColor = SurfaceColor,
-        elevation = 0.dp,
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Box(modifier = Modifier.size(10.dp).background(accent, RoundedCornerShape(50)))
-            Text(if (expanded) "▾" else "▸", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = accent)
-            Column(modifier = Modifier.weight(1f)) {
-                Text(name, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                Text(
-                    subtitle,
-                    fontSize = 12.sp,
-                    color = TextSecondary
-                )
-            }
+        Text(if (expanded) "▾" else "▸", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AccentOrange)
+        Text(name, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary, modifier = Modifier.weight(1f))
+        Text(subtitle, fontSize = 12.sp, color = TextSecondary)
+    }
+}
+
+// Indents a grouped template under its folder header with a left guide line, matching the
+// redesign's nested-list look.
+@Composable
+private fun GroupedTemplateRow(content: @Composable () -> Unit) {
+    Row(modifier = Modifier.padding(start = 10.dp).height(IntrinsicSize.Min)) {
+        Box(modifier = Modifier.width(2.dp).fillMaxHeight().background(SurfaceColor))
+        Box(modifier = Modifier.padding(start = 12.dp)) {
+            content()
         }
     }
 }
