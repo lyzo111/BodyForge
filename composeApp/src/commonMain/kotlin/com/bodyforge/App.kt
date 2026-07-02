@@ -416,6 +416,36 @@ private fun MainContent(hasActiveWorkout: Boolean, onSettings: () -> Unit) {
     }
 
     Column {
+        if (restJustEnded && pagerState.currentPage != 0) {
+            BreakOverBanner(
+                onGoToWorkout = { coroutineScope.launch { pagerState.animateScrollToPage(0) } },
+                onDismiss = { SharedWorkoutState.dismissRestEndedNotice() }
+            )
+        }
+
+        // Horizontal Pager for Tab Content. Keep every page composed (there are only four) so a
+        // tab never gets torn down and rebuilt — that is what reset each screen's scroll position
+        // (most visibly Analytics) when switching away and back.
+        HorizontalPager(
+            state = pagerState,
+            beyondBoundsPageCount = 3,
+            flingBehavior = PagerDefaults.flingBehavior(state = pagerState, snapPositionalThreshold = 0.7f),
+            modifier = Modifier.weight(1f).fillMaxWidth()
+        ) { page ->
+            when (page) {
+                0 -> WorkoutScreen(
+                    listState = workoutListState,
+                    onGoToTemplates = { coroutineScope.launch { pagerState.animateScrollToPage(1) } }
+                )
+                1 -> TemplatesScreen(
+                    listState = templatesListState,
+                    onStartWorkout = { coroutineScope.launch { pagerState.animateScrollToPage(0) } }
+                )
+                2 -> AnalyticsScreen(listState = analyticsListState)
+                3 -> HistoryScreen(listState = historyListState, onResumed = { coroutineScope.launch { pagerState.animateScrollToPage(0) } })
+            }
+        }
+
         // Tab Navigation Bar
         TabNavigationBar(
             tabs = tabs,
@@ -432,36 +462,6 @@ private fun MainContent(hasActiveWorkout: Boolean, onSettings: () -> Unit) {
             },
             onSettings = onSettings
         )
-
-        if (restJustEnded && pagerState.currentPage != 0) {
-            BreakOverBanner(
-                onGoToWorkout = { coroutineScope.launch { pagerState.animateScrollToPage(0) } },
-                onDismiss = { SharedWorkoutState.dismissRestEndedNotice() }
-            )
-        }
-
-        // Horizontal Pager for Tab Content. Keep every page composed (there are only four) so a
-        // tab never gets torn down and rebuilt — that is what reset each screen's scroll position
-        // (most visibly Analytics) when switching away and back.
-        HorizontalPager(
-            state = pagerState,
-            beyondBoundsPageCount = 3,
-            flingBehavior = PagerDefaults.flingBehavior(state = pagerState, snapPositionalThreshold = 0.7f),
-            modifier = Modifier.fillMaxSize()
-        ) { page ->
-            when (page) {
-                0 -> WorkoutScreen(
-                    listState = workoutListState,
-                    onGoToTemplates = { coroutineScope.launch { pagerState.animateScrollToPage(1) } }
-                )
-                1 -> TemplatesScreen(
-                    listState = templatesListState,
-                    onStartWorkout = { coroutineScope.launch { pagerState.animateScrollToPage(0) } }
-                )
-                2 -> AnalyticsScreen(listState = analyticsListState)
-                3 -> HistoryScreen(listState = historyListState, onResumed = { coroutineScope.launch { pagerState.animateScrollToPage(0) } })
-            }
-        }
     }
 }
 
