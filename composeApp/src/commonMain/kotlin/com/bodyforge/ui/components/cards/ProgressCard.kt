@@ -45,10 +45,10 @@ private enum class Metric(val label: String) {
 }
 
 private enum class Scope(val label: String) {
-    ALL("All time"),
-    PHASE("By phase"),
+    SPLIT("By split"),
     ROUTINE("By routine"),
-    SPLIT("By split")
+    PHASE("By phase"),
+    ALL("All time")
 }
 
 // variationLabel is only populated in Scope.ROUTINE (which variation/template the point's workout
@@ -144,7 +144,7 @@ private fun ProgressContent(
     // Selected subjects: null = total volume, otherwise an exercise id. Up to MAX_SUBJECTS.
     var selectedSubjects by remember { mutableStateOf<List<String?>>(listOf(null)) }
     var metric by remember { mutableStateOf(Metric.EST_1RM) }
-    var scope by remember { mutableStateOf(Scope.ALL) }
+    var scope by remember { mutableStateOf(Scope.SPLIT) }
     var selectedPhaseId by remember(phases) { mutableStateOf(phases.firstOrNull()?.id) }
     var selectedGroupKey by remember(groups) { mutableStateOf(groups.firstOrNull()?.key) }
     var selectedSplitKey by remember(splits) { mutableStateOf(splits.firstOrNull()?.key) }
@@ -571,8 +571,14 @@ private fun MultiLineChart(
                 drawLine(s.color, Offset(xAt(sorted[i].date.toEpochDays()), yAt(si, sorted[i].value)), Offset(xAt(sorted[i + 1].date.toEpochDays()), yAt(si, sorted[i + 1].value)), strokeWidth = 3.dp.toPx())
             }
             s.points.forEach { p ->
-                val nodeColor = pointColor?.invoke(p.variationLabel) ?: s.color
-                drawCircle(nodeColor, radius = 5.dp.toPx(), center = Offset(xAt(p.date.toEpochDays()), yAt(si, p.value)))
+                // Nodes must never read as "the line" — a background-colored halo breaks the line
+                // under the node, and unmarked nodes use a neutral color distinct from every series
+                // accent (variation-colored nodes keep their own palette color, which already differs
+                // from the line in almost every case; the halo covers the rare coincidence too).
+                val nodeColor = pointColor?.invoke(p.variationLabel) ?: TextPrimary
+                val center = Offset(xAt(p.date.toEpochDays()), yAt(si, p.value))
+                drawCircle(CardBackground, radius = 6.dp.toPx(), center = center)
+                drawCircle(nodeColor, radius = 4.dp.toPx(), center = center)
             }
         }
         selected?.let { (si, pi) ->

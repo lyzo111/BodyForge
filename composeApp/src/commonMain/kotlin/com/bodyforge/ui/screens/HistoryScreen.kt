@@ -40,6 +40,7 @@ import com.bodyforge.domain.models.Workout
 import com.bodyforge.presentation.state.SharedWorkoutState
 import com.bodyforge.ui.rememberCsvImporter
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Instant
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -324,6 +325,7 @@ private fun EditWorkoutDialog(workout: Workout, onDismiss: () -> Unit, onSave: (
     var editedWorkout by remember { mutableStateOf(workout) }
     var editingRepsSetId by remember { mutableStateOf<String?>(null) }
     var editingWeightSetId by remember { mutableStateOf<String?>(null) }
+    var editingDuration by remember { mutableStateOf(false) }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Card(
@@ -366,6 +368,28 @@ private fun EditWorkoutDialog(workout: Workout, onDismiss: () -> Unit, onSave: (
                                     modifier = Modifier.fillMaxWidth().background(CardBackground, RoundedCornerShape(8.dp)).padding(12.dp),
                                     textStyle = TextStyle(fontSize = 15.sp, color = TextPrimary),
                                     decorationBox = { innerTextField -> if (workoutNotes.isEmpty()) Text("How it felt, injuries, PRs…", color = TextSecondary, fontSize = 15.sp); innerTextField() }
+                                )
+                            }
+                        }
+                    }
+
+                    item {
+                        Card(backgroundColor = SurfaceColor, shape = RoundedCornerShape(12.dp), elevation = 0.dp) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Duration", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
+                                Text(
+                                    "${editedWorkout.durationMinutes ?: 0}m",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimary,
+                                    modifier = Modifier
+                                        .background(CardBackground, RoundedCornerShape(8.dp))
+                                        .clickable { editingDuration = true }
+                                        .padding(horizontal = 20.dp, vertical = 8.dp)
                                 )
                             }
                         }
@@ -461,6 +485,22 @@ private fun EditWorkoutDialog(workout: Workout, onDismiss: () -> Unit, onSave: (
             onConfirm = { newWeight ->
                 editedWorkout = updateSetValue(editedWorkout, setId) { it.copy(weightKg = newWeight) }
                 editingWeightSetId = null
+            }
+        )
+    }
+
+    if (editingDuration) {
+        HistoryNumberInputDialog(
+            currentValue = (editedWorkout.durationMinutes ?: 0).toInt(),
+            label = "Duration (minutes)",
+            onDismiss = { editingDuration = false },
+            onConfirm = { newMinutes ->
+                // Duration is derived from startedAt/finishedAt, so a manual edit sets finishedAt
+                // to match the entered minutes instead of storing the duration itself.
+                editedWorkout = editedWorkout.copy(
+                    finishedAt = Instant.fromEpochSeconds(editedWorkout.startedAt.epochSeconds + newMinutes.coerceAtLeast(0) * 60L)
+                )
+                editingDuration = false
             }
         )
     }
