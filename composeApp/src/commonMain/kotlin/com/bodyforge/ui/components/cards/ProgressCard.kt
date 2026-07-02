@@ -51,7 +51,9 @@ private enum class Scope(val label: String) {
     SPLIT("By split")
 }
 
-private data class Point(val value: Double, val date: LocalDate, val exerciseNote: String, val workoutNote: String, val sets: Int)
+// variationLabel is only populated in Scope.ROUTINE (which variation/template the point's workout
+// came from), so nodes can be colored per variation when viewing a routine "across variations".
+private data class Point(val value: Double, val date: LocalDate, val exerciseNote: String, val workoutNote: String, val sets: Int, val variationLabel: String = "")
 private data class Series(val label: String, val color: Color, val points: List<Point>)
 private data class RoutineGroup(val key: String, val label: String, val templateIds: Set<String>)
 
@@ -183,7 +185,12 @@ private fun ProgressContent(
         base.sortedBy { it.startedAt }
     }
 
-    val series = remember(scopedWorkouts, selectedSubjects, metric, exercises) {
+    // Template id -> variation label, for tagging each point when scoped to a routine.
+    val idToVariationLabel = remember(routineVariations) {
+        routineVariations.associate { it.id to it.variationLabel.ifBlank { it.name } }
+    }
+
+    val series = remember(scopedWorkouts, selectedSubjects, metric, exercises, idToVariationLabel) {
         selectedSubjects.mapIndexed { i, subj ->
             val effMetric = if (subj == null) Metric.VOLUME else metric
             val pts = scopedWorkouts.mapNotNull { w ->
@@ -199,11 +206,25 @@ private fun ProgressContent(
                     val setNotes = eiw?.sets?.mapNotNull { it.notes.trim().ifBlank { null } }?.distinct().orEmpty()
                     (listOf(eiw?.notes?.trim().orEmpty()) + setNotes).filter { it.isNotBlank() }.joinToString("; ")
                 }
-                Point(v, w.startDate, combinedNote, w.notes, setCount)
+                val variationLabel = w.templateId?.let { idToVariationLabel[it] } ?: ""
+                Point(v, w.startDate, combinedNote, w.notes, setCount, variationLabel)
             }
             val label = subj?.let { id -> exercises.firstOrNull { it.id == id }?.name ?: "Exercise" } ?: "Total Volume"
             Series(label, seriesPalette[i % seriesPalette.size], pts)
         }
+    }
+
+    // Color each node by which variation it came from, instead of one flat series color — but only
+    // when that's unambiguous: scoped to one routine, viewing "across variations", a single tracked
+    // series, and more than one variation actually contributing points.
+    val colorByVariation = scope == Scope.ROUTINE && selectedVariationId == null &&
+        routineVariations.size > 1 && series.size == 1
+    val distinctVariationLabels = remember(series, colorByVariation) {
+        if (!colorByVariation) emptyList() else series.first().points.map { it.variationLabel }.filter { it.isNotBlank() }.distinct()
+    }
+    val variationColorOf: (String) -> Color = { label ->
+        val idx = distinctVariationLabels.indexOf(label)
+        if (idx < 0) TextSecondary else seriesPalette[idx % seriesPalette.size]
     }
 
     LaunchedEffect(selectedSubjects, metric, scope, selectedPhaseId, selectedGroupKey, selectedSplitKey, selectedVariationId) { selected = null }
@@ -281,9 +302,12 @@ private fun ProgressContent(
                 color = TextSecondary
             )
         } else {
-            MultiLineChart(series, selected) { selected = it }
+            MultiLineChart(series, selected, if (colorByVariation) variationColorOf else null) { selected = it }
             Spacer(Modifier.height(8.dp))
-            if (series.size > 1) {
+            if (colorByVariation) {
+                VariationLegend(distinctVariationLabels, variationColorOf)
+                Spacer(Modifier.height(8.dp))
+            } else if (series.size > 1) {
                 Legend(series)
                 Spacer(Modifier.height(8.dp))
             }
@@ -354,6 +378,24 @@ private fun Legend(series: List<Series>) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Box(modifier = Modifier.size(10.dp).background(s.color, CircleShape))
                     Text(s.label, fontSize = 11.sp, color = TextSecondary, maxLines = 1, softWrap = false)
+                }
+            }
+        }
+        com.bodyforge.ui.components.HScrollIndicator(scrollState)
+    }
+}
+
+// Explains the per-node colors when a routine's variations are being compared "across
+// variations" on a single line — one swatch per variation, e.g. Upper A / Upper B.
+@Composable
+private fun VariationLegend(labels: List<String>, variationColorOf: (String) -> Color) {
+    val scrollState = rememberScrollState()
+    Column {
+        Row(modifier = Modifier.fillMaxWidth().pagerSafeHorizontalScroll(scrollState), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            labels.forEach { label ->
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Box(modifier = Modifier.size(10.dp).background(variationColorOf(label), CircleShape))
+                    Text(label, fontSize = 11.sp, color = TextSecondary, maxLines = 1, softWrap = false)
                 }
             }
         }
@@ -454,7 +496,14 @@ private fun SelectRow(text: String, checked: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun MultiLineChart(series: List<Series>, selected: Pair<Int, Int>?, onSelect: (Pair<Int, Int>?) -> Unit) {
+private fun MultiLineChart(
+    series: List<Series>,
+    selected: Pair<Int, Int>?,
+    // When non-null, each node is colored by its point's variationLabel instead of its series
+    // color; the connecting line still uses the series color so the chart stays readable.
+    pointColor: ((String) -> Color)? = null,
+    onSelect: (Pair<Int, Int>?) -> Unit
+) {
     val flat = remember(series) { series.flatMapIndexed { si, s -> s.points.mapIndexed { pi, p -> Triple(si, pi, p) } } }
     if (flat.isEmpty()) return
     val minDay = flat.minOf { it.third.date.toEpochDays() }
@@ -521,7 +570,10 @@ private fun MultiLineChart(series: List<Series>, selected: Pair<Int, Int>?, onSe
             for (i in 0 until sorted.size - 1) {
                 drawLine(s.color, Offset(xAt(sorted[i].date.toEpochDays()), yAt(si, sorted[i].value)), Offset(xAt(sorted[i + 1].date.toEpochDays()), yAt(si, sorted[i + 1].value)), strokeWidth = 3.dp.toPx())
             }
-            s.points.forEach { p -> drawCircle(s.color, radius = 5.dp.toPx(), center = Offset(xAt(p.date.toEpochDays()), yAt(si, p.value))) }
+            s.points.forEach { p ->
+                val nodeColor = pointColor?.invoke(p.variationLabel) ?: s.color
+                drawCircle(nodeColor, radius = 5.dp.toPx(), center = Offset(xAt(p.date.toEpochDays()), yAt(si, p.value)))
+            }
         }
         selected?.let { (si, pi) ->
             series.getOrNull(si)?.points?.getOrNull(pi)?.let { p ->
@@ -529,7 +581,7 @@ private fun MultiLineChart(series: List<Series>, selected: Pair<Int, Int>?, onSe
                 val cy = yAt(si, p.value)
                 drawLine(TextSecondary, Offset(cx, topPad), Offset(cx, topPad + chartH), strokeWidth = 1.dp.toPx())
                 drawCircle(Color.White, radius = 8.dp.toPx(), center = Offset(cx, cy))
-                drawCircle(series[si].color, radius = 5.dp.toPx(), center = Offset(cx, cy))
+                drawCircle(pointColor?.invoke(p.variationLabel) ?: series[si].color, radius = 5.dp.toPx(), center = Offset(cx, cy))
             }
         }
     }

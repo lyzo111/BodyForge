@@ -42,7 +42,6 @@ import com.bodyforge.domain.models.ExerciseRecords
 import com.bodyforge.ui.components.EmojiIcon
 import kotlinx.coroutines.launch
 import com.bodyforge.ui.components.cards.PhaseSection
-import com.bodyforge.ui.components.cards.VariationProgressCard
 import com.bodyforge.ui.util.formatThousands
 import com.bodyforge.ui.components.cards.ProgressCard
 import com.bodyforge.ui.components.cards.TagExercisesDialog
@@ -155,12 +154,6 @@ fun AnalyticsScreen(listState: LazyListState) {
                         sectionKeys.forEach { expandedSections[it] = target }
                     }
                 )
-            }
-
-            // Per-variation progress (volume / est. 1RM), comparing workout-to-workout across
-            // variations vs. only the same variation (e.g. Upper A vs Upper A/B interleaved).
-            item {
-                VariationProgressCard(completedWorkouts, templates)
             }
 
             item {

@@ -155,18 +155,22 @@ fun TemplatesScreen(listState: LazyListState, onStartWorkout: () -> Unit = {}) {
                             )
                         }
                         if (isExpanded) {
-                            items(inSplit, key = { "sp_${it.id}" }) { template ->
-                                GroupedTemplateRow {
-                                    TemplateCard(
-                                        template = template,
-                                        exercises = exercises,
-                                        split = splitAssignments[template.id],
-                                        onStart = { requestStart(template) },
-                                        onEdit = { editingTemplate = template },
-                                        onDelete = { deleteConfirmationTemplate = template },
-                                        onShare = { SharedWorkoutState.shareTemplate(template) },
-                                        onAssignSplit = { assigningSplitTemplate = template }
-                                    )
+                            item(key = "sp_group_$splitName") {
+                                GroupedTemplateColumn {
+                                    inSplit.forEach { template ->
+                                        key(template.id) {
+                                            TemplateCard(
+                                                template = template,
+                                                exercises = exercises,
+                                                split = splitAssignments[template.id],
+                                                onStart = { requestStart(template) },
+                                                onEdit = { editingTemplate = template },
+                                                onDelete = { deleteConfirmationTemplate = template },
+                                                onShare = { SharedWorkoutState.shareTemplate(template) },
+                                                onAssignSplit = { assigningSplitTemplate = template }
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -187,18 +191,22 @@ fun TemplatesScreen(listState: LazyListState, onStartWorkout: () -> Unit = {}) {
                             )
                         }
                         if (isExpanded) {
-                            items(variations, key = { it.id }) { template ->
-                                GroupedTemplateRow {
-                                    TemplateCard(
-                                        template = template,
-                                        exercises = exercises,
-                                        split = splitAssignments[template.id],
-                                        onStart = { requestStart(template) },
-                                        onEdit = { editingTemplate = template },
-                                        onDelete = { deleteConfirmationTemplate = template },
-                                        onShare = { SharedWorkoutState.shareTemplate(template) },
-                                        onAssignSplit = { assigningSplitTemplate = template }
-                                    )
+                            item(key = "routine_group_$routineId") {
+                                GroupedTemplateColumn {
+                                    variations.forEach { template ->
+                                        key(template.id) {
+                                            TemplateCard(
+                                                template = template,
+                                                exercises = exercises,
+                                                split = splitAssignments[template.id],
+                                                onStart = { requestStart(template) },
+                                                onEdit = { editingTemplate = template },
+                                                onDelete = { deleteConfirmationTemplate = template },
+                                                onShare = { SharedWorkoutState.shareTemplate(template) },
+                                                onAssignSplit = { assigningSplitTemplate = template }
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -537,15 +545,17 @@ private fun RoutineFolderHeader(name: String, subtitle: String, expanded: Boolea
     }
 }
 
-// Indents a grouped template under its folder header with a left guide line, matching the
-// redesign's nested-list look.
+// Indents a whole group's templates under its folder header with a single left guide line
+// spanning all of them, instead of one broken-up segment per card.
 @Composable
-private fun GroupedTemplateRow(content: @Composable () -> Unit) {
+private fun GroupedTemplateColumn(content: @Composable ColumnScope.() -> Unit) {
     Row(modifier = Modifier.padding(start = 10.dp).height(IntrinsicSize.Min)) {
         Box(modifier = Modifier.width(2.dp).fillMaxHeight().background(SurfaceColor))
-        Box(modifier = Modifier.padding(start = 12.dp)) {
-            content()
-        }
+        Column(
+            modifier = Modifier.padding(start = 12.dp).weight(1f),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            content = content
+        )
     }
 }
 
