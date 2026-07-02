@@ -489,9 +489,12 @@ private fun TabNavigationBar(
                 showBadge = tab.id == "workout" && hasActiveWorkout
             )
         }
-        IconButton(onClick = onSettings, modifier = Modifier.size(44.dp)) {
-            Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = TextSecondary, modifier = Modifier.size(22.dp))
-        }
+        TabButton(
+            tab = TabItem("settings", Icons.Filled.Settings, "Settings"),
+            isActive = false,
+            onClick = onSettings,
+            modifier = Modifier.weight(1f)
+        )
     }
 }
 

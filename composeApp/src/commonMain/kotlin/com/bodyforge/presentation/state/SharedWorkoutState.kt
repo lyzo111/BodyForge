@@ -114,6 +114,7 @@ object SharedWorkoutState {
         // Exact alarm so the end buzz fires even if the app is backgrounded or the phone is locked.
         // The alarm (not this in-app loop) does the vibrating, so there is never a double buzz.
         com.bodyforge.scheduleRestAlarm(endMs)
+        com.bodyforge.showRestNotification(endMs)
         restJob = timerScope.launch {
             // Poll the wall clock instead of counting down, so a throttled coroutine (e.g. while the
             // phone is locked) can't make the timer drift — remaining is always (end - now).
@@ -139,11 +140,14 @@ object SharedWorkoutState {
         _restTotalSeconds.value += seconds
         _restRemainingSeconds.value += seconds
         com.bodyforge.scheduleRestAlarm(_restEndsAtMillis.value)
+        // Re-post so the notification's chronometer counts down from the new end time.
+        com.bodyforge.showRestNotification(_restEndsAtMillis.value)
     }
 
     fun skipRest() {
         restJob?.cancel()
         com.bodyforge.cancelRestAlarm()
+        com.bodyforge.cancelRestNotification()
         _restEndsAtMillis.value = 0L
         _restRemainingSeconds.value = 0
         _restJustEnded.value = false
@@ -399,7 +403,9 @@ object SharedWorkoutState {
                     workoutId = workout.id
                 ).copy(reps = source.reps, weightKg = source.weightKg)
             }
-            exerciseInWorkout.copy(sets = prefilledSets)
+            // Carry over the exercise-level note (e.g. form cues) from last time, but never set
+            // notes — those are tied to that specific day's performance, not the exercise itself.
+            exerciseInWorkout.copy(sets = prefilledSets, notes = lastPerformed.notes)
         }
         return workout.copy(exercises = updatedExercises)
     }

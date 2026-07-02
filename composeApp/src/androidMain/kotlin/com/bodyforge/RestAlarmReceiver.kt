@@ -13,6 +13,8 @@ import android.os.VibratorManager
 // killed, by reading the setting straight from prefs and using the broadcast's own context.
 class RestAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        postRestCompleteNotification(context)
+
         val prefs = context.getSharedPreferences("bodyforge_settings", Context.MODE_PRIVATE)
         if (!prefs.getBoolean("vibrate_on_timer_end", true)) return
 
