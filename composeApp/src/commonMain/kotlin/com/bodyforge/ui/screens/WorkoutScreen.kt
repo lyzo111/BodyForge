@@ -1172,120 +1172,147 @@ private fun SetRowWithButtons(
     val isCompleted = set.completed
     // Completed sets are locked by default; a Settings toggle re-enables editing them.
     val editable = !set.completed || com.bodyforge.presentation.state.SettingsState.editCompletedSets
-    val canComplete = set.reps > 0 && (set.weightKg > 0 || exercise.isBodyweight)
-    var showRepsDialog by remember { mutableStateOf(false) }
-    var showWeightDialog by remember { mutableStateOf(false) }
+    val backgroundColor = if (isCompleted) AccentGreen.copy(alpha = 0.15f) else SurfaceColor
 
-    val weightDisplay = if (exercise.isBodyweight) {
-        when {
-            set.weightKg > 0 -> "BW+${formatWeight(set.weightKg)}"
-            set.weightKg < 0 -> "BW${formatWeight(set.weightKg)}"
-            else -> "BW"
-        }
-    } else {
-        "${formatWeight(set.weightKg)} ${Weights.unit}"
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                color = if (isCompleted) AccentGreen.copy(alpha = 0.15f) else SurfaceColor,
-                shape = RoundedCornerShape(12.dp)
-            )
-            .padding(10.dp)
+    Card(
+        backgroundColor = backgroundColor,
+        elevation = 0.dp,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        Column(
+            modifier = Modifier.padding(16.dp)
         ) {
-            Text(
-                text = "$setNumber",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (isCompleted) AccentGreen else TextPrimary,
-                modifier = Modifier.width(18.dp),
-                textAlign = TextAlign.Center
-            )
-
-            CompactStepperField(
-                displayValue = "${set.reps}",
-                onDecrement = { if (set.reps > 0 && editable) onUpdateSet(set.reps - 1, null, null) },
-                onIncrement = { if (editable) onUpdateSet(set.reps + 1, null, null) },
-                onTap = { showRepsDialog = true },
-                enabled = editable,
-                decrementEnabled = set.reps > 0,
-                modifier = Modifier.weight(1f)
-            )
-
-            CompactStepperField(
-                displayValue = weightDisplay,
-                onDecrement = {
-                    if (set.weightKg > 0 && editable) {
-                        onUpdateSet(null, (set.weightKg - Weights.toKg(2.5)).coerceAtLeast(0.0), null)
-                    }
-                },
-                onIncrement = { if (editable) onUpdateSet(null, set.weightKg + Weights.toKg(2.5), null) },
-                onTap = { showWeightDialog = true },
-                enabled = editable,
-                decrementEnabled = set.weightKg > 0,
-                modifier = Modifier.weight(1.2f)
-            )
-
-            // Done is the primary action: filled orange while open, filled green with a
-            // checkmark once completed. Stays tappable when completed so a set can be undone.
-            Button(
-                onClick = {
-                    if (isCompleted) onUpdateSet(null, null, false)
-                    else if (canComplete) onUpdateSet(null, null, true)
-                },
-                enabled = isCompleted || canComplete,
-                colors = ButtonDefaults.buttonColors(
-                    backgroundColor = if (isCompleted) AccentGreen else AccentOrange,
-                    contentColor = Color.White,
-                    disabledBackgroundColor = SurfaceColor.copy(alpha = 0.4f),
-                    disabledContentColor = Color.White.copy(alpha = 0.6f)
-                ),
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.heightIn(min = 44.dp).widthIn(min = 56.dp),
-                contentPadding = PaddingValues(horizontal = 8.dp),
-                elevation = ButtonDefaults.elevation(0.dp)
+            // Set header row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                if (isCompleted) {
-                    Icon(Icons.Filled.Check, contentDescription = "Completed — tap to undo", tint = Color.White, modifier = Modifier.size(18.dp))
-                } else {
-                    Text("Done", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    text = "Set $setNumber",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = if (isCompleted) AccentGreen else TextPrimary
+                )
+
+                // Completion button
+                Button(
+                    onClick = {
+                        if (isCompleted) {
+                            onUpdateSet(null, null, false)
+                        } else if (set.reps > 0) {
+                            onUpdateSet(null, null, true)
+                        }
+                    },
+                    enabled = isCompleted || (set.reps > 0 && (set.weightKg > 0 || exercise.isBodyweight)),
+                    colors = ButtonDefaults.buttonColors(
+                        backgroundColor = if (isCompleted) AccentGreen else SurfaceColor.copy(alpha = 0.5f),
+                        disabledBackgroundColor = SurfaceColor.copy(alpha = 0.3f)
+                    ),
+                    border = if (isCompleted) null else BorderStroke(1.dp, TextSecondary.copy(alpha = 0.5f)),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.height(36.dp),
+                    elevation = ButtonDefaults.elevation(0.dp)
+                ) {
+                    Text(
+                        text = if (isCompleted) "✓ Done · tap to undo" else "Done",
+                        color = if (isCompleted) Color.White else TextSecondary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
-        }
 
-        if (showRepsDialog) {
-            NumberEditDialog(
-                currentValue = set.reps,
-                label = "Reps",
-                onDismiss = { showRepsDialog = false },
-                onConfirm = { newValue ->
-                    if (editable) onUpdateSet(newValue, null, null)
-                    showRepsDialog = false
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Reps and Weight controls (stacked full-width so values never get cramped)
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Reps control
+                ValueControlGroup(
+                    label = "Reps",
+                    value = set.reps,
+                    displayValue = set.reps.toString(),
+                    onDecrement = {
+                        if (set.reps > 0 && editable) {
+                            onUpdateSet(set.reps - 1, null, null)
+                        }
+                    },
+                    onIncrement = {
+                        if (editable) {
+                            onUpdateSet(set.reps + 1, null, null)
+                        }
+                    },
+                    onValueChange = { newReps ->
+                        if (editable) {
+                            onUpdateSet(newReps, null, null)
+                        }
+                    },
+                    enabled = editable,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Weight control
+                if (exercise.isBodyweight) {
+                    BodyweightValueControl(
+                        label = "Weight",
+                        additionalWeight = set.weightKg,
+                        bodyweight = bodyweight,
+                        onDecrement = {
+                            if (set.weightKg > 0 && editable) {
+                                onUpdateSet(null, (set.weightKg - Weights.toKg(2.5)).coerceAtLeast(0.0), null)
+                            }
+                        },
+                        onIncrement = {
+                            if (editable) {
+                                onUpdateSet(null, set.weightKg + Weights.toKg(2.5), null)
+                            }
+                        },
+                        onValueChange = { newWeight ->
+                            if (editable) {
+                                onUpdateSet(null, newWeight, null)
+                            }
+                        },
+                        enabled = editable,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    ValueControlGroup(
+                        label = "Weight",
+                        value = set.weightKg.toInt(),
+                        displayValue = "${formatWeight(set.weightKg)} ${Weights.unit}",
+                        onDecrement = {
+                            if (set.weightKg > 0 && editable) {
+                                onUpdateSet(null, (set.weightKg - Weights.toKg(2.5)).coerceAtLeast(0.0), null)
+                            }
+                        },
+                        onIncrement = {
+                            if (editable) {
+                                onUpdateSet(null, set.weightKg + Weights.toKg(2.5), null)
+                            }
+                        },
+                        onValueChange = { newWeight ->
+                            if (editable) {
+                                onUpdateSet(null, newWeight.toDouble(), null)
+                            }
+                        },
+                        enabled = editable,
+                        isWeight = true,
+                        currentWeight = set.weightKg,
+                        onWeightChange = { newWeight ->
+                            if (editable) {
+                                onUpdateSet(null, newWeight, null)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
-            )
+            }
+            SetNoteField(set = set, onUpdateNotes = onUpdateNotes)
         }
-
-        if (showWeightDialog) {
-            WeightEditDialog(
-                currentWeight = set.weightKg,
-                onDismiss = { showWeightDialog = false },
-                onConfirm = { newWeight ->
-                    if (editable) onUpdateSet(null, newWeight, null)
-                    showWeightDialog = false
-                },
-                isBodyweight = exercise.isBodyweight,
-                totalWeight = bodyweight + set.weightKg
-            )
-        }
-
-        SetNoteField(set = set, onUpdateNotes = onUpdateNotes)
     }
 }
 
@@ -1496,8 +1523,7 @@ private fun ControlButton(
     text: String,
     color: Color,
     onClick: () -> Unit,
-    enabled: Boolean = true,
-    size: androidx.compose.ui.unit.Dp = 40.dp
+    enabled: Boolean = true
 ) {
     Button(
         onClick = onClick,
@@ -1507,7 +1533,7 @@ private fun ControlButton(
             disabledBackgroundColor = color.copy(alpha = 0.3f)
         ),
         shape = RoundedCornerShape(8.dp),
-        modifier = Modifier.size(size),
+        modifier = Modifier.size(40.dp),
         contentPadding = PaddingValues(0.dp),
         elevation = ButtonDefaults.elevation(0.dp)
     ) {
@@ -1517,39 +1543,6 @@ private fun ControlButton(
             fontWeight = FontWeight.Bold,
             color = if (enabled) Color.White else Color.White.copy(alpha = 0.5f)
         )
-    }
-}
-
-// Compact tappable value box used inside the horizontal set row: a small ± pair around a box
-// that opens the full numeric-edit dialog on tap.
-@Composable
-private fun CompactStepperField(
-    displayValue: String,
-    onDecrement: () -> Unit,
-    onIncrement: () -> Unit,
-    onTap: () -> Unit,
-    enabled: Boolean,
-    decrementEnabled: Boolean,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        ControlButton(text = "−", color = ButtonRed, onClick = onDecrement, enabled = enabled && decrementEnabled, size = 32.dp)
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .height(36.dp)
-                .background(SurfaceColor.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                .border(1.dp, TextSecondary.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
-                .clickable(enabled = enabled, onClick = onTap),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(displayValue, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (enabled) TextPrimary else TextSecondary, maxLines = 1, softWrap = false)
-        }
-        ControlButton(text = "+", color = ButtonGreen, onClick = onIncrement, enabled = enabled, size = 32.dp)
     }
 }
 
