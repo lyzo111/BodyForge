@@ -513,23 +513,26 @@ private fun TabButton(
                 .padding(vertical = 8.dp, horizontal = 2.dp),
             contentAlignment = Alignment.Center
         ) {
-            // Single-color icon sits behind the centered label, tinted in the page's dark blue
-            // so it reads as a subtle watermark on the lighter tab bar.
-            Icon(
-                imageVector = tab.icon,
-                contentDescription = null,
-                tint = DarkBackground,
-                modifier = Modifier.size(40.dp)
-            )
-            Text(
-                text = tab.title,
-                fontSize = 11.sp,
-                fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-                color = if (isActive) AccentOrange else TextSecondary,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                softWrap = false
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Icon(
+                    imageVector = tab.icon,
+                    contentDescription = null,
+                    tint = if (isActive) AccentOrange else TextSecondary,
+                    modifier = Modifier.size(22.dp)
+                )
+                Text(
+                    text = tab.title,
+                    fontSize = 11.sp,
+                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isActive) AccentOrange else TextSecondary,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
         }
 
         if (showBadge) {
