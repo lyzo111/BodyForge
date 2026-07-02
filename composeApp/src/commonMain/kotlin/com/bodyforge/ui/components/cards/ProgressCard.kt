@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import com.bodyforge.ui.theme.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
@@ -59,9 +60,18 @@ private enum class Scope(val label: String) {
     ALL("All time")
 }
 
-// variationLabel is only populated in Scope.ROUTINE (which variation/template the point's workout
-// came from), so nodes can be colored per variation when viewing a routine "across variations".
-private data class Point(val value: Double, val date: LocalDate, val exerciseNote: String, val workoutNote: String, val sets: Int, val variationLabel: String = "")
+// routineLabel/variationLabel identify which routine and which variation within it the point's
+// workout came from (e.g. "Upper" / "A"), populated in every scope so nodes can always be colored
+// by that: one hue per routine, one shade of that hue per variation.
+private data class Point(
+    val value: Double,
+    val date: LocalDate,
+    val exerciseNote: String,
+    val workoutNote: String,
+    val sets: Int,
+    val routineLabel: String = "",
+    val variationLabel: String = ""
+)
 private data class Series(val label: String, val color: Color, val points: List<Point>)
 private data class RoutineGroup(val key: String, val label: String, val templateIds: Set<String>)
 
@@ -193,12 +203,20 @@ private fun ProgressContent(
         base.sortedBy { it.startedAt }
     }
 
-    // Template id -> variation label, for tagging each point when scoped to a routine.
-    val idToVariationLabel = remember(routineVariations) {
-        routineVariations.associate { it.id to it.variationLabel.ifBlank { it.name } }
+    // Template id -> (routine label, variation label), across ALL templates — not just the
+    // currently-selected routine — so every point can be tagged regardless of scope. A standalone
+    // template (no routineId) is its own single-member "routine" with a blank variation.
+    val templateRoutineInfo = remember(templates) {
+        templates.associate { t ->
+            t.id to if (t.routineId.isNotBlank()) {
+                t.routineName.ifBlank { "Routine" } to t.variationLabel.ifBlank { "?" }
+            } else {
+                t.name to ""
+            }
+        }
     }
 
-    val series = remember(scopedWorkouts, selectedSubjects, metric, exercises, idToVariationLabel) {
+    val series = remember(scopedWorkouts, selectedSubjects, metric, exercises, templateRoutineInfo) {
         selectedSubjects.mapIndexed { i, subj ->
             val effMetric = if (subj == null) Metric.VOLUME else metric
             val pts = scopedWorkouts.mapNotNull { w ->
@@ -214,27 +232,51 @@ private fun ProgressContent(
                     val setNotes = eiw?.sets?.mapNotNull { it.notes.trim().ifBlank { null } }?.distinct().orEmpty()
                     (listOf(eiw?.notes?.trim().orEmpty()) + setNotes).filter { it.isNotBlank() }.joinToString("; ")
                 }
-                val variationLabel = w.templateId?.let { idToVariationLabel[it] } ?: ""
-                Point(v, w.startDate, combinedNote, w.notes, setCount, variationLabel)
+                val (routineLabel, variationLabel) = w.templateId?.let { templateRoutineInfo[it] } ?: ("" to "")
+                Point(v, w.startDate, combinedNote, w.notes, setCount, routineLabel, variationLabel)
             }
             val label = subj?.let { id -> exercises.firstOrNull { it.id == id }?.name ?: "Exercise" } ?: "Total Volume"
             Series(label, seriesPalette[i % seriesPalette.size], pts)
         }
     }
 
-    // Color each node by which variation it came from, instead of one flat series color — but only
-    // when that's unambiguous: scoped to one routine, viewing "across variations", a single tracked
-    // series, and more than one variation actually contributing points.
-    val colorByVariation = scope == Scope.ROUTINE && selectedVariationId == null &&
-        routineVariations.size > 1 && series.size == 1
-    val distinctVariationLabels = remember(series, colorByVariation) {
-        if (!colorByVariation) emptyList() else series.first().points.map { it.variationLabel }.filter { it.isNotBlank() }.distinct()
+    // Group nodes by routine (a hue) and by variation within that routine (a shade of that hue) —
+    // in every scope, whenever there's more than one distinct routine/variation contributing points
+    // for a single tracked series. Kept off when tracking several exercises at once, since the line
+    // color already carries meaning there and a second color dimension would just be confusing.
+    val pointGroups = remember(series) {
+        if (series.size != 1) emptyList() else series.first().points
+            .map { it.routineLabel to it.variationLabel }
+            .filter { it.first.isNotBlank() }
+            .distinct()
     }
-    val variationColorOf: (String) -> Color = { label ->
-        val idx = distinctVariationLabels.indexOf(label)
-        // Excludes the line's own color so no variation can ever land on the same blue (etc.) as
-        // the line it sits on.
-        if (idx < 0) TextSecondary else pickNodeColor(idx, avoid = series.first().color)
+    val colorByGroup = pointGroups.size >= 2
+    val routineOrder = remember(pointGroups) { pointGroups.map { it.first }.distinct() }
+    val variationsByRoutine = remember(pointGroups) {
+        pointGroups.groupBy({ it.first }, { it.second }).mapValues { (_, vs) -> vs.distinct().sorted() }
+    }
+    // The palette used for routine hues, with the line's own color pushed to the back so it's only
+    // reused as a last resort when there are more routines than spare colors.
+    val routineHuePalette = remember(series) {
+        val lineColor = series.firstOrNull()?.color
+        if (lineColor == null) seriesPalette else seriesPalette.sortedBy { it == lineColor }
+    }
+    val routineHue: Map<String, Color> = remember(routineOrder, routineHuePalette) {
+        routineOrder.mapIndexed { i, r -> r to routineHuePalette[i % routineHuePalette.size] }.toMap()
+    }
+    // Shades a routine's hue by a variation's position among that routine's variations: lighter for
+    // earlier ones, darker for later ones, e.g. "Upper A" light green / "Upper B" dark green.
+    val groupColorOf: (String, String) -> Color = { routineLabel, variationLabel ->
+        val hue = routineHue[routineLabel]
+        if (hue == null) TextSecondary else {
+            val variations = variationsByRoutine[routineLabel] ?: listOf(variationLabel)
+            if (variations.size <= 1) hue else {
+                val idx = variations.indexOf(variationLabel).coerceAtLeast(0)
+                val t = idx.toFloat() / (variations.size - 1)
+                if (t <= 0.5f) lerp(hue, Color.White, (0.5f - t) * 0.7f)
+                else lerp(hue, Color.Black, (t - 0.5f) * 0.5f)
+            }
+        }
     }
 
     LaunchedEffect(selectedSubjects, metric, scope, selectedPhaseId, selectedGroupKey, selectedSplitKey, selectedVariationId) { selected = null }
@@ -312,10 +354,10 @@ private fun ProgressContent(
                 color = TextSecondary
             )
         } else {
-            MultiLineChart(series, selected, if (colorByVariation) variationColorOf else null) { selected = it }
+            MultiLineChart(series, selected, if (colorByGroup) groupColorOf else null) { selected = it }
             Spacer(Modifier.height(8.dp))
-            if (colorByVariation) {
-                VariationLegend(distinctVariationLabels, variationColorOf)
+            if (colorByGroup) {
+                VariationLegend(pointGroups, groupColorOf)
                 Spacer(Modifier.height(8.dp))
             } else if (series.size > 1) {
                 Legend(series)
@@ -395,16 +437,17 @@ private fun Legend(series: List<Series>) {
     }
 }
 
-// Explains the per-node colors when a routine's variations are being compared "across
-// variations" on a single line — one swatch per variation, e.g. Upper A / Upper B.
+// Explains the per-node colors when a single line's points span several routines/variations —
+// one swatch per (routine, variation) combo, e.g. Upper A / Upper B / Lower A / Lower B.
 @Composable
-private fun VariationLegend(labels: List<String>, variationColorOf: (String) -> Color) {
+private fun VariationLegend(groups: List<Pair<String, String>>, groupColorOf: (String, String) -> Color) {
     val scrollState = rememberScrollState()
     Column {
         Row(modifier = Modifier.fillMaxWidth().pagerSafeHorizontalScroll(scrollState), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            labels.forEach { label ->
+            groups.forEach { (routineLabel, variationLabel) ->
+                val label = if (variationLabel.isBlank()) routineLabel else "$routineLabel $variationLabel"
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Box(modifier = Modifier.size(10.dp).background(variationColorOf(label), CircleShape))
+                    Box(modifier = Modifier.size(10.dp).background(groupColorOf(routineLabel, variationLabel), CircleShape))
                     Text(label, fontSize = 11.sp, color = TextSecondary, maxLines = 1, softWrap = false)
                 }
             }
@@ -509,9 +552,9 @@ private fun SelectRow(text: String, checked: Boolean, onClick: () -> Unit) {
 private fun MultiLineChart(
     series: List<Series>,
     selected: Pair<Int, Int>?,
-    // When non-null, each node is colored by its point's variationLabel instead of its series
-    // color; the connecting line still uses the series color so the chart stays readable.
-    pointColor: ((String) -> Color)? = null,
+    // When non-null, each node is colored by its point's (routineLabel, variationLabel) instead of
+    // its series color; the connecting line still uses the series color so the chart stays readable.
+    pointColor: ((String, String) -> Color)? = null,
     onSelect: (Pair<Int, Int>?) -> Unit
 ) {
     val flat = remember(series) { series.flatMapIndexed { si, s -> s.points.mapIndexed { pi, p -> Triple(si, pi, p) } } }
@@ -585,7 +628,7 @@ private fun MultiLineChart(
             // own line color (variation-colored nodes already exclude it too).
             val defaultNodeColor = pickNodeColor(0, avoid = s.color)
             s.points.forEach { p ->
-                val dotColor = pointColor?.invoke(p.variationLabel) ?: defaultNodeColor
+                val dotColor = pointColor?.invoke(p.routineLabel, p.variationLabel) ?: defaultNodeColor
                 val center = Offset(xAt(p.date.toEpochDays()), yAt(si, p.value))
                 drawCircle(CardBackground, radius = 6.dp.toPx(), center = center)
                 drawCircle(dotColor, radius = 4.dp.toPx(), center = center)
@@ -597,7 +640,7 @@ private fun MultiLineChart(
                 val cy = yAt(si, p.value)
                 drawLine(TextSecondary, Offset(cx, topPad), Offset(cx, topPad + chartH), strokeWidth = 1.dp.toPx())
                 drawCircle(Color.White, radius = 8.dp.toPx(), center = Offset(cx, cy))
-                drawCircle(pointColor?.invoke(p.variationLabel) ?: pickNodeColor(0, avoid = series[si].color), radius = 5.dp.toPx(), center = Offset(cx, cy))
+                drawCircle(pointColor?.invoke(p.routineLabel, p.variationLabel) ?: pickNodeColor(0, avoid = series[si].color), radius = 5.dp.toPx(), center = Offset(cx, cy))
             }
         }
     }
