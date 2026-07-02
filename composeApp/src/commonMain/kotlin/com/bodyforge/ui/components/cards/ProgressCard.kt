@@ -38,6 +38,14 @@ import kotlin.math.roundToInt
 private val seriesPalette: List<Color> get() = listOf(AccentBlue, AccentOrange, AccentGreen, AccentPurple, AccentRed)
 private const val MAX_SUBJECTS = 5
 
+// A palette color for the given index that is never the line/series color it's paired with, so a
+// node can never coincidentally match — cycles through the palette with that one color removed.
+private fun pickNodeColor(index: Int, avoid: Color): Color {
+    val candidates = seriesPalette.filter { it != avoid }
+    if (candidates.isEmpty()) return avoid
+    return candidates[index % candidates.size]
+}
+
 private enum class Metric(val label: String) {
     EST_1RM("Est. 1RM"),
     TOP_WEIGHT("Top weight"),
@@ -224,7 +232,9 @@ private fun ProgressContent(
     }
     val variationColorOf: (String) -> Color = { label ->
         val idx = distinctVariationLabels.indexOf(label)
-        if (idx < 0) TextSecondary else seriesPalette[idx % seriesPalette.size]
+        // Excludes the line's own color so no variation can ever land on the same blue (etc.) as
+        // the line it sits on.
+        if (idx < 0) TextSecondary else pickNodeColor(idx, avoid = series.first().color)
     }
 
     LaunchedEffect(selectedSubjects, metric, scope, selectedPhaseId, selectedGroupKey, selectedSplitKey, selectedVariationId) { selected = null }
@@ -570,15 +580,15 @@ private fun MultiLineChart(
             for (i in 0 until sorted.size - 1) {
                 drawLine(s.color, Offset(xAt(sorted[i].date.toEpochDays()), yAt(si, sorted[i].value)), Offset(xAt(sorted[i + 1].date.toEpochDays()), yAt(si, sorted[i + 1].value)), strokeWidth = 3.dp.toPx())
             }
+            // Nodes must never read as "the line": a background-colored halo breaks the line under
+            // each node, and the node itself always uses a palette color other than this series'
+            // own line color (variation-colored nodes already exclude it too).
+            val defaultNodeColor = pickNodeColor(0, avoid = s.color)
             s.points.forEach { p ->
-                // Nodes must never read as "the line" — a background-colored halo breaks the line
-                // under the node, and unmarked nodes use a neutral color distinct from every series
-                // accent (variation-colored nodes keep their own palette color, which already differs
-                // from the line in almost every case; the halo covers the rare coincidence too).
-                val nodeColor = pointColor?.invoke(p.variationLabel) ?: TextPrimary
+                val dotColor = pointColor?.invoke(p.variationLabel) ?: defaultNodeColor
                 val center = Offset(xAt(p.date.toEpochDays()), yAt(si, p.value))
                 drawCircle(CardBackground, radius = 6.dp.toPx(), center = center)
-                drawCircle(nodeColor, radius = 4.dp.toPx(), center = center)
+                drawCircle(dotColor, radius = 4.dp.toPx(), center = center)
             }
         }
         selected?.let { (si, pi) ->
@@ -587,7 +597,7 @@ private fun MultiLineChart(
                 val cy = yAt(si, p.value)
                 drawLine(TextSecondary, Offset(cx, topPad), Offset(cx, topPad + chartH), strokeWidth = 1.dp.toPx())
                 drawCircle(Color.White, radius = 8.dp.toPx(), center = Offset(cx, cy))
-                drawCircle(pointColor?.invoke(p.variationLabel) ?: series[si].color, radius = 5.dp.toPx(), center = Offset(cx, cy))
+                drawCircle(pointColor?.invoke(p.variationLabel) ?: pickNodeColor(0, avoid = series[si].color), radius = 5.dp.toPx(), center = Offset(cx, cy))
             }
         }
     }
