@@ -463,13 +463,21 @@ private fun EditorCapsule(
             modifier = Modifier.weight(1f).fillMaxHeight().clickable(onClick = onTapValue),
             contentAlignment = Alignment.Center
         ) {
+            // Longer values (decimals like "+27.5") step down in size so they never overflow
+            // into the −/+ segments.
             Text(
                 value,
                 color = valueColor,
-                fontSize = if (value.length > 6) 13.sp else 16.sp,
+                fontSize = when {
+                    value.length >= 8 -> 11.sp
+                    value.length >= 6 -> 12.sp
+                    value.length >= 5 -> 14.sp
+                    else -> 16.sp
+                },
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
-                softWrap = false
+                softWrap = false,
+                modifier = Modifier.padding(horizontal = 2.dp)
             )
         }
         Box(Modifier.width(1.dp).fillMaxHeight().background(borderColor))

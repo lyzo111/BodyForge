@@ -771,7 +771,8 @@ private fun ActiveExerciseCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(SurfaceColor.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                        .border(1.dp, TextSecondary.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("Bodyweight", fontSize = 13.sp, color = TextSecondary, modifier = Modifier.weight(1f))
@@ -1408,13 +1409,21 @@ private fun StepperCapsule(
             modifier = Modifier.weight(1f).fillMaxHeight().clickable(enabled = enabled, onClick = onTapValue),
             contentAlignment = Alignment.Center
         ) {
+            // Longer values (decimals like "+27.5") step down in size so they never overflow
+            // into the −/+ segments.
             Text(
                 value,
                 color = valueColor,
-                fontSize = if (value.length > 6) 13.sp else valueFontSize,
+                fontSize = when {
+                    value.length >= 8 -> 11.sp
+                    value.length >= 6 -> 12.sp
+                    value.length >= 5 -> minOf(14f, valueFontSize.value).sp
+                    else -> valueFontSize
+                },
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
-                softWrap = false
+                softWrap = false,
+                modifier = Modifier.padding(horizontal = 2.dp)
             )
         }
         Box(Modifier.width(1.dp).fillMaxHeight().background(borderColor))

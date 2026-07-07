@@ -34,7 +34,7 @@ fun SettingsScreen(listState: LazyListState) {
     var useLbs by remember { mutableStateOf(AppSettings.useLbs) }
     var emojiMode by remember { mutableStateOf(AppSettings.emojiMode) }
     var bigButtons by remember { mutableStateOf(AppSettings.bigButtonMode) }
-    var showBigButtonInfo by remember { mutableStateOf(false) }
+    var infoDialog by remember { mutableStateOf<Pair<String, String>?>(null) } // (title, text)
 
     LazyColumn(
         state = listState,
@@ -80,7 +80,10 @@ fun SettingsScreen(listState: LazyListState) {
                 ToggleRow(
                     label = "Big Button Mode",
                     checked = bigButtons,
-                    onInfo = { showBigButtonInfo = true }
+                    onInfo = {
+                        infoDialog = "Big Button Mode" to
+                            "Shows the active workout with large stacked buttons for each set — easier to hit mid-set, but longer to scroll. Off, sets use the compact one-line rows."
+                    }
                 ) {
                     bigButtons = it
                     AppSettings.bigButtonMode = it
@@ -106,7 +109,14 @@ fun SettingsScreen(listState: LazyListState) {
                         }
                     }
                 }
-                ToggleRow("Emoji mode", emojiMode) {
+                ToggleRow(
+                    label = "Emoji mode",
+                    checked = emojiMode,
+                    onInfo = {
+                        infoDialog = "Emoji mode" to
+                            "Sprinkles little emojis over titles and buttons. Effect on your lifts: +0 kg. Effect on the vibe: massive. 💪"
+                    }
+                ) {
                     emojiMode = it
                     AppSettings.emojiMode = it
                     SettingsState.reload()
@@ -138,18 +148,13 @@ fun SettingsScreen(listState: LazyListState) {
         item { Spacer(Modifier.height(8.dp)) }
     }
 
-    if (showBigButtonInfo) {
+    infoDialog?.let { (title, text) ->
         AlertDialog(
-            onDismissRequest = { showBigButtonInfo = false },
-            title = { Text("Big Button Mode", color = TextPrimary, fontWeight = FontWeight.Bold) },
-            text = {
-                Text(
-                    "Shows the active workout with large stacked buttons for each set — easier to hit mid-set, but longer to scroll. Off, sets use the compact one-line rows.",
-                    color = TextSecondary, fontSize = 14.sp
-                )
-            },
+            onDismissRequest = { infoDialog = null },
+            title = { Text(title, color = TextPrimary, fontWeight = FontWeight.Bold) },
+            text = { Text(text, color = TextSecondary, fontSize = 14.sp) },
             confirmButton = {
-                Button(onClick = { showBigButtonInfo = false }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentBlue), elevation = ButtonDefaults.elevation(0.dp)) {
+                Button(onClick = { infoDialog = null }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentBlue), elevation = ButtonDefaults.elevation(0.dp)) {
                     Text("Got it", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
