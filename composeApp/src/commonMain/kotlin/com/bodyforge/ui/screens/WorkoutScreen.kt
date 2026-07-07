@@ -315,8 +315,21 @@ private fun ActiveWorkoutView(
     val restRemaining by SharedWorkoutState.restRemainingSeconds.collectAsState()
     val restTotal by SharedWorkoutState.restTotalSeconds.collectAsState()
     val restEndsAtMillis by SharedWorkoutState.restEndsAtMillis.collectAsState()
-    // Per-exercise collapse state for the active workout, hoisted so it survives list recycling.
-    val expandedExercises = remember { mutableStateMapOf<String, Boolean>() }
+    // Per-exercise collapse state for the active workout, hoisted so it survives list recycling
+    // and persisted (scoped to this workout's id) so it also survives app restarts.
+    val expandedExercises = remember(workout.id) {
+        mutableStateMapOf<String, Boolean>().apply {
+            if (com.bodyforge.data.AppSettings.collapsedWorkoutId == workout.id) {
+                com.bodyforge.data.AppSettings.collapsedExerciseIds.forEach { put(it, false) }
+            }
+        }
+    }
+    fun toggleExpanded(exId: String) {
+        expandedExercises[exId] = !(expandedExercises[exId] ?: true)
+        com.bodyforge.data.AppSettings.collapsedWorkoutId = workout.id
+        com.bodyforge.data.AppSettings.collapsedExerciseIds =
+            expandedExercises.filterValues { !it }.keys
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         if (workout.exercises.size > 1) {
@@ -388,7 +401,7 @@ private fun ActiveWorkoutView(
                 },
                 onNotesChange = { viewModel.updateExerciseNotes(exerciseInWorkout.exercise.id, it) },
                 expanded = expandedExercises[exId] ?: true,
-                onToggleExpand = { expandedExercises[exId] = !(expandedExercises[exId] ?: true) },
+                onToggleExpand = { toggleExpanded(exId) },
                 onBodyweightChange = { SharedWorkoutState.updateBodyweight(it) },
                 onUpdateMetric = { setId, key, value -> viewModel.updateSetMetric(exerciseInWorkout.exercise.id, setId, key, value) }
             )

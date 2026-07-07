@@ -87,6 +87,19 @@ object AppSettings {
         get() = prefs.getBoolean("group_templates_by_split", false)
         set(value) { prefs.edit().putBoolean("group_templates_by_split", value).apply() }
 
+    // Which exercise cards are collapsed in the active workout, so the fold state survives app
+    // restarts. Scoped to one workout id — a different workout starts fully expanded again.
+    var collapsedWorkoutId: String
+        get() = prefs.getString("collapsed_workout_id", "") ?: ""
+        set(value) { prefs.edit().putString("collapsed_workout_id", value).apply() }
+
+    var collapsedExerciseIds: Set<String>
+        get() {
+            val raw = prefs.getString("collapsed_exercise_ids", "") ?: ""
+            return if (raw.isEmpty()) emptySet() else raw.split(RECORD_SEP).toSet()
+        }
+        set(value) { prefs.edit().putString("collapsed_exercise_ids", value.joinToString(RECORD_SEP)).apply() }
+
     // Name of the selected colour theme (see com.bodyforge.ui.theme). Defaults to the first theme.
     var themeName: String
         get() = prefs.getString("theme_name", "Midnight") ?: "Midnight"

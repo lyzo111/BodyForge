@@ -62,35 +62,38 @@ class WorkoutRepositoryImpl(
         // First, finish any existing active workouts (only one active at a time)
         finishAllActiveWorkouts()
 
-        // Save workout
-        queries.insertWorkout(
-            id = workout.id,
-            name = workout.name,
-            started_at = workout.startedAt.epochSeconds,
-            finished_at = workout.finishedAt?.epochSeconds,
-            notes = workout.notes,
-            template_id = workout.templateId
-        )
+        // One transaction for the workout row and all its sets: concurrent writers (e.g. a
+        // debounced note save racing a set completion) queue up instead of interleaving their
+        // statements, which used to trip the WorkoutSet.id primary key.
+        queries.transaction {
+            queries.insertWorkout(
+                id = workout.id,
+                name = workout.name,
+                started_at = workout.startedAt.epochSeconds,
+                finished_at = workout.finishedAt?.epochSeconds,
+                notes = workout.notes,
+                template_id = workout.templateId
+            )
 
-        // Save exercises and sets
-        workout.exercises.forEachIndexed { exerciseIndex, exerciseInWorkout ->
-            exerciseInWorkout.sets.forEachIndexed { setIndex, set ->
-                queries.insertWorkoutSet(
-                    id = set.id,
-                    workout_id = workout.id,
-                    exercise_id = exerciseInWorkout.exercise.id,
-                    order_in_workout = exerciseIndex.toLong(),
-                    set_number = (setIndex + 1).toLong(),
-                    reps = set.reps.toLong(),
-                    weight_kg = set.weightKg,
-                    rest_time_seconds = set.restTimeSeconds.toLong(),
-                    completed = if (set.completed) 1L else 0L,
-                    completed_at = set.completedAt?.epochSeconds,
-                    notes = if (setIndex == 0) encodeFirstSetNotes(exerciseInWorkout.notes, set.notes) else set.notes,
-                    status = set.status.name,
-                    original_exercise_id = set.originalExerciseId,
-                    metrics = com.bodyforge.data.mappers.WorkoutMapper.serializeMetrics(set.metrics)
-                )
+            workout.exercises.forEachIndexed { exerciseIndex, exerciseInWorkout ->
+                exerciseInWorkout.sets.forEachIndexed { setIndex, set ->
+                    queries.insertWorkoutSet(
+                        id = set.id,
+                        workout_id = workout.id,
+                        exercise_id = exerciseInWorkout.exercise.id,
+                        order_in_workout = exerciseIndex.toLong(),
+                        set_number = (setIndex + 1).toLong(),
+                        reps = set.reps.toLong(),
+                        weight_kg = set.weightKg,
+                        rest_time_seconds = set.restTimeSeconds.toLong(),
+                        completed = if (set.completed) 1L else 0L,
+                        completed_at = set.completedAt?.epochSeconds,
+                        notes = if (setIndex == 0) encodeFirstSetNotes(exerciseInWorkout.notes, set.notes) else set.notes,
+                        status = set.status.name,
+                        original_exercise_id = set.originalExerciseId,
+                        metrics = com.bodyforge.data.mappers.WorkoutMapper.serializeMetrics(set.metrics)
+                    )
+                }
             }
         }
 
@@ -100,32 +103,34 @@ class WorkoutRepositoryImpl(
     // Saves an already-completed workout (e.g. a CSV import) without touching active workouts,
     // so a back-dated import never finishes an in-progress session.
     override suspend fun importWorkout(workout: Workout): Unit = withContext(Dispatchers.IO) {
-        queries.insertWorkout(
-            id = workout.id,
-            name = workout.name,
-            started_at = workout.startedAt.epochSeconds,
-            finished_at = workout.finishedAt?.epochSeconds,
-            notes = workout.notes,
-            template_id = workout.templateId
-        )
-        workout.exercises.forEachIndexed { exerciseIndex, exerciseInWorkout ->
-            exerciseInWorkout.sets.forEachIndexed { setIndex, set ->
-                queries.insertWorkoutSet(
-                    id = set.id,
-                    workout_id = workout.id,
-                    exercise_id = exerciseInWorkout.exercise.id,
-                    order_in_workout = exerciseIndex.toLong(),
-                    set_number = (setIndex + 1).toLong(),
-                    reps = set.reps.toLong(),
-                    weight_kg = set.weightKg,
-                    rest_time_seconds = set.restTimeSeconds.toLong(),
-                    completed = if (set.completed) 1L else 0L,
-                    completed_at = set.completedAt?.epochSeconds,
-                    notes = if (setIndex == 0) encodeFirstSetNotes(exerciseInWorkout.notes, set.notes) else set.notes,
-                    status = set.status.name,
-                    original_exercise_id = set.originalExerciseId,
-                    metrics = com.bodyforge.data.mappers.WorkoutMapper.serializeMetrics(set.metrics)
-                )
+        queries.transaction {
+            queries.insertWorkout(
+                id = workout.id,
+                name = workout.name,
+                started_at = workout.startedAt.epochSeconds,
+                finished_at = workout.finishedAt?.epochSeconds,
+                notes = workout.notes,
+                template_id = workout.templateId
+            )
+            workout.exercises.forEachIndexed { exerciseIndex, exerciseInWorkout ->
+                exerciseInWorkout.sets.forEachIndexed { setIndex, set ->
+                    queries.insertWorkoutSet(
+                        id = set.id,
+                        workout_id = workout.id,
+                        exercise_id = exerciseInWorkout.exercise.id,
+                        order_in_workout = exerciseIndex.toLong(),
+                        set_number = (setIndex + 1).toLong(),
+                        reps = set.reps.toLong(),
+                        weight_kg = set.weightKg,
+                        rest_time_seconds = set.restTimeSeconds.toLong(),
+                        completed = if (set.completed) 1L else 0L,
+                        completed_at = set.completedAt?.epochSeconds,
+                        notes = if (setIndex == 0) encodeFirstSetNotes(exerciseInWorkout.notes, set.notes) else set.notes,
+                        status = set.status.name,
+                        original_exercise_id = set.originalExerciseId,
+                        metrics = com.bodyforge.data.mappers.WorkoutMapper.serializeMetrics(set.metrics)
+                    )
+                }
             }
         }
     }
@@ -230,38 +235,39 @@ class WorkoutRepositoryImpl(
     }
 
     override suspend fun updateWorkout(workout: Workout): Workout = withContext(Dispatchers.IO) {
-        // Update workout
-        queries.updateWorkout(
-            name = workout.name,
-            started_at = workout.startedAt.epochSeconds,
-            finished_at = workout.finishedAt?.epochSeconds,
-            notes = workout.notes,
-            template_id = workout.templateId,
-            id = workout.id
-        )
+        // Delete-then-reinsert must be atomic: without the transaction, two concurrent updates
+        // interleave their deletes and inserts and collide on the WorkoutSet.id primary key.
+        queries.transaction {
+            queries.updateWorkout(
+                name = workout.name,
+                started_at = workout.startedAt.epochSeconds,
+                finished_at = workout.finishedAt?.epochSeconds,
+                notes = workout.notes,
+                template_id = workout.templateId,
+                id = workout.id
+            )
 
-        // Delete old sets and insert new ones (simple approach)
-        queries.deleteSetsForWorkout(workout.id)
+            queries.deleteSetsForWorkout(workout.id)
 
-        // Re-insert all sets
-        workout.exercises.forEachIndexed { exerciseIndex, exerciseInWorkout ->
-            exerciseInWorkout.sets.forEachIndexed { setIndex, set ->
-                queries.insertWorkoutSet(
-                    id = set.id,
-                    workout_id = workout.id,
-                    exercise_id = exerciseInWorkout.exercise.id,
-                    order_in_workout = exerciseIndex.toLong(),
-                    set_number = (setIndex + 1).toLong(),
-                    reps = set.reps.toLong(),
-                    weight_kg = set.weightKg,
-                    rest_time_seconds = set.restTimeSeconds.toLong(),
-                    completed = if (set.completed) 1L else 0L,
-                    completed_at = set.completedAt?.epochSeconds,
-                    notes = if (setIndex == 0) encodeFirstSetNotes(exerciseInWorkout.notes, set.notes) else set.notes,
-                    status = set.status.name,
-                    original_exercise_id = set.originalExerciseId,
-                    metrics = com.bodyforge.data.mappers.WorkoutMapper.serializeMetrics(set.metrics)
-                )
+            workout.exercises.forEachIndexed { exerciseIndex, exerciseInWorkout ->
+                exerciseInWorkout.sets.forEachIndexed { setIndex, set ->
+                    queries.insertWorkoutSet(
+                        id = set.id,
+                        workout_id = workout.id,
+                        exercise_id = exerciseInWorkout.exercise.id,
+                        order_in_workout = exerciseIndex.toLong(),
+                        set_number = (setIndex + 1).toLong(),
+                        reps = set.reps.toLong(),
+                        weight_kg = set.weightKg,
+                        rest_time_seconds = set.restTimeSeconds.toLong(),
+                        completed = if (set.completed) 1L else 0L,
+                        completed_at = set.completedAt?.epochSeconds,
+                        notes = if (setIndex == 0) encodeFirstSetNotes(exerciseInWorkout.notes, set.notes) else set.notes,
+                        status = set.status.name,
+                        original_exercise_id = set.originalExerciseId,
+                        metrics = com.bodyforge.data.mappers.WorkoutMapper.serializeMetrics(set.metrics)
+                    )
+                }
             }
         }
 
@@ -276,8 +282,10 @@ class WorkoutRepositoryImpl(
 
     override suspend fun deleteWorkout(id: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            queries.deleteSetsForWorkout(id)
-            queries.deleteWorkout(id)
+            queries.transaction {
+                queries.deleteSetsForWorkout(id)
+                queries.deleteWorkout(id)
+            }
             true
         } catch (e: Exception) {
             false

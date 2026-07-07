@@ -20,8 +20,9 @@ data class WorkoutSet(
 
     companion object {
         fun createEmpty(exerciseId: String, setNumber: Int, defaultRestTime: Int, workoutId: String? = null): WorkoutSet {
-            // Always use timestamp plus a random suffix to ensure unique IDs
-            val timestamp = Clock.System.now().epochSeconds
+            // Millisecond timestamp plus a random suffix keeps ids unique even when several sets
+            // are created for the same exercise and set number in quick succession.
+            val timestamp = Clock.System.now().toEpochMilliseconds()
             val uniqueId = "set_${timestamp}_${exerciseId}_${setNumber}_${(0..9999).random()}"
 
             return WorkoutSet(
