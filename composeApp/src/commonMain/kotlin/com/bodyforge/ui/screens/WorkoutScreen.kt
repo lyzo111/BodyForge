@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.*
@@ -526,62 +527,93 @@ private fun WorkoutHeaderCard(
 ) {
     var showStopConfirm by remember { mutableStateOf(false) }
 
+    // Elapsed time since the workout started, ticking once a second.
+    var nowMillis by remember { mutableStateOf(Clock.System.now().toEpochMilliseconds()) }
+    LaunchedEffect(workout.id) {
+        while (true) {
+            nowMillis = Clock.System.now().toEpochMilliseconds()
+            kotlinx.coroutines.delay(1000L)
+        }
+    }
+    val elapsedSeconds = ((nowMillis - workout.startedAt.toEpochMilliseconds()) / 1000L).coerceAtLeast(0L)
+    val elapsedLabel = run {
+        val h = elapsedSeconds / 3600
+        val m = (elapsedSeconds % 3600) / 60
+        val s = elapsedSeconds % 60
+        if (h > 0) "$h:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}"
+        else "$m:${s.toString().padStart(2, '0')}"
+    }
+    val totalSets = workout.exercises.sumOf { e -> e.sets.count { !it.isSkipped } }
+    val doneSets = workout.exercises.sumOf { e -> e.sets.count { !it.isSkipped && it.completed } }
+
     Card(
-        backgroundColor = AccentBlue,
-        elevation = 4.dp,
-        shape = RoundedCornerShape(12.dp),
+        backgroundColor = CardBackground,
+        elevation = 0.dp,
+        shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = workout.name.ifEmpty { "Workout" },
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Text(
-                    text = "${workout.exercises.size} exercises",
-                    fontSize = 14.sp,
-                    color = Color.White.copy(alpha = 0.8f)
-                )
-            }
-
+        Column(modifier = Modifier.padding(14.dp)) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = workout.name.ifEmpty { "Workout" },
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                    Text(
+                        text = "${workout.exercises.size} exercises · $doneSets/$totalSets sets done",
+                        fontSize = 13.sp,
+                        color = TextSecondary
+                    )
+                }
+                Text(
+                    text = elapsedLabel,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = AccentOrange,
+                    modifier = Modifier
+                        .background(AccentOrange.copy(alpha = 0.14f), RoundedCornerShape(11.dp))
+                        .padding(horizontal = 13.dp, vertical = 9.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(
                     onClick = { showStopConfirm = true },
                     enabled = !isLoading,
                     colors = ButtonDefaults.buttonColors(
-                        backgroundColor = Color.White.copy(alpha = 0.15f),
-                        contentColor = Color.White
+                        backgroundColor = AccentRed.copy(alpha = 0.13f),
+                        contentColor = AccentRed
                     ),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f)),
-                    shape = RoundedCornerShape(25.dp),
-                    elevation = ButtonDefaults.elevation(0.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = ButtonDefaults.elevation(0.dp),
+                    modifier = Modifier.height(48.dp)
                 ) {
-                    Text(text = "Stop", fontWeight = FontWeight.Bold)
+                    Text("Discard", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AccentRed)
                 }
-
                 Button(
                     onClick = onFinishWorkout,
                     enabled = !isLoading,
                     colors = ButtonDefaults.buttonColors(
-                        backgroundColor = Color.White,
-                        contentColor = AccentBlue
+                        backgroundColor = AccentOrange,
+                        contentColor = Color.White
                     ),
-                    shape = RoundedCornerShape(25.dp),
-                    elevation = ButtonDefaults.elevation(0.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = ButtonDefaults.elevation(0.dp),
+                    modifier = Modifier.weight(1f).height(48.dp)
                 ) {
                     Text(
-                        text = if (isLoading) "..." else "Finish",
-                        fontWeight = FontWeight.Bold
+                        text = if (isLoading) "..." else "Finish Workout",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = Color.White
                     )
                 }
             }
@@ -591,7 +623,7 @@ private fun WorkoutHeaderCard(
     if (showStopConfirm) {
         AlertDialog(
             onDismissRequest = { showStopConfirm = false },
-            title = { Text("Stop workout?", fontWeight = FontWeight.Bold, color = TextPrimary) },
+            title = { Text("Discard workout?", fontWeight = FontWeight.Bold, color = TextPrimary) },
             text = {
                 Text(
                     "This discards the current workout without saving it to your history.",
@@ -708,6 +740,17 @@ private fun ActiveExerciseCard(
                 )
             }
 
+            if (exercise.muscleGroups.isNotEmpty()) {
+                Text(
+                    text = exercise.muscleGroups.joinToString(" · "),
+                    fontSize = 12.sp,
+                    color = TextSecondary,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+
             target?.let { t ->
                 val reps = if (t.minReps == t.maxReps) "${t.minReps}" else "${t.minReps}–${t.maxReps}"
                 Text(
@@ -722,26 +765,27 @@ private fun ActiveExerciseCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             if (exercise.isBodyweight) {
+                // Shared across every bodyweight exercise in the workout: changing it here changes
+                // it for all of them, since it reads/writes the one SharedWorkoutState value.
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(SurfaceColor.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .background(SurfaceColor.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Bodyweight", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = TextSecondary)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        SmallControlButton("−", AccentRed, { onBodyweightChange((bodyweight - Weights.toKg(0.5)).coerceAtLeast(30.0)) }, bodyweight > 30.0)
-                        Text(
-                            "${formatWeight(bodyweight)} ${Weights.unit}",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = AccentGreen,
-                            modifier = Modifier.clickable { showBodyweightEdit = true }
-                        )
-                        SmallControlButton("+", AccentGreen, { onBodyweightChange((bodyweight + Weights.toKg(0.5)).coerceAtMost(999.0)) }, bodyweight < 999.0)
-                    }
+                    Text("Bodyweight", fontSize = 13.sp, color = TextSecondary, modifier = Modifier.weight(1f))
+                    StepperCapsule(
+                        value = "${formatWeight(bodyweight)} ${Weights.unit}",
+                        valueColor = AccentGreen,
+                        enabled = true,
+                        height = 42.dp,
+                        valueFontSize = 14.sp,
+                        onMinus = { onBodyweightChange((bodyweight - Weights.toKg(0.5)).coerceAtLeast(30.0)) },
+                        onPlus = { onBodyweightChange((bodyweight + Weights.toKg(0.5)).coerceAtMost(999.0)) },
+                        onTapValue = { showBodyweightEdit = true },
+                        modifier = Modifier.width(164.dp)
+                    )
                 }
                 if (showBodyweightEdit) {
                     WeightEditDialog(
@@ -818,7 +862,7 @@ private fun ActiveExerciseCard(
                     fontSize = 13.sp,
                     color = TextSecondary
                 )
-            } else {
+            } else if (com.bodyforge.presentation.state.SettingsState.bigButtonMode) {
                 exerciseInWorkout.sets.forEachIndexed { index, set ->
                     SetRowWithButtons(
                         setNumber = index + 1,
@@ -834,6 +878,21 @@ private fun ActiveExerciseCard(
                     if (index < exerciseInWorkout.sets.size - 1) {
                         Spacer(modifier = Modifier.height(12.dp))
                     }
+                }
+            } else {
+                CompactSetHeaderRow(exercise)
+                exerciseInWorkout.sets.forEachIndexed { index, set ->
+                    Spacer(modifier = Modifier.height(6.dp))
+                    CompactSetRow(
+                        setNumber = index + 1,
+                        set = set,
+                        exercise = exercise,
+                        bodyweight = bodyweight,
+                        onUpdateSet = { reps, weight, completed ->
+                            onUpdateSet(set.id, reps, weight, completed)
+                        },
+                        onUpdateNotes = { notes -> onUpdateSetNotes(set.id, notes) }
+                    )
                 }
             }
 
@@ -1313,6 +1372,184 @@ private fun SetRowWithButtons(
             }
             SetNoteField(set = set, onUpdateNotes = onUpdateNotes)
         }
+    }
+}
+
+// A segmented − / value / + capsule (the compact stepper from the redesign). The value area is
+// tappable for direct input; thin dividers separate the three segments.
+@Composable
+private fun StepperCapsule(
+    value: String,
+    valueColor: Color,
+    enabled: Boolean,
+    onMinus: () -> Unit,
+    onPlus: () -> Unit,
+    onTapValue: () -> Unit,
+    modifier: Modifier = Modifier,
+    height: androidx.compose.ui.unit.Dp = 46.dp,
+    valueFontSize: androidx.compose.ui.unit.TextUnit = 16.sp
+) {
+    val borderColor = TextSecondary.copy(alpha = 0.25f)
+    Row(
+        modifier = modifier
+            .height(height)
+            .alpha(if (enabled) 1f else 0.45f)
+            .clip(RoundedCornerShape(12.dp))
+            .background(SurfaceColor.copy(alpha = 0.45f))
+            .border(1.dp, borderColor, RoundedCornerShape(12.dp)),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier.width(32.dp).fillMaxHeight().clickable(enabled = enabled, onClick = onMinus),
+            contentAlignment = Alignment.Center
+        ) { Text("−", color = TextSecondary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold) }
+        Box(Modifier.width(1.dp).fillMaxHeight().background(borderColor))
+        Box(
+            modifier = Modifier.weight(1f).fillMaxHeight().clickable(enabled = enabled, onClick = onTapValue),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                value,
+                color = valueColor,
+                fontSize = if (value.length > 6) 13.sp else valueFontSize,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                softWrap = false
+            )
+        }
+        Box(Modifier.width(1.dp).fillMaxHeight().background(borderColor))
+        Box(
+            modifier = Modifier.width(32.dp).fillMaxHeight().clickable(enabled = enabled, onClick = onPlus),
+            contentAlignment = Alignment.Center
+        ) { Text("+", color = TextSecondary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold) }
+    }
+}
+
+// Column captions above the compact set rows, mirroring their layout widths.
+@Composable
+private fun CompactSetHeaderRow(exercise: Exercise) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("Set", fontSize = 11.sp, color = TextSecondary, textAlign = TextAlign.Center, modifier = Modifier.width(22.dp))
+        Text("Reps", fontSize = 11.sp, color = TextSecondary, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+        Text(
+            if (exercise.isBodyweight) "+ ${Weights.unit}" else Weights.unit,
+            fontSize = 11.sp,
+            color = TextSecondary,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.weight(1.15f)
+        )
+        Spacer(modifier = Modifier.width(44.dp))
+    }
+}
+
+// One-line set row (the default layout): number, reps stepper, weight stepper, check button.
+// Big Button Mode in Settings switches back to the stacked SetRowWithButtons layout.
+@Composable
+private fun CompactSetRow(
+    setNumber: Int,
+    set: WorkoutSet,
+    exercise: Exercise,
+    bodyweight: Double,
+    onUpdateSet: (Int?, Double?, Boolean?) -> Unit,
+    onUpdateNotes: (String) -> Unit
+) {
+    val isCompleted = set.completed
+    val editable = !set.completed || com.bodyforge.presentation.state.SettingsState.editCompletedSets
+    var showRepsDialog by remember(set.id) { mutableStateOf(false) }
+    var showWeightDialog by remember(set.id) { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                if (isCompleted) AccentGreen.copy(alpha = 0.10f) else SurfaceColor.copy(alpha = 0.25f),
+                RoundedCornerShape(14.dp)
+            )
+            .padding(4.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(
+                "$setNumber",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isCompleted) AccentGreen else TextSecondary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(22.dp)
+            )
+            StepperCapsule(
+                value = "${set.reps}",
+                valueColor = TextPrimary,
+                enabled = editable,
+                onMinus = { if (editable && set.reps > 0) onUpdateSet(set.reps - 1, null, null) },
+                onPlus = { if (editable) onUpdateSet(set.reps + 1, null, null) },
+                onTapValue = { showRepsDialog = true },
+                modifier = Modifier.weight(1f)
+            )
+            val weightLabel = if (exercise.isBodyweight) {
+                when {
+                    set.weightKg > 0 -> "+${formatWeight(set.weightKg)}"
+                    set.weightKg < 0 -> formatWeight(set.weightKg)
+                    else -> "0"
+                }
+            } else formatWeight(set.weightKg)
+            StepperCapsule(
+                value = weightLabel,
+                valueColor = if (exercise.isBodyweight) AccentGreen else TextPrimary,
+                enabled = editable,
+                onMinus = { if (editable && set.weightKg > 0) onUpdateSet(null, (set.weightKg - Weights.toKg(2.5)).coerceAtLeast(0.0), null) },
+                onPlus = { if (editable) onUpdateSet(null, set.weightKg + Weights.toKg(2.5), null) },
+                onTapValue = { showWeightDialog = true },
+                modifier = Modifier.weight(1.15f)
+            )
+            val checkEnabled = isCompleted || (set.reps > 0 && (set.weightKg > 0 || exercise.isBodyweight))
+            Box(
+                modifier = Modifier
+                    .width(44.dp)
+                    .height(46.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (isCompleted) AccentGreen else AccentOrange.copy(alpha = if (checkEnabled) 0.18f else 0.08f))
+                    .border(
+                        1.dp,
+                        if (isCompleted) Color.Transparent else AccentOrange.copy(alpha = 0.3f),
+                        RoundedCornerShape(12.dp)
+                    )
+                    .clickable(enabled = checkEnabled) { onUpdateSet(null, null, !isCompleted) },
+                contentAlignment = Alignment.Center
+            ) {
+                Text("✓", color = if (isCompleted) Color.White else AccentOrange, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        Column(modifier = Modifier.padding(start = 27.dp, end = 8.dp, bottom = 4.dp)) {
+            SetNoteField(set = set, onUpdateNotes = onUpdateNotes)
+        }
+    }
+
+    if (showRepsDialog) {
+        NumberEditDialog(
+            currentValue = set.reps,
+            label = "Reps",
+            onDismiss = { showRepsDialog = false },
+            onConfirm = { newReps ->
+                if (editable) onUpdateSet(newReps, null, null)
+                showRepsDialog = false
+            }
+        )
+    }
+    if (showWeightDialog) {
+        WeightEditDialog(
+            currentWeight = set.weightKg,
+            onDismiss = { showWeightDialog = false },
+            onConfirm = { newWeight ->
+                if (editable) onUpdateSet(null, newWeight, null)
+                showWeightDialog = false
+            },
+            isBodyweight = exercise.isBodyweight,
+            totalWeight = bodyweight + set.weightKg
+        )
     }
 }
 

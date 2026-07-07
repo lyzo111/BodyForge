@@ -4,10 +4,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.border
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -33,7 +29,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
-import com.bodyforge.data.AppSettings
 import com.bodyforge.data.Weights
 import com.bodyforge.presentation.state.SharedWorkoutState
 import com.bodyforge.presentation.state.SettingsState
@@ -42,11 +37,10 @@ import com.bodyforge.ui.screens.WorkoutScreen
 import com.bodyforge.ui.screens.TemplatesScreen
 import com.bodyforge.ui.screens.AnalyticsScreen
 import com.bodyforge.ui.screens.HistoryScreen
+import com.bodyforge.ui.screens.SettingsScreen
 import com.bodyforge.resources.Res
 import com.bodyforge.resources.bodyforge_logo
 import org.jetbrains.compose.resources.painterResource
-import java.text.SimpleDateFormat
-import java.util.*
 
 // Colours come from com.bodyforge.ui.theme so the palette can be switched at runtime.
 
@@ -65,7 +59,6 @@ fun App() {
     val error by SharedWorkoutState.error.collectAsState()
 
     var showSplash by remember { mutableStateOf(true) }
-    var showSettings by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(1600)
         showSplash = false
@@ -94,19 +87,12 @@ fun App() {
                     )
                 }
 
-                // Main Content with 4 Tabs + HorizontalPager. Settings now lives in the tab bar.
-                MainContent(
-                    hasActiveWorkout = activeWorkout != null,
-                    onSettings = { showSettings = true }
-                )
+                // Main Content with 5 tabs (Settings is a regular pager page) + HorizontalPager.
+                MainContent(hasActiveWorkout = activeWorkout != null)
             }
 
             if (showSplash) {
                 SplashScreen()
-            }
-
-            if (showSettings) {
-                SettingsDialog(onDismiss = { showSettings = false })
             }
         }
     }
@@ -138,190 +124,6 @@ private fun SplashScreen() {
                 color = TextSecondary
             )
         }
-    }
-}
-
-@Composable
-private fun SettingsDialog(onDismiss: () -> Unit) {
-    var isolationRest by remember { mutableStateOf(AppSettings.isolationRestSeconds) }
-    var compoundRest by remember { mutableStateOf(AppSettings.compoundRestSeconds) }
-    var vibrate by remember { mutableStateOf(AppSettings.vibrateOnTimerEnd) }
-    var editCompleted by remember { mutableStateOf(AppSettings.editCompletedSets) }
-    var useLbs by remember { mutableStateOf(AppSettings.useLbs) }
-    var emojiMode by remember { mutableStateOf(AppSettings.emojiMode) }
-    var themeName by remember { mutableStateOf(AppSettings.themeName) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Settings", fontWeight = FontWeight.Bold, color = TextPrimary) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
-                Text("Rest timer", fontWeight = FontWeight.Bold, color = TextSecondary, fontSize = 13.sp)
-                RestSetting("Isolation rest", isolationRest) { isolationRest = it.coerceIn(15, 600) }
-                RestSetting("Compound rest", compoundRest) { compoundRest = it.coerceIn(15, 600) }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Vibrate when timer ends", color = TextPrimary, fontSize = 14.sp)
-                    Switch(
-                        checked = vibrate,
-                        onCheckedChange = { vibrate = it },
-                        colors = SwitchDefaults.colors(checkedThumbColor = AccentOrange, checkedTrackColor = AccentOrange.copy(alpha = 0.5f))
-                    )
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Edit sets after completing", color = TextPrimary, fontSize = 14.sp)
-                    Switch(
-                        checked = editCompleted,
-                        onCheckedChange = { editCompleted = it },
-                        colors = SwitchDefaults.colors(checkedThumbColor = AccentOrange, checkedTrackColor = AccentOrange.copy(alpha = 0.5f))
-                    )
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Weight unit", color = TextPrimary, fontSize = 14.sp)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        UnitOption("kg", !useLbs) { useLbs = false }
-                        UnitOption("lbs", useLbs) { useLbs = true }
-                    }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Emoji mode", color = TextPrimary, fontSize = 14.sp)
-                    Switch(
-                        checked = emojiMode,
-                        onCheckedChange = { emojiMode = it },
-                        colors = SwitchDefaults.colors(checkedThumbColor = AccentOrange, checkedTrackColor = AccentOrange.copy(alpha = 0.5f))
-                    )
-                }
-                Text("Theme", fontWeight = FontWeight.Bold, color = TextSecondary, fontSize = 13.sp)
-                val themeScrollState = rememberScrollState()
-                Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(themeScrollState),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    appThemes.forEach { option ->
-                        ThemeChip(option, option.name == themeName) { themeName = option.name }
-                    }
-                }
-                com.bodyforge.ui.components.HScrollIndicator(themeScrollState)
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    AppSettings.isolationRestSeconds = isolationRest
-                    AppSettings.compoundRestSeconds = compoundRest
-                    AppSettings.vibrateOnTimerEnd = vibrate
-                    AppSettings.editCompletedSets = editCompleted
-                    AppSettings.useLbs = useLbs
-                    AppSettings.emojiMode = emojiMode
-                    AppSettings.themeName = themeName
-                    ThemeState.applyTheme(themeName)
-                    SettingsState.reload()
-                    onDismiss()
-                },
-                colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange),
-                elevation = ButtonDefaults.elevation(0.dp)
-            ) { Text("Save", color = Color.White, fontWeight = FontWeight.Bold) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) } },
-        backgroundColor = CardBackground
-    )
-}
-
-@Composable
-private fun RestSetting(label: String, seconds: Int, onChange: (Int) -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(label, color = TextPrimary, fontSize = 14.sp)
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = { onChange(seconds - 15) },
-                colors = ButtonDefaults.buttonColors(backgroundColor = SurfaceColor),
-                contentPadding = PaddingValues(0.dp),
-                modifier = Modifier.size(34.dp),
-                elevation = ButtonDefaults.elevation(0.dp)
-            ) { Text("−", color = Color.White, fontSize = 18.sp) }
-            Text(
-                text = "${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}",
-                color = TextPrimary,
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.width(52.dp)
-            )
-            Button(
-                onClick = { onChange(seconds + 15) },
-                colors = ButtonDefaults.buttonColors(backgroundColor = SurfaceColor),
-                contentPadding = PaddingValues(0.dp),
-                modifier = Modifier.size(34.dp),
-                elevation = ButtonDefaults.elevation(0.dp)
-            ) { Text("+", color = Color.White, fontSize = 18.sp) }
-        }
-    }
-}
-
-// A theme option in the settings picker: a small swatch preview (background + accent dots) and the
-// theme name, drawn in the option's own colours so the user previews each palette before choosing.
-@Composable
-private fun ThemeChip(option: AppThemeOption, selected: Boolean, onClick: () -> Unit) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .clip(RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)
-            .background(option.colors.cardBackground)
-            .border(
-                width = if (selected) 2.dp else 1.dp,
-                color = if (selected) option.colors.accentOrange else option.colors.surface,
-                shape = RoundedCornerShape(10.dp)
-            )
-            .padding(horizontal = 12.dp, vertical = 8.dp)
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-            Box(Modifier.size(10.dp).clip(RoundedCornerShape(50)).background(option.colors.accentOrange))
-            Box(Modifier.size(10.dp).clip(RoundedCornerShape(50)).background(option.colors.accentBlue))
-            Box(Modifier.size(10.dp).clip(RoundedCornerShape(50)).background(option.colors.accentGreen))
-        }
-        Spacer(Modifier.height(6.dp))
-        Text(
-            option.name,
-            color = if (selected) option.colors.textPrimary else option.colors.textSecondary,
-            fontSize = 11.sp,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
-        )
-    }
-}
-
-@Composable
-private fun UnitOption(label: String, selected: Boolean, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        colors = ButtonDefaults.buttonColors(
-            backgroundColor = if (selected) AccentOrange else SurfaceColor,
-            contentColor = if (selected) Color.White else TextSecondary
-        ),
-        shape = RoundedCornerShape(8.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
-        elevation = ButtonDefaults.elevation(0.dp)
-    ) {
-        Text(label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
     }
 }
 
@@ -386,12 +188,13 @@ private fun BreakOverBanner(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MainContent(hasActiveWorkout: Boolean, onSettings: () -> Unit) {
+private fun MainContent(hasActiveWorkout: Boolean) {
     val tabs = listOf(
         TabItem("workout", Icons.Filled.FitnessCenter, "Workout"),
         TabItem("templates", Icons.Filled.Assignment, "Templates"),
         TabItem("analytics", Icons.Filled.Timeline, "Analytics"),
-        TabItem("history", Icons.Filled.Schedule, "History")
+        TabItem("history", Icons.Filled.Schedule, "History"),
+        TabItem("settings", Icons.Filled.Settings, "Settings")
     )
 
     val pagerState = rememberPagerState(
@@ -406,7 +209,8 @@ private fun MainContent(hasActiveWorkout: Boolean, onSettings: () -> Unit) {
     val templatesListState = rememberLazyListState()
     val analyticsListState = rememberLazyListState()
     val historyListState = rememberLazyListState()
-    val listStates = listOf(workoutListState, templatesListState, analyticsListState, historyListState)
+    val settingsListState = rememberLazyListState()
+    val listStates = listOf(workoutListState, templatesListState, analyticsListState, historyListState, settingsListState)
 
     // "Break is over" banner: only relevant while the user is away from the Workout tab (the rest
     // bar already lives there). Returning to Workout clears it.
@@ -423,12 +227,12 @@ private fun MainContent(hasActiveWorkout: Boolean, onSettings: () -> Unit) {
             )
         }
 
-        // Horizontal Pager for Tab Content. Keep every page composed (there are only four) so a
+        // Horizontal Pager for Tab Content. Keep every page composed (there are only five) so a
         // tab never gets torn down and rebuilt — that is what reset each screen's scroll position
         // (most visibly Analytics) when switching away and back.
         HorizontalPager(
             state = pagerState,
-            beyondBoundsPageCount = 3,
+            beyondBoundsPageCount = 4,
             flingBehavior = PagerDefaults.flingBehavior(state = pagerState, snapPositionalThreshold = 0.7f),
             modifier = Modifier.weight(1f).fillMaxWidth()
         ) { page ->
@@ -443,6 +247,7 @@ private fun MainContent(hasActiveWorkout: Boolean, onSettings: () -> Unit) {
                 )
                 2 -> AnalyticsScreen(listState = analyticsListState)
                 3 -> HistoryScreen(listState = historyListState, onResumed = { coroutineScope.launch { pagerState.animateScrollToPage(0) } })
+                4 -> SettingsScreen(listState = settingsListState)
             }
         }
 
@@ -459,8 +264,7 @@ private fun MainContent(hasActiveWorkout: Boolean, onSettings: () -> Unit) {
                         pagerState.animateScrollToPage(index)
                     }
                 }
-            },
-            onSettings = onSettings
+            }
         )
     }
 }
@@ -470,8 +274,7 @@ private fun TabNavigationBar(
     tabs: List<TabItem>,
     selectedTabIndex: Int,
     hasActiveWorkout: Boolean,
-    onTabSelected: (Int) -> Unit,
-    onSettings: () -> Unit
+    onTabSelected: (Int) -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -489,12 +292,6 @@ private fun TabNavigationBar(
                 showBadge = tab.id == "workout" && hasActiveWorkout
             )
         }
-        TabButton(
-            tab = TabItem("settings", Icons.Filled.Settings, "Settings"),
-            isActive = false,
-            onClick = onSettings,
-            modifier = Modifier.weight(1f)
-        )
     }
 }
 

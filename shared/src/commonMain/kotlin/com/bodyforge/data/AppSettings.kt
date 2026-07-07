@@ -41,6 +41,12 @@ object AppSettings {
         get() = prefs.getBoolean("emoji_mode", true)
         set(value) { prefs.edit().putBoolean("emoji_mode", value).apply() }
 
+    // When true, the active workout uses the old large stacked per-set buttons; when false
+    // (default) it uses the compact one-row-per-set layout.
+    var bigButtonMode: Boolean
+        get() = prefs.getBoolean("big_button_mode", false)
+        set(value) { prefs.edit().putBoolean("big_button_mode", value).apply() }
+
     // templateId -> split name (e.g. "PPL"). Persisted here, so splits need no database migration.
     // Entries are joined with control characters (record/unit separators) that users won't type.
     private const val RECORD_SEP = "\u001E"

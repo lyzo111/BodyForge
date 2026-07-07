@@ -3,7 +3,7 @@ package com.bodyforge.ui.components.cards
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -27,13 +27,21 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.bodyforge.domain.models.Exercise
+import com.bodyforge.domain.models.ExerciseInWorkout
 import com.bodyforge.domain.models.TrainingPhase
 import com.bodyforge.domain.models.Workout
 import com.bodyforge.domain.models.WorkoutTemplate
 import com.bodyforge.data.Weights
 import com.bodyforge.presentation.state.SettingsState
+import com.bodyforge.presentation.state.SharedWorkoutState
+import com.bodyforge.ui.util.formatThousands
+import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
+import kotlin.math.abs
 import kotlin.math.roundToInt
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 // Distinct colours for up to five simultaneous series. A getter so it re-reads the active theme.
 private val seriesPalette: List<Color> get() = listOf(AccentBlue, AccentOrange, AccentGreen, AccentPurple, AccentRed)
@@ -62,7 +70,8 @@ private enum class Scope(val label: String) {
 
 // routineLabel/variationLabel identify which routine and which variation within it the point's
 // workout came from (e.g. "Upper" / "A"), populated in every scope so nodes can always be colored
-// by that: one hue per routine, one shade of that hue per variation.
+// by that: one hue per routine, one shade of that hue per variation. workoutId links the node back
+// to its workout so tapping it can open the workout detail.
 private data class Point(
     val value: Double,
     val date: LocalDate,
@@ -70,7 +79,8 @@ private data class Point(
     val workoutNote: String,
     val sets: Int,
     val routineLabel: String = "",
-    val variationLabel: String = ""
+    val variationLabel: String = "",
+    val workoutId: String = ""
 )
 private data class Series(val label: String, val color: Color, val points: List<Point>)
 private data class RoutineGroup(val key: String, val label: String, val templateIds: Set<String>)
@@ -169,6 +179,9 @@ private fun ProgressContent(
     var selectedVariationId by remember(selectedGroupKey) { mutableStateOf<String?>(null) } // null = across variations
     var showTrackDialog by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<Pair<Int, Int>?>(null) } // (seriesIndex, pointIndex)
+    var detailWorkoutId by remember { mutableStateOf<String?>(null) }
+    var editingWorkout by remember { mutableStateOf<Workout?>(null) }
+    val coroutineScope = rememberCoroutineScope()
 
     // Variations (templates) of the currently selected grouped routine, for the drill-down.
     val routineVariations = remember(selectedGroupKey, templates) {
@@ -233,7 +246,7 @@ private fun ProgressContent(
                     (listOf(eiw?.notes?.trim().orEmpty()) + setNotes).filter { it.isNotBlank() }.joinToString("; ")
                 }
                 val (routineLabel, variationLabel) = w.templateId?.let { templateRoutineInfo[it] } ?: ("" to "")
-                Point(v, w.startDate, combinedNote, w.notes, setCount, routineLabel, variationLabel)
+                Point(v, w.startDate, combinedNote, w.notes, setCount, routineLabel, variationLabel, w.id)
             }
             val label = subj?.let { id -> exercises.firstOrNull { it.id == id }?.name ?: "Exercise" } ?: "Total Volume"
             Series(label, seriesPalette[i % seriesPalette.size], pts)
@@ -354,7 +367,16 @@ private fun ProgressContent(
                 color = TextSecondary
             )
         } else {
-            MultiLineChart(series, selected, if (colorByGroup) groupColorOf else null) { selected = it }
+            MultiLineChart(
+                series,
+                selected,
+                if (colorByGroup) groupColorOf else null,
+                onOpen = { (si, pi) ->
+                    series.getOrNull(si)?.points?.getOrNull(pi)?.workoutId
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { detailWorkoutId = it }
+                }
+            ) { selected = it }
             Spacer(Modifier.height(8.dp))
             if (colorByGroup) {
                 VariationLegend(pointGroups, groupColorOf)
@@ -375,7 +397,11 @@ private fun ProgressContent(
                     }
                 }
             } else {
-                Text("Tap a point to read that day's notes.", fontSize = 11.sp, color = TextSecondary.copy(alpha = 0.7f))
+                Text(
+                    "Slide across the chart — it snaps to the nearest session. Tap a node to open that workout.",
+                    fontSize = 11.sp,
+                    color = TextSecondary.copy(alpha = 0.7f)
+                )
             }
         }
     }
@@ -386,6 +412,35 @@ private fun ProgressContent(
             selected = selectedSubjects,
             onDone = { selectedSubjects = it; showTrackDialog = false },
             onDismiss = { showTrackDialog = false }
+        )
+    }
+
+    detailWorkoutId?.let { id ->
+        workouts.firstOrNull { it.id == id }?.let { w ->
+            WorkoutDetailDialog(
+                workout = w,
+                allWorkouts = workouts,
+                info = w.templateId?.let { templateRoutineInfo[it] },
+                onDismiss = { detailWorkoutId = null },
+                onEdit = {
+                    editingWorkout = w
+                    detailWorkoutId = null
+                }
+            )
+        }
+    }
+
+    editingWorkout?.let { w ->
+        com.bodyforge.ui.components.WorkoutEditorDialog(
+            workout = w,
+            onDismiss = { editingWorkout = null },
+            onSave = { updated ->
+                coroutineScope.launch {
+                    SharedWorkoutState.workoutRepo.updateWorkout(updated)
+                    SharedWorkoutState.loadCompletedWorkouts()
+                }
+                editingWorkout = null
+            }
         )
     }
 }
@@ -481,6 +536,229 @@ private fun SelectedPointCard(label: String, color: Color, point: Point) {
     }
 }
 
+// Detail view for one workout, opened by tapping its node in the chart — stats, per-exercise
+// volumes with deltas vs the previous comparable session, notes, and a jump into the editor.
+@Composable
+private fun WorkoutDetailDialog(
+    workout: Workout,
+    allWorkouts: List<Workout>,
+    info: Pair<String, String>?,
+    onDismiss: () -> Unit,
+    onEdit: () -> Unit
+) {
+    val dateFormatter = remember { SimpleDateFormat("dd.MM.yyyy 'at' HH:mm", Locale.getDefault()) }
+    val volume = workout.totalVolumePerformed
+    // Previous session of the same template (or same name, for template-less workouts) for the
+    // whole-workout delta.
+    val prevSame = remember(workout.id, allWorkouts) {
+        allWorkouts.filter { w ->
+            w.id != workout.id && w.startedAt < workout.startedAt &&
+                (if (workout.templateId != null) w.templateId == workout.templateId else w.name == workout.name)
+        }.maxByOrNull { it.startedAt }
+    }
+    val delta = prevSame?.let { volume - it.totalVolumePerformed }
+
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(shape = RoundedCornerShape(18.dp), color = CardBackground, modifier = Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.85f)) {
+            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                workout.name,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary,
+                                maxLines = 1,
+                                softWrap = false,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            val variationLabel = info?.second.orEmpty()
+                            if (variationLabel.isNotBlank()) {
+                                Text(
+                                    "Variation $variationLabel",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AccentOrange,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    modifier = Modifier
+                                        .background(AccentOrange.copy(alpha = 0.15f), RoundedCornerShape(5.dp))
+                                        .padding(horizontal = 7.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            "${dateFormatter.format(Date(workout.startedAt.epochSeconds * 1000))} · ${workout.durationMinutes ?: 0} min",
+                            fontSize = 12.sp,
+                            color = TextSecondary
+                        )
+                    }
+                    Text(
+                        "✕",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextSecondary,
+                        modifier = Modifier
+                            .background(SurfaceColor.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+                            .clickable(onClick = onDismiss)
+                            .padding(horizontal = 13.dp, vertical = 9.dp)
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    DetailStat("${formatThousands(Weights.toDisplay(volume))} ${Weights.unit}", "Volume", Modifier.weight(1f))
+                    DetailStat("${workout.performedSets}", "Sets", Modifier.weight(1f))
+                    DetailStat("${workout.durationMinutes ?: 0} min", "Duration", Modifier.weight(1f))
+                }
+                if (delta != null && prevSame != null) {
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        (if (delta >= 0) "▲ +" else "▼ −") +
+                            "${formatThousands(Weights.toDisplay(abs(delta)))} ${Weights.unit} total vs ${formatDate(prevSame.startDate)}",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (delta >= 0) AccentGreen else AccentRed
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                Column(
+                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    workout.exercises.forEach { eiw -> DetailExerciseRow(eiw, workout, allWorkouts) }
+                }
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = onEdit,
+                    colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange.copy(alpha = 0.14f), contentColor = AccentOrange),
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = ButtonDefaults.elevation(0.dp),
+                    modifier = Modifier.fillMaxWidth().height(48.dp)
+                ) {
+                    Text("✎ Edit this workout", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AccentOrange)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailStat(value: String, label: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .background(SurfaceColor.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+            .padding(horizontal = 10.dp, vertical = 8.dp)
+    ) {
+        Text(value, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary, maxLines = 1, softWrap = false)
+        Text(label, fontSize = 11.sp, color = TextSecondary)
+    }
+}
+
+@Composable
+private fun DetailExerciseRow(eiw: ExerciseInWorkout, workout: Workout, allWorkouts: List<Workout>) {
+    val skipped = eiw.sets.isNotEmpty() && eiw.sets.all { it.isSkipped }
+    val swappedFromId = eiw.sets.firstOrNull { it.originalExerciseId != null }?.originalExerciseId
+    val swappedFromName = swappedFromId?.let { id ->
+        allWorkouts.asSequence().flatMap { it.exercises.asSequence() }
+            .firstOrNull { it.exercise.id == id }?.exercise?.name
+    }
+    val performed = eiw.sets.filter { !it.isSkipped && it.reps > 0 }
+    val volume = eiw.totalVolumePerformed
+    // Previous session containing this exercise, for the per-exercise delta.
+    val prev = remember(workout.id, eiw.exercise.id, allWorkouts) {
+        allWorkouts.filter { it.id != workout.id && it.startedAt < workout.startedAt }
+            .sortedByDescending { it.startedAt }
+            .firstNotNullOfOrNull { w -> w.exercises.firstOrNull { it.exercise.id == eiw.exercise.id && it.totalVolumePerformed > 0.0 } }
+    }
+    val noteParts = buildList {
+        if (eiw.notes.isNotBlank()) add(eiw.notes.trim())
+        eiw.sets.forEachIndexed { i, s -> if (s.notes.isNotBlank()) add("Set ${i + 1}: ${s.notes.trim()}") }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(SurfaceColor.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                eiw.exercise.name,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary,
+                modifier = Modifier.weight(1f)
+            )
+            when {
+                skipped -> DetailTag("Skipped", TextSecondary)
+                swappedFromId != null -> DetailTag("↔ was ${swappedFromName ?: "another exercise"}", AccentBlue)
+            }
+        }
+        if (skipped) {
+            Text(
+                "Skipped in this session — shows as a gap in progress charts.",
+                fontSize = 12.sp,
+                color = TextSecondary,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        } else if (performed.isNotEmpty()) {
+            val setsLine = performed.joinToString("  ·  ") { s ->
+                val w = if (eiw.exercise.isBodyweight) {
+                    if (s.weightKg > 0) "BW+${Weights.format(s.weightKg)}" else "BW"
+                } else Weights.format(s.weightKg)
+                "${s.reps} × $w"
+            } + if (eiw.exercise.isBodyweight) "" else " ${Weights.unit}"
+            Text(setsLine, fontSize = 12.sp, color = TextSecondary, modifier = Modifier.padding(top = 4.dp))
+            if (volume > 0) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp)) {
+                    Text(
+                        "${formatThousands(Weights.toDisplay(volume))} ${Weights.unit}",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                    if (prev != null) {
+                        val d = volume - prev.totalVolumePerformed
+                        Text(
+                            (if (d > 0) "▲ +" else if (d < 0) "▼ −" else "± ") +
+                                "${formatThousands(Weights.toDisplay(abs(d)))} ${Weights.unit}",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (d > 0) AccentGreen else if (d < 0) AccentRed else TextSecondary
+                        )
+                    } else {
+                        Text("first time", fontSize = 12.sp, color = TextSecondary)
+                    }
+                }
+            }
+        }
+        if (noteParts.isNotEmpty()) {
+            Text(
+                "✎ " + noteParts.joinToString("  ·  "),
+                fontSize = 12.sp,
+                color = TextSecondary,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun DetailTag(text: String, color: Color) {
+    Text(
+        text,
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Bold,
+        color = color,
+        maxLines = 1,
+        softWrap = false,
+        modifier = Modifier
+            .background(color.copy(alpha = 0.15f), RoundedCornerShape(5.dp))
+            .padding(horizontal = 6.dp, vertical = 3.dp)
+    )
+}
+
 @Composable
 private fun TrackFilterDialog(
     exercises: List<Exercise>,
@@ -555,6 +833,8 @@ private fun MultiLineChart(
     // When non-null, each node is colored by its point's (routineLabel, variationLabel) instead of
     // its series color; the connecting line still uses the series color so the chart stays readable.
     pointColor: ((String, String) -> Color)? = null,
+    // Called when a tap lands on (or very near) a node — used to open that workout's detail.
+    onOpen: ((Pair<Int, Int>) -> Unit)? = null,
     onSelect: (Pair<Int, Int>?) -> Unit
 ) {
     val flat = remember(series) { series.flatMapIndexed { si, s -> s.points.mapIndexed { pi, p -> Triple(si, pi, p) } } }
@@ -573,17 +853,17 @@ private fun MultiLineChart(
         }
     }
 
-    fun nearest(x: Float, y: Float, leftPad: Float, topPad: Float, chartW: Float, chartH: Float): Pair<Int, Int>? {
+    // Selection snaps by horizontal distance only, so scrubbing feels like sliding along the
+    // timeline no matter where the finger sits vertically.
+    fun nearestByX(x: Float, leftPad: Float, chartW: Float): Pair<Pair<Int, Int>?, Float> {
         var best: Pair<Int, Int>? = null
         var bestD = Float.MAX_VALUE
         flat.forEach { (si, pi, p) ->
             val px = leftPad + chartW * (p.date.toEpochDays() - minDay).toFloat() / dayRange.toFloat()
-            val (mn, range) = seriesRanges[si]
-            val py = topPad + chartH * (1f - ((p.value - mn) / range).toFloat())
-            val d = (x - px) * (x - px) + (y - py) * (y - py)
+            val d = abs(x - px)
             if (d < bestD) { bestD = d; best = si to pi }
         }
-        return best
+        return best to bestD
     }
 
     Canvas(
@@ -592,15 +872,19 @@ private fun MultiLineChart(
             .height(180.dp)
             .pointerInput(series) {
                 val pad = 8.dp.toPx()
-                val top = 12.dp.toPx()
-                detectTapGestures { o -> onSelect(nearest(o.x, o.y, pad, top, size.width - 2 * pad, size.height - 2 * top)) }
+                detectTapGestures { o ->
+                    val (best, dist) = nearestByX(o.x, pad, size.width - 2 * pad)
+                    onSelect(best)
+                    if (best != null && dist <= 26.dp.toPx()) onOpen?.invoke(best)
+                }
             }
+            // Horizontal-only drags scrub the selection; vertical drags fall through to the page
+            // scroll so the chart never traps it.
             .pointerInput(series) {
                 val pad = 8.dp.toPx()
-                val top = 12.dp.toPx()
-                detectDragGestures(
-                    onDragStart = { o -> onSelect(nearest(o.x, o.y, pad, top, size.width - 2 * pad, size.height - 2 * top)) },
-                    onDrag = { change, _ -> onSelect(nearest(change.position.x, change.position.y, pad, top, size.width - 2 * pad, size.height - 2 * top)) }
+                detectHorizontalDragGestures(
+                    onDragStart = { o -> onSelect(nearestByX(o.x, pad, size.width - 2 * pad).first) },
+                    onHorizontalDrag = { change, _ -> onSelect(nearestByX(change.position.x, pad, size.width - 2 * pad).first) }
                 )
             }
     ) {

@@ -2,17 +2,18 @@ package com.bodyforge.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Notes
@@ -21,11 +22,10 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import com.bodyforge.ui.theme.*
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -40,7 +40,6 @@ import com.bodyforge.domain.models.Workout
 import com.bodyforge.presentation.state.SharedWorkoutState
 import com.bodyforge.ui.rememberCsvImporter
 import kotlinx.coroutines.launch
-import kotlinx.datetime.Instant
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -51,6 +50,7 @@ fun HistoryScreen(listState: LazyListState, onResumed: () -> Unit) {
     val isLoading by SharedWorkoutState.isLoading.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
+    var menuWorkout by remember { mutableStateOf<Workout?>(null) }
     var editingWorkout by remember { mutableStateOf<Workout?>(null) }
     var resumeConfirmWorkout by remember { mutableStateOf<Workout?>(null) }
     var deleteConfirmationWorkout by remember { mutableStateOf<Workout?>(null) }
@@ -112,22 +112,37 @@ fun HistoryScreen(listState: LazyListState, onResumed: () -> Unit) {
                 items(completedWorkouts) { workout ->
                     HistoryWorkoutCard(
                         workout = workout,
-                        onResume = {
-                            if (activeWorkout != null && activeWorkout?.id != workout.id) {
-                                resumeConfirmWorkout = workout
-                            } else {
-                                coroutineScope.launch {
-                                    SharedWorkoutState.resumeWorkout(workout)
-                                    onResumed()
-                                }
-                            }
-                        },
-                        onDelete = { deleteConfirmationWorkout = workout },
-                        onEdit = { editingWorkout = workout }
+                        onMenu = { menuWorkout = workout }
                     )
                 }
             }
         }
+    }
+
+    menuWorkout?.let { workout ->
+        WorkoutActionSheet(
+            workout = workout,
+            onDismiss = { menuWorkout = null },
+            onResume = {
+                menuWorkout = null
+                if (activeWorkout != null && activeWorkout?.id != workout.id) {
+                    resumeConfirmWorkout = workout
+                } else {
+                    coroutineScope.launch {
+                        SharedWorkoutState.resumeWorkout(workout)
+                        onResumed()
+                    }
+                }
+            },
+            onEdit = {
+                menuWorkout = null
+                editingWorkout = workout
+            },
+            onDelete = {
+                menuWorkout = null
+                deleteConfirmationWorkout = workout
+            }
+        )
     }
 
     importMessage?.let { msg ->
@@ -177,7 +192,7 @@ fun HistoryScreen(listState: LazyListState, onResumed: () -> Unit) {
     }
 
     editingWorkout?.let { workout ->
-        EditWorkoutDialog(
+        com.bodyforge.ui.components.WorkoutEditorDialog(
             workout = workout,
             onDismiss = { editingWorkout = null },
             onSave = { updatedWorkout ->
@@ -247,26 +262,27 @@ private fun EmptyHistoryCard() {
 }
 
 @Composable
-private fun HistoryWorkoutCard(workout: Workout, onResume: () -> Unit, onDelete: () -> Unit, onEdit: () -> Unit) {
+private fun HistoryWorkoutCard(workout: Workout, onMenu: () -> Unit) {
     var showAllExercises by remember { mutableStateOf(false) }
     Card(backgroundColor = CardBackground, elevation = 2.dp, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
                     val displayTitle = if (workout.exercises.isNotEmpty() && workout.exercises.all { it.exercise.isCardio }) "Cardio" else workout.name
                     Text(displayTitle, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                     val dateFormatter = SimpleDateFormat("dd.MM.yyyy 'at' HH:mm", Locale.getDefault())
                     Text(dateFormatter.format(Date(workout.startedAt.epochSeconds * 1000)), fontSize = 12.sp, color = TextSecondary)
                 }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    TextButton(onClick = onResume, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("Resume", color = AccentGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
-                    IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
-                        EmojiIcon("✏️", Icons.Filled.Edit, fontSize = 16.sp, iconSize = 18.dp)
-                    }
-                    IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
-                        EmojiIcon("🗑️", Icons.Filled.Delete, fontSize = 16.sp, iconSize = 18.dp)
-                    }
-                }
+                Text(
+                    "⋯",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextSecondary,
+                    modifier = Modifier
+                        .background(SurfaceColor.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                        .clickable(onClick = onMenu)
+                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                )
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -318,259 +334,72 @@ private fun WorkoutStat(emoji: String, icon: ImageVector, value: String, label: 
     }
 }
 
+// Bottom action sheet for a history workout, opened from the card's ⋯ button.
 @Composable
-private fun EditWorkoutDialog(workout: Workout, onDismiss: () -> Unit, onSave: (Workout) -> Unit) {
-    var workoutName by remember { mutableStateOf(workout.name) }
-    var workoutNotes by remember { mutableStateOf(workout.notes) }
-    var editedWorkout by remember { mutableStateOf(workout) }
-    var editingRepsSetId by remember { mutableStateOf<String?>(null) }
-    var editingWeightSetId by remember { mutableStateOf<String?>(null) }
-    var editingDuration by remember { mutableStateOf(false) }
-
+private fun WorkoutActionSheet(
+    workout: Workout,
+    onDismiss: () -> Unit,
+    onResume: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val dateFormatter = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Card(
-            backgroundColor = CardBackground,
-            shape = RoundedCornerShape(16.dp),
-            elevation = 0.dp,
-            modifier = Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.85f)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                ),
+            contentAlignment = Alignment.BottomCenter
         ) {
-            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                Text("Edit Workout", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 20.sp)
-                Spacer(modifier = Modifier.height(12.dp))
-
-                LazyColumn(
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    item {
-                        Card(backgroundColor = SurfaceColor, shape = RoundedCornerShape(12.dp), elevation = 0.dp) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text("Workout Name", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary, modifier = Modifier.padding(bottom = 8.dp))
-                                BasicTextField(
-                                    value = workoutName,
-                                    onValueChange = { workoutName = it },
-                                    modifier = Modifier.fillMaxWidth().background(CardBackground, RoundedCornerShape(8.dp)).padding(12.dp),
-                                    textStyle = TextStyle(fontSize = 16.sp, color = TextPrimary, fontWeight = FontWeight.Medium),
-                                    singleLine = true,
-                                    decorationBox = { innerTextField -> if (workoutName.isEmpty()) Text("Enter workout name...", color = TextSecondary, fontSize = 16.sp); innerTextField() }
-                                )
-                            }
-                        }
-                    }
-
-                    item {
-                        Card(backgroundColor = SurfaceColor, shape = RoundedCornerShape(12.dp), elevation = 0.dp) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text("Notes", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary, modifier = Modifier.padding(bottom = 8.dp))
-                                BasicTextField(
-                                    value = workoutNotes,
-                                    onValueChange = { workoutNotes = it },
-                                    modifier = Modifier.fillMaxWidth().background(CardBackground, RoundedCornerShape(8.dp)).padding(12.dp),
-                                    textStyle = TextStyle(fontSize = 15.sp, color = TextPrimary),
-                                    decorationBox = { innerTextField -> if (workoutNotes.isEmpty()) Text("How it felt, injuries, PRs…", color = TextSecondary, fontSize = 15.sp); innerTextField() }
-                                )
-                            }
-                        }
-                    }
-
-                    item {
-                        Card(backgroundColor = SurfaceColor, shape = RoundedCornerShape(12.dp), elevation = 0.dp) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("Duration", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
-                                Text(
-                                    "${editedWorkout.durationMinutes ?: 0}m",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextPrimary,
-                                    modifier = Modifier
-                                        .background(CardBackground, RoundedCornerShape(8.dp))
-                                        .clickable { editingDuration = true }
-                                        .padding(horizontal = 20.dp, vertical = 8.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    items(editedWorkout.exercises) { exerciseInWorkout ->
-                        Card(backgroundColor = SurfaceColor, shape = RoundedCornerShape(12.dp), elevation = 0.dp, modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(exerciseInWorkout.exercise.name, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                                        Text(exerciseInWorkout.exercise.muscleGroups.joinToString(" • "), fontSize = 12.sp, color = TextSecondary)
-                                    }
-                                    if (exerciseInWorkout.exercise.isBodyweight) {
-                                        Text("BW", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = AccentGreen, modifier = Modifier.background(AccentGreen.copy(alpha = 0.2f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                    Text("Set", fontSize = 12.sp, color = TextSecondary, modifier = Modifier.width(40.dp))
-                                    Text("Reps", fontSize = 12.sp, color = TextSecondary, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                                    Text(if (exerciseInWorkout.exercise.isBodyweight) "Added ${Weights.unit}" else "Weight", fontSize = 12.sp, color = TextSecondary, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                                }
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                exerciseInWorkout.sets.forEachIndexed { index, set ->
-                                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                        Text("${index + 1}", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary, modifier = Modifier.width(40.dp), textAlign = TextAlign.Center)
-
-                                        Box(modifier = Modifier.weight(1f).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
-                                            Text(
-                                                text = "${set.reps}",
-                                                fontSize = 16.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = TextPrimary,
-                                                textAlign = TextAlign.Center,
-                                                modifier = Modifier.background(CardBackground, RoundedCornerShape(8.dp)).clickable { editingRepsSetId = set.id }.padding(horizontal = 20.dp, vertical = 8.dp)
-                                            )
-                                        }
-
-                                        Box(modifier = Modifier.weight(1f).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
-                                            Text(
-                                                text = if (set.weightKg > 0) formatWeight(set.weightKg) else if (exerciseInWorkout.exercise.isBodyweight) "BW" else "0",
-                                                fontSize = 16.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = TextPrimary,
-                                                textAlign = TextAlign.Center,
-                                                modifier = Modifier.background(CardBackground, RoundedCornerShape(8.dp)).clickable { editingWeightSetId = set.id }.padding(horizontal = 20.dp, vertical = 8.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(
-                        onClick = { onSave(editedWorkout.copy(name = workoutName.trim(), notes = workoutNotes.trim())) },
-                        colors = ButtonDefaults.buttonColors(backgroundColor = AccentGreen),
-                        shape = RoundedCornerShape(25.dp),
-                        enabled = workoutName.isNotBlank(),
-                        elevation = ButtonDefaults.elevation(0.dp)
-                    ) { Text("Save", color = Color.White, fontWeight = FontWeight.Bold) }
-                }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {}
+                    .background(CardBackground, RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                    .padding(horizontal = 10.dp)
+                    .padding(top = 8.dp, bottom = 18.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(36.dp)
+                        .height(4.dp)
+                        .background(SurfaceColor, RoundedCornerShape(2.dp))
+                        .align(Alignment.CenterHorizontally)
+                )
+                Text(
+                    "${workout.name} · ${dateFormatter.format(Date(workout.startedAt.epochSeconds * 1000))}",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+                )
+                SheetAction("▶️", Icons.Filled.PlayArrow, "Resume workout", TextPrimary, onResume)
+                SheetAction("✏️", Icons.Filled.Edit, "Edit workout", TextPrimary, onEdit)
+                SheetAction("🗑️", Icons.Filled.Delete, "Delete", AccentRed, onDelete)
             }
         }
     }
-
-    editingRepsSetId?.let { setId ->
-        val current = editedWorkout.exercises.flatMap { it.sets }.firstOrNull { it.id == setId }?.reps ?: 0
-        HistoryNumberInputDialog(
-            currentValue = current,
-            label = "Reps",
-            onDismiss = { editingRepsSetId = null },
-            onConfirm = { newReps ->
-                editedWorkout = updateSetValue(editedWorkout, setId) { it.copy(reps = newReps) }
-                editingRepsSetId = null
-            }
-        )
-    }
-
-    editingWeightSetId?.let { setId ->
-        val current = editedWorkout.exercises.flatMap { it.sets }.firstOrNull { it.id == setId }?.weightKg ?: 0.0
-        HistoryWeightInputDialog(
-            currentWeight = current,
-            onDismiss = { editingWeightSetId = null },
-            onConfirm = { newWeight ->
-                editedWorkout = updateSetValue(editedWorkout, setId) { it.copy(weightKg = newWeight) }
-                editingWeightSetId = null
-            }
-        )
-    }
-
-    if (editingDuration) {
-        HistoryNumberInputDialog(
-            currentValue = (editedWorkout.durationMinutes ?: 0).toInt(),
-            label = "Duration (minutes)",
-            onDismiss = { editingDuration = false },
-            onConfirm = { newMinutes ->
-                // Duration is derived from startedAt/finishedAt, so a manual edit sets finishedAt
-                // to match the entered minutes instead of storing the duration itself.
-                editedWorkout = editedWorkout.copy(
-                    finishedAt = Instant.fromEpochSeconds(editedWorkout.startedAt.epochSeconds + newMinutes.coerceAtLeast(0) * 60L)
-                )
-                editingDuration = false
-            }
-        )
-    }
-}
-
-// Applies a transform to the single set with the given id, returning the updated workout.
-private fun updateSetValue(
-    workout: Workout,
-    setId: String,
-    transform: (com.bodyforge.domain.models.WorkoutSet) -> com.bodyforge.domain.models.WorkoutSet
-): Workout {
-    val exercise = workout.exercises.firstOrNull { e -> e.sets.any { it.id == setId } } ?: return workout
-    val updatedSets = exercise.sets.map { if (it.id == setId) transform(it) else it }
-    return workout.updateExercise(exercise.exercise.id, exercise.copy(sets = updatedSets))
 }
 
 @Composable
-private fun HistoryNumberInputDialog(currentValue: Int, label: String, onDismiss: () -> Unit, onConfirm: (Int) -> Unit) {
-    var textValue by remember { mutableStateOf(currentValue.toString()) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        text = {
-            Column {
-                Text("Edit $label", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Spacer(modifier = Modifier.height(16.dp))
-                BasicTextField(
-                    value = textValue,
-                    onValueChange = { newText -> val f = newText.filter { it.isDigit() }; if (f.length <= 4) textValue = f },
-                    modifier = Modifier.fillMaxWidth().background(SurfaceColor, RoundedCornerShape(8.dp)).padding(16.dp),
-                    textStyle = TextStyle(fontSize = 24.sp, color = TextPrimary, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold),
-                    singleLine = true
-                )
-            }
-        },
-        confirmButton = {
-            Button(onClick = { onConfirm(textValue.toIntOrNull() ?: 0) }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange)) {
-                Text("OK", color = Color.White, fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) } },
-        backgroundColor = CardBackground
-    )
+private fun SheetAction(emoji: String, icon: ImageVector, label: String, color: Color, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 15.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        EmojiIcon(emoji, icon, fontSize = 16.sp, iconSize = 20.dp)
+        Text(label, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = color)
+    }
 }
-
-@Composable
-private fun HistoryWeightInputDialog(currentWeight: Double, onDismiss: () -> Unit, onConfirm: (Double) -> Unit) {
-    var textValue by remember { mutableStateOf(if (currentWeight > 0) formatWeight(currentWeight) else "") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        text = {
-            Column {
-                Text("Edit Weight (${Weights.unit})", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Spacer(modifier = Modifier.height(16.dp))
-                BasicTextField(
-                    value = textValue,
-                    onValueChange = { newText -> val f = newText.filter { it.isDigit() || it == '.' }; if (f.count { it == '.' } <= 1 && f.length <= 7) textValue = f },
-                    modifier = Modifier.fillMaxWidth().background(SurfaceColor, RoundedCornerShape(8.dp)).padding(16.dp),
-                    textStyle = TextStyle(fontSize = 24.sp, color = TextPrimary, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold),
-                    singleLine = true
-                )
-            }
-        },
-        confirmButton = {
-            Button(onClick = { onConfirm(Weights.toKg(textValue.toDoubleOrNull() ?: 0.0)) }, colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange)) {
-                Text("OK", color = Color.White, fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) } },
-        backgroundColor = CardBackground
-    )
-}
-
-private fun formatWeight(weight: Double): String = Weights.format(weight)

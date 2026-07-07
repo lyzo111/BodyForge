@@ -539,8 +539,8 @@ private fun RoutineFolderHeader(name: String, subtitle: String, expanded: Boolea
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(if (expanded) "▾" else "▸", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AccentOrange)
-        Text(name, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary, modifier = Modifier.weight(1f))
+        Text(if (expanded) "▾" else "▸", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = AccentOrange)
+        Text(name, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary, modifier = Modifier.weight(1f))
         Text(subtitle, fontSize = 12.sp, color = TextSecondary)
     }
 }
