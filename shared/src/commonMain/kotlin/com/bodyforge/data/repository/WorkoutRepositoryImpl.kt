@@ -19,6 +19,20 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.Clock
 import kotlinx.serialization.json.Json
 
+// The schema has no per-exercise row, so the exercise-level note shares the first set's notes
+// column, stored as "<exercise note>\u001F<first set note>". The separator is a control character
+// users can't type. A stored value without it is legacy data, where the whole value was the
+// exercise note and the first set's own note was not persisted.
+private const val EXERCISE_NOTE_SEP = "\u001F"
+
+private fun encodeFirstSetNotes(exerciseNotes: String, setNotes: String): String =
+    if (exerciseNotes.isBlank() && setNotes.isBlank()) "" else exerciseNotes + EXERCISE_NOTE_SEP + setNotes
+
+private fun decodeFirstSetNotes(stored: String): Pair<String, String> {
+    val i = stored.indexOf(EXERCISE_NOTE_SEP)
+    return if (i >= 0) stored.substring(0, i) to stored.substring(i + 1) else stored to ""
+}
+
 class WorkoutRepositoryImpl(
     database: BodyForgeDatabase = DatabaseFactory.create()
 ) : WorkoutRepository {
@@ -72,7 +86,7 @@ class WorkoutRepositoryImpl(
                     rest_time_seconds = set.restTimeSeconds.toLong(),
                     completed = if (set.completed) 1L else 0L,
                     completed_at = set.completedAt?.epochSeconds,
-                    notes = if (setIndex == 0) exerciseInWorkout.notes else set.notes,
+                    notes = if (setIndex == 0) encodeFirstSetNotes(exerciseInWorkout.notes, set.notes) else set.notes,
                     status = set.status.name,
                     original_exercise_id = set.originalExerciseId,
                     metrics = com.bodyforge.data.mappers.WorkoutMapper.serializeMetrics(set.metrics)
@@ -107,7 +121,7 @@ class WorkoutRepositoryImpl(
                     rest_time_seconds = set.restTimeSeconds.toLong(),
                     completed = if (set.completed) 1L else 0L,
                     completed_at = set.completedAt?.epochSeconds,
-                    notes = set.notes,
+                    notes = if (setIndex == 0) encodeFirstSetNotes(exerciseInWorkout.notes, set.notes) else set.notes,
                     status = set.status.name,
                     original_exercise_id = set.originalExerciseId,
                     metrics = com.bodyforge.data.mappers.WorkoutMapper.serializeMetrics(set.metrics)
@@ -149,7 +163,10 @@ class WorkoutRepositoryImpl(
                 defaultRestTimeSeconds = exerciseEntity.default_rest_time_seconds.toInt()
             )
 
-            val sets = setEntities.sortedBy { it.set_number }.map { setEntity ->
+            val sortedEntities = setEntities.sortedBy { it.set_number }
+            val (exerciseNotes, firstSetNotes) = sortedEntities.firstOrNull()?.notes
+                ?.let { decodeFirstSetNotes(it) } ?: ("" to "")
+            val sets = sortedEntities.mapIndexed { index, setEntity ->
                 WorkoutSet(
                     id = setEntity.id,
                     reps = setEntity.reps.toInt(),
@@ -157,7 +174,7 @@ class WorkoutRepositoryImpl(
                     restTimeSeconds = setEntity.rest_time_seconds.toInt(),
                     completed = setEntity.completed == 1L,
                     completedAt = setEntity.completed_at?.let { Instant.fromEpochSeconds(it) },
-                    notes = setEntity.notes,
+                    notes = if (index == 0) firstSetNotes else setEntity.notes,
                     status = SetStatus.fromStorage(setEntity.status),
                     originalExerciseId = setEntity.original_exercise_id,
                     metrics = com.bodyforge.data.mappers.WorkoutMapper.parseMetrics(setEntity.metrics)
@@ -168,7 +185,7 @@ class WorkoutRepositoryImpl(
                 exercise = exercise,
                 sets = sets,
                 orderInWorkout = setEntities.firstOrNull()?.order_in_workout?.toInt() ?: 0,
-                notes = sets.firstOrNull()?.notes ?: ""
+                notes = exerciseNotes
             )
         }
 
@@ -240,7 +257,7 @@ class WorkoutRepositoryImpl(
                     rest_time_seconds = set.restTimeSeconds.toLong(),
                     completed = if (set.completed) 1L else 0L,
                     completed_at = set.completedAt?.epochSeconds,
-                    notes = if (setIndex == 0) exerciseInWorkout.notes else set.notes,
+                    notes = if (setIndex == 0) encodeFirstSetNotes(exerciseInWorkout.notes, set.notes) else set.notes,
                     status = set.status.name,
                     original_exercise_id = set.originalExerciseId,
                     metrics = com.bodyforge.data.mappers.WorkoutMapper.serializeMetrics(set.metrics)
