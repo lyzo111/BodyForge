@@ -1409,21 +1409,18 @@ private fun StepperCapsule(
             modifier = Modifier.weight(1f).fillMaxHeight().clickable(enabled = enabled, onClick = onTapValue),
             contentAlignment = Alignment.Center
         ) {
-            // Longer values (decimals like "+27.5") step down in size so they never overflow
-            // into the −/+ segments.
+            // Auto-fit: start from the base size and step down until the measured line no longer
+            // overflows the segment, so decimals like "+22.5" stay inside at any system font scale.
+            var fitSize by remember(value, valueFontSize) { mutableStateOf(valueFontSize) }
             Text(
                 value,
                 color = valueColor,
-                fontSize = when {
-                    value.length >= 8 -> 11.sp
-                    value.length >= 6 -> 12.sp
-                    value.length >= 5 -> minOf(14f, valueFontSize.value).sp
-                    else -> valueFontSize
-                },
+                fontSize = fitSize,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 softWrap = false,
-                modifier = Modifier.padding(horizontal = 2.dp)
+                onTextLayout = { if (it.hasVisualOverflow && fitSize.value > 9f) fitSize = (fitSize.value - 1f).sp },
+                modifier = Modifier.padding(horizontal = 3.dp)
             )
         }
         Box(Modifier.width(1.dp).fillMaxHeight().background(borderColor))
