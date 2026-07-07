@@ -38,7 +38,9 @@ import androidx.compose.ui.unit.dp
 // (BoxWithConstraints uses SubcomposeLayout, which crashes under a verticalScroll's infinite height).
 @Composable
 fun HScrollIndicator(scrollState: ScrollState, modifier: Modifier = Modifier) {
-    if (scrollState.maxValue <= 0) return
+    // Int.MAX_VALUE is ScrollState's pre-measure sentinel — treat it like "no overflow" too.
+    val maxScroll = scrollState.maxValue
+    if (maxScroll <= 0 || maxScroll == Int.MAX_VALUE) return
     var trackWidthPx by remember { mutableStateOf(0) }
     Column(modifier) {
         Spacer(modifier = Modifier.height(6.dp))
@@ -53,19 +55,23 @@ fun HScrollIndicator(scrollState: ScrollState, modifier: Modifier = Modifier) {
             if (trackWidthPx > 0) {
                 val density = LocalDensity.current
                 val trackPx = trackWidthPx.toFloat()
-                val content = trackPx + scrollState.maxValue
+                val content = trackPx + maxScroll
                 val thumbFraction = (trackPx / content).coerceIn(0.2f, 1f)
-                val progress = scrollState.value.toFloat() / scrollState.maxValue
-                val thumbWidth = with(density) { (trackPx * thumbFraction).toDp() }
-                val thumbOffset = with(density) { ((trackPx - trackPx * thumbFraction) * progress).toDp() }
-                Box(
-                    modifier = Modifier
-                        .offset(x = thumbOffset)
-                        .width(thumbWidth)
-                        .fillMaxHeight()
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(ThumbColor)
-                )
+                val progress = (scrollState.value.toFloat() / maxScroll).coerceIn(0f, 1f)
+                // Never hand a non-finite value to offset/width — a division that went wrong
+                // during a transient measure state must degrade to "no thumb", not a crash.
+                val thumbWidthPx = trackPx * thumbFraction
+                val thumbOffsetPx = (trackPx - thumbWidthPx) * progress
+                if (thumbWidthPx.isFinite() && thumbOffsetPx.isFinite()) {
+                    Box(
+                        modifier = Modifier
+                            .offset(x = with(density) { thumbOffsetPx.toDp() })
+                            .width(with(density) { thumbWidthPx.toDp() })
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(ThumbColor)
+                    )
+                }
             }
         }
     }

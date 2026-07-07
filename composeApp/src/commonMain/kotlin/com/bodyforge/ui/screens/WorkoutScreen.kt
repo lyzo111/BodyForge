@@ -32,7 +32,6 @@ import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.Color
 import com.bodyforge.ui.theme.*
 import androidx.compose.ui.text.font.FontWeight
@@ -500,34 +499,10 @@ private fun ExerciseJumpBar(
             }
         }
 
-        // Purely visual scroll-position indicator: a track with a thumb whose width and offset
-        // reflect how far the jump buttons are scrolled. Shown only when the row overflows.
-        if (scrollState.maxValue > 0) {
-            Spacer(modifier = Modifier.height(6.dp))
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(SurfaceColor.copy(alpha = 0.4f))
-            ) {
-                val density = LocalDensity.current
-                val trackPx = with(density) { maxWidth.toPx() }
-                val content = trackPx + scrollState.maxValue
-                val thumbFraction = (trackPx / content).coerceIn(0.2f, 1f)
-                val progress = scrollState.value.toFloat() / scrollState.maxValue
-                val thumbWidth = with(density) { (trackPx * thumbFraction).toDp() }
-                val thumbOffset = with(density) { ((trackPx - trackPx * thumbFraction) * progress).toDp() }
-                Box(
-                    modifier = Modifier
-                        .offset(x = thumbOffset)
-                        .width(thumbWidth)
-                        .fillMaxHeight()
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(AccentBlue.copy(alpha = 0.8f))
-                )
-            }
-        }
+        // Scroll-position indicator. Uses the shared HScrollIndicator: the old hand-rolled
+        // BoxWithConstraints version subcomposed during measure and could read a mid-measure
+        // maxValue of 0, dividing 0/0 into a NaN offset and crashing the whole screen.
+        com.bodyforge.ui.components.HScrollIndicator(scrollState)
     }
 }
 
