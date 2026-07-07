@@ -18,6 +18,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // First thing, before anything that could throw: crash counting and the three-strikes
+        // settings reset must run even when the rest of startup is broken.
+        CrashGuard.install(this)
+
         DatabaseFactory.init(this)
 
         // Needed on Android 13+ for the rest-timer notification to actually show; a no-op on

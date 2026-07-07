@@ -12,40 +12,44 @@ object AppSettings {
     private val prefs
         get() = DatabaseFactory.context().getSharedPreferences("bodyforge_settings", Context.MODE_PRIVATE)
 
+    // Name of the most recently changed user-facing setting. The crash guard resets exactly this
+    // one to its default when the app crashes three times in a row.
+    private const val LAST_CHANGED = "last_changed_setting"
+
     var isolationRestSeconds: Int
         get() = prefs.getInt("isolation_rest", 120)
-        set(value) { prefs.edit().putInt("isolation_rest", value).apply() }
+        set(value) { prefs.edit().putInt("isolation_rest", value).putString(LAST_CHANGED, "isolation_rest").apply() }
 
     var compoundRestSeconds: Int
         get() = prefs.getInt("compound_rest", 180)
-        set(value) { prefs.edit().putInt("compound_rest", value).apply() }
+        set(value) { prefs.edit().putInt("compound_rest", value).putString(LAST_CHANGED, "compound_rest").apply() }
 
     var vibrateOnTimerEnd: Boolean
         get() = prefs.getBoolean("vibrate_on_timer_end", true)
-        set(value) { prefs.edit().putBoolean("vibrate_on_timer_end", value).apply() }
+        set(value) { prefs.edit().putBoolean("vibrate_on_timer_end", value).putString(LAST_CHANGED, "vibrate_on_timer_end").apply() }
 
     // When false (default), a set can no longer be edited once it is marked done; when true,
     // completed sets stay editable.
     var editCompletedSets: Boolean
         get() = prefs.getBoolean("edit_completed_sets", false)
-        set(value) { prefs.edit().putBoolean("edit_completed_sets", value).apply() }
+        set(value) { prefs.edit().putBoolean("edit_completed_sets", value).putString(LAST_CHANGED, "edit_completed_sets").apply() }
 
     // Display unit for weights. Stored data stays in kilograms; this only changes how weights are
     // shown and entered across the app.
     var useLbs: Boolean
         get() = prefs.getBoolean("use_lbs", false)
-        set(value) { prefs.edit().putBoolean("use_lbs", value).apply() }
+        set(value) { prefs.edit().putBoolean("use_lbs", value).putString(LAST_CHANGED, "use_lbs").apply() }
 
     // When true (default), decorative emojis are shown; when false they are replaced with icons.
     var emojiMode: Boolean
         get() = prefs.getBoolean("emoji_mode", true)
-        set(value) { prefs.edit().putBoolean("emoji_mode", value).apply() }
+        set(value) { prefs.edit().putBoolean("emoji_mode", value).putString(LAST_CHANGED, "emoji_mode").apply() }
 
     // When true, the active workout uses the old large stacked per-set buttons; when false
     // (default) it uses the compact one-row-per-set layout.
     var bigButtonMode: Boolean
         get() = prefs.getBoolean("big_button_mode", false)
-        set(value) { prefs.edit().putBoolean("big_button_mode", value).apply() }
+        set(value) { prefs.edit().putBoolean("big_button_mode", value).putString(LAST_CHANGED, "big_button_mode").apply() }
 
     // templateId -> split name (e.g. "PPL"). Persisted here, so splits need no database migration.
     // Entries are joined with control characters (record/unit separators) that users won't type.
@@ -103,7 +107,7 @@ object AppSettings {
     // Name of the selected colour theme (see com.bodyforge.ui.theme). Defaults to the first theme.
     var themeName: String
         get() = prefs.getString("theme_name", "Midnight") ?: "Midnight"
-        set(value) { prefs.edit().putString("theme_name", value).apply() }
+        set(value) { prefs.edit().putString("theme_name", value).putString(LAST_CHANGED, "theme_name").apply() }
 }
 
 // A noticeable vibration pattern, used when the rest timer reaches zero. Several pulses so it's

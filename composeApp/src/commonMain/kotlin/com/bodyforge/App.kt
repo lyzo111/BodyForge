@@ -5,6 +5,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
@@ -59,6 +61,7 @@ fun App() {
     val error by SharedWorkoutState.error.collectAsState()
 
     var showSplash by remember { mutableStateOf(true) }
+    var crashNotice by remember { mutableStateOf(consumeCrashNotice()) }
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(1600)
         showSplash = false
@@ -94,8 +97,59 @@ fun App() {
             if (showSplash) {
                 SplashScreen()
             }
+
+            crashNotice?.let { notice ->
+                CrashNoticeDialog(notice = notice, onDismiss = { crashNotice = null })
+            }
         }
     }
+}
+
+// Shown once after a crash: which settings the crash guard reset (if it hit three strikes) and
+// the stack trace, so a screenshot of this dialog is enough to debug the crash.
+@Composable
+private fun CrashNoticeDialog(notice: CrashNotice, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("The app crashed last time", fontWeight = FontWeight.Bold, color = TextPrimary) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                notice.resetSettings?.let { reset ->
+                    Text(
+                        "After repeated crashes, these settings were reset to their defaults: $reset",
+                        color = TextPrimary,
+                        fontSize = 14.sp
+                    )
+                }
+                notice.trace?.let { trace ->
+                    Text("Crash details (screenshot this to report it):", color = TextSecondary, fontSize = 12.sp)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 260.dp)
+                            .background(SurfaceColor, RoundedCornerShape(8.dp))
+                            .padding(10.dp)
+                    ) {
+                        Text(
+                            trace,
+                            color = TextPrimary,
+                            fontSize = 10.sp,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            modifier = Modifier.verticalScroll(rememberScrollState())
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(backgroundColor = AccentBlue),
+                elevation = ButtonDefaults.elevation(0.dp)
+            ) { Text("OK", color = Color.White, fontWeight = FontWeight.Bold) }
+        },
+        backgroundColor = CardBackground
+    )
 }
 
 @Composable
