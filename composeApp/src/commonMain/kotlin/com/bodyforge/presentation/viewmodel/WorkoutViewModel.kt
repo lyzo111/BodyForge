@@ -3,8 +3,10 @@ package com.bodyforge.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bodyforge.domain.models.Exercise
+import com.bodyforge.domain.models.ExerciseInWorkout
 import com.bodyforge.domain.models.SetStatus
 import com.bodyforge.domain.models.Workout
+import com.bodyforge.domain.models.WorkoutSet
 import com.bodyforge.domain.models.WorkoutTemplate
 import com.bodyforge.presentation.state.SharedWorkoutState
 import kotlinx.coroutines.launch
@@ -168,6 +170,42 @@ class WorkoutViewModel : ViewModel() {
                 sharedState.updateActiveWorkout(newWorkout)
             } catch (e: Exception) {
                 sharedState.setError("Failed to save notes: ${e.message ?: "Unknown error"}")
+            }
+        }
+    }
+
+    // Adds an exercise to the RUNNING workout only — the template it was started from is never
+    // touched. Sets are prefilled from the exercise's last logged session when there is one.
+    fun addExerciseToWorkout(exercise: Exercise) {
+        val currentWorkout = sharedState.activeWorkout.value ?: return
+        viewModelScope.launch {
+            try {
+                if (currentWorkout.exercises.any { it.exercise.id == exercise.id }) return@launch
+                val lastPerformed = sharedState.completedWorkouts.value
+                    .sortedByDescending { it.startedAt }
+                    .firstNotNullOfOrNull { w ->
+                        w.exercises.firstOrNull { it.exercise.id == exercise.id && it.sets.any { s -> s.reps > 0 } }
+                    }
+                val sets = if (lastPerformed != null) {
+                    lastPerformed.sets.filter { it.reps > 0 }.mapIndexed { index, source ->
+                        WorkoutSet.createEmpty(exercise.id, index + 1, exercise.defaultRestTimeSeconds, currentWorkout.id)
+                            .copy(reps = source.reps, weightKg = source.weightKg)
+                    }
+                } else {
+                    (1..3).map { n -> WorkoutSet.createEmpty(exercise.id, n, exercise.defaultRestTimeSeconds, currentWorkout.id) }
+                }
+                val entry = ExerciseInWorkout(
+                    exercise = exercise,
+                    sets = sets,
+                    orderInWorkout = (currentWorkout.exercises.maxOfOrNull { it.orderInWorkout } ?: -1) + 1,
+                    notes = lastPerformed?.notes ?: "",
+                    variation = lastPerformed?.variation ?: ""
+                )
+                val updatedWorkout = currentWorkout.copy(exercises = currentWorkout.exercises + entry)
+                sharedState.workoutRepo.updateWorkout(updatedWorkout)
+                sharedState.updateActiveWorkout(updatedWorkout)
+            } catch (e: Exception) {
+                sharedState.setError("Failed to add exercise: ${e.message ?: "Unknown error"}")
             }
         }
     }

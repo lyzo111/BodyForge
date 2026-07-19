@@ -314,6 +314,8 @@ private fun ActiveWorkoutView(
     val restRemaining by SharedWorkoutState.restRemainingSeconds.collectAsState()
     val restTotal by SharedWorkoutState.restTotalSeconds.collectAsState()
     val restEndsAtMillis by SharedWorkoutState.restEndsAtMillis.collectAsState()
+    var showAddExercise by remember { mutableStateOf(false) }
+
     // Per-exercise collapse state for the active workout, hoisted so it survives list recycling
     // and persisted (scoped to this workout's id) so it also survives app restarts.
     val expandedExercises = remember(workout.id) {
@@ -413,6 +415,21 @@ private fun ActiveWorkoutView(
                 onUpdateMetric = { setId, key, value -> viewModel.updateSetMetric(exerciseInWorkout.exercise.id, setId, key, value) }
             )
             }
+
+            item {
+                // Adds to this running workout only — the template it was started from stays as-is.
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .border(BorderStroke(1.dp, TextSecondary.copy(alpha = 0.4f)), RoundedCornerShape(14.dp))
+                        .clickable { showAddExercise = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("+ Add exercise", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextSecondary)
+                }
+            }
         }
 
         if (restEndsAtMillis > 0L) {
@@ -423,6 +440,19 @@ private fun ActiveWorkoutView(
                 onSkip = { SharedWorkoutState.skipRest() }
             )
         }
+    }
+
+    if (showAddExercise) {
+        ExercisePickerDialog(
+            title = "Add exercise",
+            exercises = availableExercises,
+            excludeIds = workout.exercises.map { it.exercise.id }.toSet(),
+            onDismiss = { showAddExercise = false },
+            onPick = { picked ->
+                viewModel.addExerciseToWorkout(picked)
+                showAddExercise = false
+            }
+        )
     }
 }
 
@@ -928,9 +958,10 @@ private fun ActiveExerciseCard(
     }
 
     if (showSubstitutePicker) {
-        SubstituteExerciseDialog(
-            currentExerciseId = exercise.id,
+        ExercisePickerDialog(
+            title = "Substitute Exercise",
             exercises = availableExercises,
+            excludeIds = setOf(exercise.id),
             onDismiss = { showSubstitutePicker = false },
             onPick = { picked ->
                 onSubstitute(picked)
@@ -1234,16 +1265,17 @@ private fun ExerciseActionChip(text: String, color: Color, onClick: () -> Unit) 
 }
 
 @Composable
-private fun SubstituteExerciseDialog(
-    currentExerciseId: String,
+private fun ExercisePickerDialog(
+    title: String,
     exercises: List<Exercise>,
+    excludeIds: Set<String>,
     onDismiss: () -> Unit,
     onPick: (Exercise) -> Unit
 ) {
     var query by remember { mutableStateOf("") }
-    val filtered = remember(exercises, query, currentExerciseId) {
+    val filtered = remember(exercises, query, excludeIds) {
         exercises.filter {
-            it.id != currentExerciseId &&
+            it.id !in excludeIds &&
                 (query.isBlank() || it.name.contains(query, ignoreCase = true) ||
                     it.muscleGroups.any { muscle -> muscle.contains(query, ignoreCase = true) })
         }
@@ -1251,7 +1283,7 @@ private fun SubstituteExerciseDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Substitute Exercise", fontWeight = FontWeight.Bold, color = TextPrimary) },
+        title = { Text(title, fontWeight = FontWeight.Bold, color = TextPrimary) },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
