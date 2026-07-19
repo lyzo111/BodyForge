@@ -25,7 +25,10 @@ import com.bodyforge.presentation.state.SharedWorkoutState
 import com.bodyforge.presentation.state.SettingsState
 import com.bodyforge.ui.components.EmojiIcon
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.todayIn
 
 // One shared color per action role, so Edit/Resume/Complete/Delete read consistently: orange for
 // the primary forward action, neutral grey for secondary actions, red exclusively for destructive.
@@ -36,6 +39,20 @@ private fun formatDate(date: LocalDate): String {
     val day = date.dayOfMonth.toString().padStart(2, '0')
     val month = date.monthNumber.toString().padStart(2, '0')
     return "$day.$month.${date.year}"
+}
+
+// Accepts dd.MM.yyyy (also with / or - separators, and 2-digit years as 20xx); null if invalid.
+private fun parseDate(text: String): LocalDate? {
+    val parts = text.trim().split('.', '/', '-').filter { it.isNotBlank() }
+    if (parts.size != 3) return null
+    val day = parts[0].toIntOrNull() ?: return null
+    val month = parts[1].toIntOrNull() ?: return null
+    val year = parts[2].toIntOrNull()?.let { if (it < 100) 2000 + it else it } ?: return null
+    return try {
+        LocalDate(year, month, day)
+    } catch (e: IllegalArgumentException) {
+        null
+    }
 }
 
 @Composable
@@ -163,8 +180,10 @@ fun PhaseSection() {
             initialSplit = "",
             confirmLabel = "Start Phase",
             onDismiss = { showCreate = false },
-            onConfirm = { name, type, description, split ->
-                scope.launch { SharedWorkoutState.startPhase(name, type, description, split) }
+            onConfirm = { name, type, description, split, start, end ->
+                scope.launch {
+                    SharedWorkoutState.startPhase(name, type, description, split, startDate = start, endDate = end)
+                }
                 showCreate = false
             }
         )
@@ -177,9 +196,19 @@ fun PhaseSection() {
             initialSplit = phaseSplits[phase.id] ?: "",
             confirmLabel = "Save",
             onDismiss = { editing = null },
-            onConfirm = { name, type, description, split ->
+            onConfirm = { name, type, description, split, start, end ->
                 scope.launch {
-                    SharedWorkoutState.updatePhase(phase.copy(name = name, phaseType = type, description = description))
+                    SharedWorkoutState.updatePhase(
+                        phase.copy(
+                            name = name,
+                            phaseType = type,
+                            description = description,
+                            startDate = start,
+                            // The dialog only lets completed phases change their end; an active
+                            // phase keeps its (null) end and stays owned by Complete/Resume.
+                            endDate = if (phase.endDate != null) end else phase.endDate
+                        )
+                    )
                     SharedWorkoutState.setPhaseSplit(phase.id, split)
                 }
                 editing = null
@@ -215,12 +244,22 @@ private fun PhaseEditorDialog(
     initialSplit: String,
     confirmLabel: String,
     onDismiss: () -> Unit,
-    onConfirm: (String, PhaseType, String, String) -> Unit
+    onConfirm: (String, PhaseType, String, String, LocalDate, LocalDate?) -> Unit
 ) {
     var name by remember { mutableStateOf(initial?.name ?: "") }
     var type by remember { mutableStateOf(initial?.phaseType ?: PhaseType.HYPERTROPHY) }
     var description by remember { mutableStateOf(initial?.description ?: "") }
     var split by remember { mutableStateOf(initialSplit) }
+    var startDate by remember {
+        mutableStateOf(initial?.startDate ?: Clock.System.todayIn(TimeZone.currentSystemDefault()))
+    }
+    var endDate by remember { mutableStateOf(initial?.endDate) }
+    var editingStart by remember { mutableStateOf(false) }
+    var editingEnd by remember { mutableStateOf(false) }
+    // The end date is only editable when creating (optional, back-dates a completed phase) or on
+    // an already-completed phase; an active phase's end stays owned by Complete/Resume.
+    val endEditable = initial == null || initial.endDate != null
+    val dateInvalid = endDate?.let { it < startDate } == true
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -247,6 +286,52 @@ private fun PhaseEditorDialog(
                     }
                 }
                 com.bodyforge.ui.components.HScrollIndicator(typeScrollState)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Start", fontSize = 12.sp, color = TextSecondary)
+                    Text(
+                        formatDate(startDate),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary,
+                        modifier = Modifier
+                            .background(SurfaceColor, RoundedCornerShape(8.dp))
+                            .clickable { editingStart = true }
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
+                if (endEditable) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(if (initial == null) "End (optional)" else "End", fontSize = 12.sp, color = TextSecondary)
+                        Text(
+                            endDate?.let { formatDate(it) } ?: "Ongoing",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (endDate == null) TextSecondary else TextPrimary,
+                            modifier = Modifier
+                                .background(SurfaceColor, RoundedCornerShape(8.dp))
+                                .clickable { editingEnd = true }
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
+                    }
+                    if (initial == null && endDate != null) {
+                        Text(
+                            "With an end date this is saved as an already-completed phase — your current active phase stays active.",
+                            fontSize = 11.sp,
+                            color = TextSecondary
+                        )
+                    }
+                }
+                if (dateInvalid) {
+                    Text("End date is before the start date.", fontSize = 11.sp, color = AccentRed)
+                }
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
@@ -281,11 +366,80 @@ private fun PhaseEditorDialog(
         },
         confirmButton = {
             Button(
-                onClick = { if (name.isNotBlank()) onConfirm(name.trim(), type, description.trim(), split.trim()) },
+                onClick = {
+                    if (name.isNotBlank() && !dateInvalid) {
+                        onConfirm(name.trim(), type, description.trim(), split.trim(), startDate, endDate)
+                    }
+                },
                 colors = ButtonDefaults.buttonColors(backgroundColor = ActionPrimary),
-                enabled = name.isNotBlank(),
+                enabled = name.isNotBlank() && !dateInvalid,
                 elevation = ButtonDefaults.elevation(0.dp)
             ) { Text(confirmLabel, color = Color.White, fontWeight = FontWeight.Bold) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) } },
+        backgroundColor = CardBackground
+    )
+
+    if (editingStart) {
+        DateInputDialog(
+            title = "Start date",
+            initial = startDate,
+            onDismiss = { editingStart = false },
+            onConfirm = { startDate = it; editingStart = false }
+        )
+    }
+    if (editingEnd) {
+        DateInputDialog(
+            title = "End date",
+            initial = endDate ?: startDate,
+            // Clearing back to "Ongoing" is only offered while creating; a completed phase goes
+            // back to ongoing via Resume instead.
+            onClear = if (initial == null) ({ endDate = null; editingEnd = false }) else null,
+            onDismiss = { editingEnd = false },
+            onConfirm = { endDate = it; editingEnd = false }
+        )
+    }
+}
+
+// Minimal date entry (dd.MM.yyyy) — keeps the phase editor dependency-free of platform pickers.
+@Composable
+private fun DateInputDialog(
+    title: String,
+    initial: LocalDate,
+    onDismiss: () -> Unit,
+    onConfirm: (LocalDate) -> Unit,
+    onClear: (() -> Unit)? = null
+) {
+    var text by remember { mutableStateOf(formatDate(initial)) }
+    val parsed = parseDate(text)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { Text("dd.mm.yyyy") },
+                    singleLine = true,
+                    isError = parsed == null,
+                    colors = TextFieldDefaults.outlinedTextFieldColors(textColor = TextPrimary, focusedBorderColor = AccentPurple, unfocusedBorderColor = SurfaceColor),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (onClear != null) {
+                    TextButton(onClick = onClear, contentPadding = PaddingValues(horizontal = 4.dp)) {
+                        Text("No end date (ongoing)", color = TextSecondary, fontSize = 13.sp)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { parsed?.let(onConfirm) },
+                enabled = parsed != null,
+                colors = ButtonDefaults.buttonColors(backgroundColor = ActionPrimary),
+                elevation = ButtonDefaults.elevation(0.dp)
+            ) { Text("OK", color = Color.White, fontWeight = FontWeight.Bold) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) } },
         backgroundColor = CardBackground

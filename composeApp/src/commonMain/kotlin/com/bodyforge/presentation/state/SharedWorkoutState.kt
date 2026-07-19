@@ -271,17 +271,28 @@ object SharedWorkoutState {
 
     // Starts a new phase: ends the currently active one (today) so phases form a continuous
     // timeline, then inserts the new active phase starting today.
-    suspend fun startPhase(name: String, phaseType: PhaseType, description: String = "", split: String = "", goals: List<String> = emptyList()): TrainingPhase {
+    // startDate defaults to today; a non-null endDate creates an already-completed (back-dated)
+    // phase, which leaves the currently active phase untouched.
+    suspend fun startPhase(
+        name: String,
+        phaseType: PhaseType,
+        description: String = "",
+        split: String = "",
+        goals: List<String> = emptyList(),
+        startDate: kotlinx.datetime.LocalDate? = null,
+        endDate: kotlinx.datetime.LocalDate? = null
+    ): TrainingPhase {
         val today = today()
-        phaseRepo.deactivateActivePhases(today)
+        if (endDate == null) phaseRepo.deactivateActivePhases(today)
         val phase = TrainingPhase(
             id = "phase_${Clock.System.now().epochSeconds}",
             name = name,
             phaseType = phaseType,
-            startDate = today,
+            startDate = startDate ?: today,
+            endDate = endDate,
             goals = goals,
             description = description,
-            isActive = true
+            isActive = endDate == null
         )
         phaseRepo.savePhase(phase)
         setPhaseSplit(phase.id, split)
