@@ -22,7 +22,7 @@ object CrashGuard {
     private const val KEY_LAST_CHANGED_SETTING = "last_changed_setting"
     private val BEHAVIOR_SETTING_KEYS = listOf(
         "big_button_mode", "emoji_mode", "use_lbs", "edit_completed_sets",
-        "vibrate_on_timer_end", "isolation_rest", "compound_rest", "theme_name"
+        "vibrate_on_timer_end", "isolation_rest", "compound_rest", "theme_name", "weight_step"
     )
 
     private fun guardPrefs(context: Context): SharedPreferences =
@@ -81,6 +81,7 @@ object CrashGuard {
         "isolation_rest" -> "Isolation rest"
         "compound_rest" -> "Compound rest"
         "theme_name" -> "Theme"
+        "weight_step" -> "Weight step"
         else -> key
     }
 }

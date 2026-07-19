@@ -112,7 +112,13 @@ class ExerciseRepositoryImpl : ExerciseRepository {
     }
 
     override suspend fun ensureStockExercises() = withContext(Dispatchers.IO) {
+        // Skip stock entries whose NAME already exists (e.g. a custom exercise auto-created by a
+        // CSV import): seeding by id alone used to create a same-named duplicate in that case.
+        val existingNames = queries.selectAllExercisesActive().executeAsList()
+            .map { it.name.trim().lowercase() }
+            .toHashSet()
         fun add(id: String, name: String, groups: List<String>, equipment: String, bodyweight: Boolean, rest: Int) {
+            if (name.trim().lowercase() in existingNames) return
             queries.insertOrIgnoreExercise(id, name, Json.encodeToString(groups), "", equipment, if (bodyweight) 1L else 0L, rest.toLong())
         }
         add("cable_pullovers", "Cable Pullovers", listOf("Back"), "Cable Machine", false, 90)
@@ -126,9 +132,18 @@ class ExerciseRepositoryImpl : ExerciseRepository {
         add("cycling", "Cycling", listOf("Cardio"), "Bike", false, 60)
         add("cross_stepper", "Cross-Stepper", listOf("Cardio"), "Cross Trainer", false, 60)
         add("rowing", "Rowing", listOf("Cardio"), "Rowing Machine", false, 60)
+        add("wrist_curls", "Wrist Curls", listOf("Forearms"), "Dumbbells", false, 60)
+        add("wrist_extensions", "Wrist Extensions", listOf("Forearms"), "Dumbbells", false, 60)
         queries.renameStockExercise("Bench Press (Barbell)", "bench_press")
         queries.renameStockExercise("Incline Bench Press (Barbell)", "incline_bench_press")
         queries.renameStockExercise("DB Lateral Raises", "lateral_raises")
+    }
+
+    override suspend fun mergeExercises(keepId: String, duplicateId: String) = withContext(Dispatchers.IO) {
+        queries.transaction {
+            queries.reassignSetsExercise(keepId, duplicateId)
+            queries.softDeleteExercise(duplicateId)
+        }
     }
 
     override suspend fun getCustomExercises(): List<Exercise> = withContext(Dispatchers.IO) {

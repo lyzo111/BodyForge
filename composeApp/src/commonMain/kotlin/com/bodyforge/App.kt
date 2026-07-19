@@ -59,6 +59,8 @@ fun App() {
 
     val activeWorkout by SharedWorkoutState.activeWorkout.collectAsState()
     val error by SharedWorkoutState.error.collectAsState()
+    val duplicatePrompt by SharedWorkoutState.duplicatePrompt.collectAsState()
+    val appScope = rememberCoroutineScope()
 
     var showSplash by remember { mutableStateOf(true) }
     var crashNotice by remember { mutableStateOf(consumeCrashNotice()) }
@@ -101,8 +103,63 @@ fun App() {
             crashNotice?.let { notice ->
                 CrashNoticeDialog(notice = notice, onDismiss = { crashNotice = null })
             }
+
+            duplicatePrompt?.let { pair ->
+                DuplicateExerciseDialog(
+                    pair = pair,
+                    onMerge = { appScope.launch { SharedWorkoutState.mergeDuplicateExercises() } },
+                    onKeepBoth = { SharedWorkoutState.dismissDuplicatePrompt() }
+                )
+            }
         }
     }
+}
+
+// Asked once per duplicate pair: fold a same-named exercise into the other across all logs and
+// templates, or keep both and never ask about this pair again.
+@Composable
+private fun DuplicateExerciseDialog(
+    pair: SharedWorkoutState.DuplicateExercises,
+    onMerge: () -> Unit,
+    onKeepBoth: () -> Unit
+) {
+    fun describe(e: com.bodyforge.domain.models.Exercise): String =
+        if (e.muscleGroups.isEmpty()) "untagged" else e.muscleGroups.joinToString(", ")
+
+    AlertDialog(
+        onDismissRequest = onKeepBoth,
+        title = { Text("Duplicate exercise", fontWeight = FontWeight.Bold, color = TextPrimary) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "\"${pair.keep.name}\" exists twice. Replace one with the other everywhere?",
+                    color = TextPrimary,
+                    fontSize = 14.sp
+                )
+                Text(
+                    "Keeps: ${pair.keep.name} (${describe(pair.keep)})\nReplaces: ${pair.duplicate.name} (${describe(pair.duplicate)})",
+                    color = TextSecondary,
+                    fontSize = 13.sp
+                )
+                Text(
+                    "Merging rewrites every logged workout and template to the kept one and removes the duplicate. \"Keep both\" never asks about this pair again.",
+                    color = TextSecondary,
+                    fontSize = 12.sp
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onMerge,
+                colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange),
+                elevation = ButtonDefaults.elevation(0.dp)
+            ) { Text("Merge", color = Color.White, fontWeight = FontWeight.Bold) }
+        },
+        dismissButton = {
+            TextButton(onClick = onKeepBoth) { Text("Keep both", color = TextSecondary) }
+        },
+        backgroundColor = CardBackground
+    )
 }
 
 // Shown once after a crash: which settings the crash guard reset (if it hit three strikes) and

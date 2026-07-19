@@ -17,11 +17,14 @@ object SettingsState {
         private set
     var bigButtonMode by mutableStateOf(AppSettings.bigButtonMode)
         private set
+    var weightStep by mutableStateOf(AppSettings.weightStep)
+        private set
 
     fun reload() {
         editCompletedSets = AppSettings.editCompletedSets
         useLbs = AppSettings.useLbs
         emojiMode = AppSettings.emojiMode
         bigButtonMode = AppSettings.bigButtonMode
+        weightStep = AppSettings.weightStep
     }
 }

@@ -415,8 +415,8 @@ private fun EditorSetRow(
         EditorCapsule(
             value = weightLabel,
             valueColor = if (isBodyweight) AccentGreen else TextPrimary,
-            onMinus = { if (set.weightKg > 0) onStepWeight(-Weights.toKg(2.5)) },
-            onPlus = { onStepWeight(Weights.toKg(2.5)) },
+            onMinus = { if (set.weightKg > 0) onStepWeight(-Weights.toKg(com.bodyforge.presentation.state.SettingsState.weightStep)) },
+            onPlus = { onStepWeight(Weights.toKg(com.bodyforge.presentation.state.SettingsState.weightStep)) },
             onTapValue = onEditWeight,
             modifier = Modifier.weight(1.15f)
         )

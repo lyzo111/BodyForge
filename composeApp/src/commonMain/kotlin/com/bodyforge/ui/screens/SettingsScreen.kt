@@ -34,6 +34,7 @@ fun SettingsScreen(listState: LazyListState) {
     var useLbs by remember { mutableStateOf(AppSettings.useLbs) }
     var emojiMode by remember { mutableStateOf(AppSettings.emojiMode) }
     var bigButtons by remember { mutableStateOf(AppSettings.bigButtonMode) }
+    var weightStep by remember { mutableStateOf(AppSettings.weightStep) }
     var infoDialog by remember { mutableStateOf<Pair<String, String>?>(null) } // (title, text)
 
     LazyColumn(
@@ -109,6 +110,28 @@ fun SettingsScreen(listState: LazyListState) {
                         }
                     }
                 }
+                Spacer(Modifier.height(8.dp))
+                Column {
+                    Text("Weight step (+/− buttons)", color = TextPrimary, fontSize = 14.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(0.5, 1.0, 1.25, 2.5, 5.0).forEach { step ->
+                            val label = if (step % 1.0 == 0.0) "${step.toInt()}" else "$step"
+                            UnitChip(label, weightStep == step) {
+                                weightStep = step
+                                AppSettings.weightStep = step
+                                SettingsState.reload()
+                            }
+                        }
+                    }
+                    Text(
+                        "In ${com.bodyforge.data.Weights.unit}, applied per tap in the active workout.",
+                        color = TextSecondary,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+                Spacer(Modifier.height(4.dp))
                 ToggleRow(
                     label = "Emoji mode",
                     checked = emojiMode,

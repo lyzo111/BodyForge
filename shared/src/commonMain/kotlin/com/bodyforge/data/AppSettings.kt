@@ -51,6 +51,12 @@ object AppSettings {
         get() = prefs.getBoolean("big_button_mode", false)
         set(value) { prefs.edit().putBoolean("big_button_mode", value).putString(LAST_CHANGED, "big_button_mode").apply() }
 
+    // Step applied by the +/− weight buttons in the active workout and the history editor, in the
+    // current display unit (kg or lbs).
+    var weightStep: Double
+        get() = prefs.getFloat("weight_step", 2.5f).toDouble()
+        set(value) { prefs.edit().putFloat("weight_step", value.toFloat()).putString(LAST_CHANGED, "weight_step").apply() }
+
     // templateId -> split name (e.g. "PPL"). Persisted here, so splits need no database migration.
     // Entries are joined with control characters (record/unit separators) that users won't type.
     private const val RECORD_SEP = "\u001E"
@@ -103,6 +109,15 @@ object AppSettings {
             return if (raw.isEmpty()) emptySet() else raw.split(RECORD_SEP).toSet()
         }
         set(value) { prefs.edit().putString("collapsed_exercise_ids", value.joinToString(RECORD_SEP)).apply() }
+
+    // Duplicate-exercise pairs (as "idA|idB", ids sorted) the user has already been asked about
+    // merging, so the startup prompt never repeats a decision.
+    var duplicateMergeAsked: Set<String>
+        get() {
+            val raw = prefs.getString("duplicate_merge_asked", "") ?: ""
+            return if (raw.isEmpty()) emptySet() else raw.split(RECORD_SEP).toSet()
+        }
+        set(value) { prefs.edit().putString("duplicate_merge_asked", value.joinToString(RECORD_SEP)).apply() }
 
     // Name of the selected colour theme (see com.bodyforge.ui.theme). Defaults to the first theme.
     var themeName: String

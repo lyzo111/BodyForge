@@ -502,6 +502,9 @@ fun CreateExerciseDialog(
     var selectedMuscleGroups by remember { mutableStateOf(initialMuscleGroups) }
     var equipment by remember { mutableStateOf(initialEquipment) }
     var isBodyweight by remember { mutableStateOf(initialBodyweight) }
+    // Set when the entered name matches an existing exercise, to ask before creating a duplicate.
+    var confirmDuplicateName by remember { mutableStateOf<String?>(null) }
+    val existingExercises by com.bodyforge.presentation.state.SharedWorkoutState.exercises.collectAsState()
 
     val availableMuscleGroups = listOf(
         "Chest", "Back", "Shoulders", "Biceps", "Triceps", "Forearms",
@@ -672,13 +675,22 @@ fun CreateExerciseDialog(
             Button(
                 onClick = {
                     if (exerciseName.isNotBlank() && selectedMuscleGroups.isNotEmpty()) {
-                        onCreateExercise(
-                            exerciseName.trim(),
-                            selectedMuscleGroups.toList(),
-                            equipment.trim().ifBlank { "None" },
-                            isBodyweight
-                        )
-                        onDismiss()
+                        val trimmed = exerciseName.trim()
+                        // Editing under the unchanged name is fine; a match with any OTHER
+                        // exercise asks for confirmation before creating a duplicate.
+                        val isDuplicate = !trimmed.equals(initialName.trim(), ignoreCase = true) &&
+                            existingExercises.any { it.name.trim().equals(trimmed, ignoreCase = true) }
+                        if (isDuplicate) {
+                            confirmDuplicateName = trimmed
+                        } else {
+                            onCreateExercise(
+                                trimmed,
+                                selectedMuscleGroups.toList(),
+                                equipment.trim().ifBlank { "None" },
+                                isBodyweight
+                            )
+                            onDismiss()
+                        }
                     }
                 },
                 colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange),
@@ -695,6 +707,39 @@ fun CreateExerciseDialog(
         },
         backgroundColor = CardBackground
     )
+
+    confirmDuplicateName?.let { dupName ->
+        AlertDialog(
+            onDismissRequest = { confirmDuplicateName = null },
+            title = { Text("Already exists", fontWeight = FontWeight.Bold, color = TextPrimary) },
+            text = {
+                Text(
+                    "An exercise named \"$dupName\" already exists. Create it again anyway? Two same-named exercises are tracked separately.",
+                    color = TextSecondary, fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onCreateExercise(
+                            dupName,
+                            selectedMuscleGroups.toList(),
+                            equipment.trim().ifBlank { "None" },
+                            isBodyweight
+                        )
+                        confirmDuplicateName = null
+                        onDismiss()
+                    },
+                    colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange),
+                    elevation = ButtonDefaults.elevation(0.dp)
+                ) { Text("Create anyway", color = Color.White, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDuplicateName = null }) { Text("Cancel", color = TextSecondary) }
+            },
+            backgroundColor = CardBackground
+        )
+    }
 }
 
 @Composable

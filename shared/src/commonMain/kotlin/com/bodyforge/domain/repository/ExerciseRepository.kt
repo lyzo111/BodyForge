@@ -14,4 +14,6 @@ interface ExerciseRepository {
     // Idempotently adds stock exercises shipped after the user's DB was first seeded, and
     // applies current stock names. Needed because in-place updates don't re-run the seed.
     suspend fun ensureStockExercises()
+    // Moves every logged set from duplicateId to keepId and soft-deletes the duplicate.
+    suspend fun mergeExercises(keepId: String, duplicateId: String)
 }

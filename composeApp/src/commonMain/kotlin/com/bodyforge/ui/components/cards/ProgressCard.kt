@@ -88,10 +88,32 @@ private data class RoutineGroup(val key: String, val label: String, val template
 private fun epley(weightKg: Double, reps: Int): Double =
     if (reps <= 0 || weightKg <= 0.0) 0.0 else weightKg * (1.0 + reps / 30.0)
 
+// A tracked subject is "exerciseId" (all variations together) or "exerciseId\u001Fvariation"
+// (only sessions logged under that variation label).
+private const val SUBJECT_VARIATION_SEP = '\u001F'
+
+private fun subjectExerciseId(subject: String): String {
+    val i = subject.indexOf(SUBJECT_VARIATION_SEP)
+    return if (i >= 0) subject.substring(0, i) else subject
+}
+
+private fun subjectVariation(subject: String): String? {
+    val i = subject.indexOf(SUBJECT_VARIATION_SEP)
+    return if (i >= 0) subject.substring(i + 1) else null
+}
+
+private fun findSubject(workout: Workout, subject: String): com.bodyforge.domain.models.ExerciseInWorkout? {
+    val exId = subjectExerciseId(subject)
+    val variation = subjectVariation(subject)
+    return workout.exercises.firstOrNull {
+        it.exercise.id == exId && (variation == null || it.variation == variation)
+    }
+}
+
 // subjectExerciseId == null means the whole-workout total volume.
-private fun subjectValue(workout: Workout, subjectExerciseId: String?, metric: Metric): Double? {
-    if (subjectExerciseId == null) return workout.totalVolumePerformed.takeIf { it > 0.0 }
-    val eiw = workout.exercises.firstOrNull { it.exercise.id == subjectExerciseId } ?: return null
+private fun subjectValue(workout: Workout, subject: String?, metric: Metric): Double? {
+    if (subject == null) return workout.totalVolumePerformed.takeIf { it > 0.0 }
+    val eiw = findSubject(workout, subject) ?: return null
     val sets = eiw.sets.filter { !it.isSkipped && it.reps > 0 }
     if (sets.isEmpty()) return null
     return when (metric) {
@@ -234,7 +256,7 @@ private fun ProgressContent(
             val effMetric = if (subj == null) Metric.VOLUME else metric
             val pts = scopedWorkouts.mapNotNull { w ->
                 val v = subjectValue(w, subj, effMetric) ?: return@mapNotNull null
-                val eiw = w.exercises.firstOrNull { it.exercise.id == subj }
+                val eiw = subj?.let { findSubject(w, it) }
                 val setCount = if (subj == null) w.performedSets else (eiw?.performedSets ?: 0)
                 // Notes for the day: for a single exercise, its note plus its set notes; for Total
                 // Volume, every exercise and set note that day so the aggregate point isn't noteless.
@@ -248,7 +270,10 @@ private fun ProgressContent(
                 val (routineLabel, variationLabel) = w.templateId?.let { templateRoutineInfo[it] } ?: ("" to "")
                 Point(v, w.startDate, combinedNote, w.notes, setCount, routineLabel, variationLabel, w.id)
             }
-            val label = subj?.let { id -> exercises.firstOrNull { it.id == id }?.name ?: "Exercise" } ?: "Total Volume"
+            val label = subj?.let { s ->
+                val name = exercises.firstOrNull { it.id == subjectExerciseId(s) }?.name ?: "Exercise"
+                subjectVariation(s)?.let { "$name ($it)" } ?: name
+            } ?: "Total Volume"
             Series(label, seriesPalette[i % seriesPalette.size], pts)
         }
     }
@@ -407,8 +432,16 @@ private fun ProgressContent(
     }
 
     if (showTrackDialog) {
+        // Variations logged for each exercise, so they can be tracked as separate subjects.
+        val variationsByExercise = remember(workouts) {
+            workouts.flatMap { it.exercises }
+                .filter { it.variation.isNotBlank() }
+                .groupBy({ it.exercise.id }, { it.variation })
+                .mapValues { (_, vs) -> vs.distinct().sorted() }
+        }
         TrackFilterDialog(
             exercises = exercises,
+            variationsByExercise = variationsByExercise,
             selected = selectedSubjects,
             onDone = { selectedSubjects = it; showTrackDialog = false },
             onDismiss = { showTrackDialog = false }
@@ -762,6 +795,7 @@ private fun DetailTag(text: String, color: Color) {
 @Composable
 private fun TrackFilterDialog(
     exercises: List<Exercise>,
+    variationsByExercise: Map<String, List<String>>,
     selected: List<String?>,
     onDone: (List<String?>) -> Unit,
     onDismiss: () -> Unit
@@ -792,7 +826,16 @@ private fun TrackFilterDialog(
                     if (query.isBlank() || "total volume".contains(query, ignoreCase = true)) {
                         SelectRow("Total Volume", current.contains(null)) { toggle(null) }
                     }
-                    filtered.forEach { ex -> SelectRow(ex.name, current.contains(ex.id)) { toggle(ex.id) } }
+                    filtered.forEach { ex ->
+                        SelectRow(ex.name, current.contains(ex.id)) { toggle(ex.id) }
+                        // Logged variations of this exercise are separate trackable subjects.
+                        variationsByExercise[ex.id]?.forEach { variation ->
+                            val subjectId = ex.id + SUBJECT_VARIATION_SEP + variation
+                            Box(modifier = Modifier.padding(start = 18.dp)) {
+                                SelectRow("${ex.name} ($variation)", current.contains(subjectId)) { toggle(subjectId) }
+                            }
+                        }
+                    }
                 }
                 Spacer(Modifier.height(12.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {

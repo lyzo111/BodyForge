@@ -403,9 +403,9 @@ object SharedWorkoutState {
                     workoutId = workout.id
                 ).copy(reps = source.reps, weightKg = source.weightKg)
             }
-            // Carry over the exercise-level note (e.g. form cues) from last time, but never set
-            // notes — those are tied to that specific day's performance, not the exercise itself.
-            exerciseInWorkout.copy(sets = prefilledSets, notes = lastPerformed.notes)
+            // Carry over the exercise-level note (e.g. form cues) and the variation label from
+            // last time, but never set notes — those are tied to that day's performance.
+            exerciseInWorkout.copy(sets = prefilledSets, notes = lastPerformed.notes, variation = lastPerformed.variation)
         }
         return workout.copy(exercises = updatedExercises)
     }
@@ -608,6 +608,71 @@ object SharedWorkoutState {
         return imported to parsed.skippedRows
     }
 
+    // A same-named exercise pair the user hasn't decided about yet: `keep` is the better-tagged
+    // one (stock first, then the one with muscle groups), `duplicate` the candidate to fold in.
+    data class DuplicateExercises(val keep: Exercise, val duplicate: Exercise)
+
+    private val _duplicatePrompt = MutableStateFlow<DuplicateExercises?>(null)
+    val duplicatePrompt: StateFlow<DuplicateExercises?> = _duplicatePrompt.asStateFlow()
+
+    private fun duplicateKey(a: String, b: String) = listOf(a, b).sorted().joinToString("|")
+
+    // Surfaces one not-yet-asked duplicate pair (same name, case-insensitive) at a time.
+    fun checkForDuplicateExercises() {
+        val asked = com.bodyforge.data.AppSettings.duplicateMergeAsked
+        val groups = _exercises.value.groupBy { it.name.trim().lowercase() }.values.filter { it.size > 1 }
+        for (group in groups) {
+            val sorted = group.sortedWith(
+                compareBy({ it.isCustom }, { it.muscleGroups.isEmpty() }, { it.id })
+            )
+            val keep = sorted.first()
+            for (dup in sorted.drop(1)) {
+                if (duplicateKey(keep.id, dup.id) !in asked) {
+                    _duplicatePrompt.value = DuplicateExercises(keep, dup)
+                    return
+                }
+            }
+        }
+        _duplicatePrompt.value = null
+    }
+
+    fun dismissDuplicatePrompt() {
+        val pair = _duplicatePrompt.value ?: return
+        com.bodyforge.data.AppSettings.duplicateMergeAsked =
+            com.bodyforge.data.AppSettings.duplicateMergeAsked + duplicateKey(pair.keep.id, pair.duplicate.id)
+        _duplicatePrompt.value = null
+        checkForDuplicateExercises()
+    }
+
+    // Folds the duplicate into the kept exercise everywhere — logged sets, templates (ids and
+    // targets) — then soft-deletes the duplicate and reloads everything that referenced it.
+    suspend fun mergeDuplicateExercises() {
+        val pair = _duplicatePrompt.value ?: return
+        try {
+            exerciseRepo.mergeExercises(pair.keep.id, pair.duplicate.id)
+            _templates.value
+                .filter { pair.duplicate.id in it.exerciseIds || pair.duplicate.id in it.targets.keys }
+                .forEach { template ->
+                    templateRepo.updateTemplate(
+                        template.copy(
+                            exerciseIds = template.exerciseIds.map { if (it == pair.duplicate.id) pair.keep.id else it }.distinct(),
+                            targets = template.targets.mapKeys { (k, _) -> if (k == pair.duplicate.id) pair.keep.id else k }
+                        )
+                    )
+                }
+            com.bodyforge.data.AppSettings.duplicateMergeAsked =
+                com.bodyforge.data.AppSettings.duplicateMergeAsked + duplicateKey(pair.keep.id, pair.duplicate.id)
+            _duplicatePrompt.value = null
+            loadExercises()
+            loadActiveWorkout()
+            loadCompletedWorkouts()
+            loadTemplates()
+            checkForDuplicateExercises()
+        } catch (e: Exception) {
+            _error.value = "Merge failed: ${e.message}"
+        }
+    }
+
     // Refresh all data
     suspend fun refreshAll() {
         try {
@@ -624,5 +689,6 @@ object SharedWorkoutState {
         loadPhases()
         loadSplitAssignments()
         loadBodyMetrics()
+        checkForDuplicateExercises()
     }
 }

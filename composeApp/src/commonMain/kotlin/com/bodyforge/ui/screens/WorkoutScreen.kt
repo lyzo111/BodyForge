@@ -361,12 +361,20 @@ private fun ActiveWorkoutView(
                 val historical = completedWorkouts.recordsFor(exId).bestE1RM
                 historical > 0.0 && exerciseInWorkout.bestCompletedE1RM() > historical
             }
+            val knownVariations = remember(completedWorkouts, exId) {
+                completedWorkouts.flatMap { w -> w.exercises.filter { it.exercise.id == exId } }
+                    .map { it.variation }
+                    .filter { it.isNotBlank() }
+                    .distinct()
+            }
             ActiveExerciseCard(
                 exerciseInWorkout = exerciseInWorkout,
                 bodyweight = bodyweight,
                 isNewPR = isNewPR,
                 target = sourceTargets[exId],
                 availableExercises = availableExercises,
+                knownVariations = knownVariations,
+                onVariationChange = { viewModel.updateExerciseVariation(exId, it) },
                 onUpdateSet = { setId, reps, weight, completed ->
                     viewModel.updateSet(exerciseInWorkout.exercise.id, setId, reps, weight, completed)
                     if (completed == true) {
@@ -647,6 +655,8 @@ private fun ActiveExerciseCard(
     isNewPR: Boolean,
     target: com.bodyforge.domain.models.ExerciseTarget?,
     availableExercises: List<Exercise>,
+    knownVariations: List<String>,
+    onVariationChange: (String) -> Unit,
     expanded: Boolean,
     onToggleExpand: () -> Unit,
     onUpdateSet: (String, Int?, Double?, Boolean?) -> Unit,
@@ -665,6 +675,7 @@ private fun ActiveExerciseCard(
     val substitutedFromName = substitutedFromId?.let { id -> availableExercises.firstOrNull { it.id == id }?.name }
     var showSubstitutePicker by remember { mutableStateOf(false) }
     var showBodyweightEdit by remember { mutableStateOf(false) }
+    var showVariationDialog by remember { mutableStateOf(false) }
 
     Card(
         backgroundColor = CardBackground,
@@ -728,14 +739,35 @@ private fun ActiveExerciseCard(
                 )
             }
 
-            if (exercise.muscleGroups.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Text(
                     text = exercise.muscleGroups.joinToString(" · "),
                     fontSize = 12.sp,
                     color = TextSecondary,
                     maxLines = 1,
                     softWrap = false,
-                    modifier = Modifier.padding(top = 2.dp)
+                    modifier = Modifier.weight(1f)
+                )
+                // Variation label for this session (e.g. Unilateral / Tower B): tracked separately
+                // in progress and plateau analytics.
+                Text(
+                    text = if (exerciseInWorkout.variation.isBlank()) "＋ variation" else exerciseInWorkout.variation,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (exerciseInWorkout.variation.isBlank()) TextSecondary.copy(alpha = 0.7f) else AccentPurple,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier
+                        .background(
+                            if (exerciseInWorkout.variation.isBlank()) Color.Transparent else AccentPurple.copy(alpha = 0.15f),
+                            RoundedCornerShape(6.dp)
+                        )
+                        .clickable { showVariationDialog = true }
+                        .padding(horizontal = 6.dp, vertical = 3.dp)
                 )
             }
 
@@ -906,6 +938,88 @@ private fun ActiveExerciseCard(
             }
         )
     }
+
+    if (showVariationDialog) {
+        VariationDialog(
+            exerciseName = exercise.name,
+            current = exerciseInWorkout.variation,
+            knownVariations = knownVariations,
+            onDismiss = { showVariationDialog = false },
+            onConfirm = { newVariation ->
+                onVariationChange(newVariation)
+                showVariationDialog = false
+            }
+        )
+    }
+}
+
+// Sets the session's variation label for an exercise. Previously used labels are offered as
+// one-tap chips; free text covers new ones; empty means "no variation".
+@Composable
+private fun VariationDialog(
+    exerciseName: String,
+    current: String,
+    knownVariations: List<String>,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var text by remember { mutableStateOf(current) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("$exerciseName — variation", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 17.sp) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "Same exercise, different execution or machine (e.g. Unilateral, Tower B). Each variation is tracked separately in progress and plateau analytics.",
+                    color = TextSecondary,
+                    fontSize = 12.sp
+                )
+                BasicTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    modifier = Modifier.fillMaxWidth().background(SurfaceColor, RoundedCornerShape(8.dp)).padding(12.dp),
+                    textStyle = TextStyle(fontSize = 15.sp, color = TextPrimary, fontWeight = FontWeight.Medium),
+                    singleLine = true,
+                    decorationBox = { inner ->
+                        if (text.isEmpty()) Text("No variation", color = TextSecondary.copy(alpha = 0.7f), fontSize = 15.sp)
+                        inner()
+                    }
+                )
+                if (knownVariations.isNotEmpty()) {
+                    val scrollState = rememberScrollState()
+                    Row(
+                        modifier = Modifier.fillMaxWidth().pagerSafeHorizontalScroll(scrollState),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        knownVariations.forEach { label ->
+                            Text(
+                                label,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (text == label) Color.White else AccentPurple,
+                                modifier = Modifier
+                                    .background(
+                                        if (text == label) AccentPurple else AccentPurple.copy(alpha = 0.15f),
+                                        RoundedCornerShape(14.dp)
+                                    )
+                                    .clickable { text = label }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(text.trim()) },
+                colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange),
+                elevation = ButtonDefaults.elevation(0.dp)
+            ) { Text("Save", color = Color.White, fontWeight = FontWeight.Bold) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) } },
+        backgroundColor = CardBackground
+    )
 }
 
 // Cardio exercises are tracked with machine metrics instead of sets/reps/weight. Each field is
@@ -1311,12 +1425,12 @@ private fun SetRowWithButtons(
                         bodyweight = bodyweight,
                         onDecrement = {
                             if (set.weightKg > 0 && editable) {
-                                onUpdateSet(null, (set.weightKg - Weights.toKg(2.5)).coerceAtLeast(0.0), null)
+                                onUpdateSet(null, (set.weightKg - Weights.toKg(com.bodyforge.presentation.state.SettingsState.weightStep)).coerceAtLeast(0.0), null)
                             }
                         },
                         onIncrement = {
                             if (editable) {
-                                onUpdateSet(null, set.weightKg + Weights.toKg(2.5), null)
+                                onUpdateSet(null, set.weightKg + Weights.toKg(com.bodyforge.presentation.state.SettingsState.weightStep), null)
                             }
                         },
                         onValueChange = { newWeight ->
@@ -1334,12 +1448,12 @@ private fun SetRowWithButtons(
                         displayValue = "${formatWeight(set.weightKg)} ${Weights.unit}",
                         onDecrement = {
                             if (set.weightKg > 0 && editable) {
-                                onUpdateSet(null, (set.weightKg - Weights.toKg(2.5)).coerceAtLeast(0.0), null)
+                                onUpdateSet(null, (set.weightKg - Weights.toKg(com.bodyforge.presentation.state.SettingsState.weightStep)).coerceAtLeast(0.0), null)
                             }
                         },
                         onIncrement = {
                             if (editable) {
-                                onUpdateSet(null, set.weightKg + Weights.toKg(2.5), null)
+                                onUpdateSet(null, set.weightKg + Weights.toKg(com.bodyforge.presentation.state.SettingsState.weightStep), null)
                             }
                         },
                         onValueChange = { newWeight ->
@@ -1494,8 +1608,8 @@ private fun CompactSetRow(
                 value = weightLabel,
                 valueColor = if (exercise.isBodyweight) AccentGreen else TextPrimary,
                 enabled = editable,
-                onMinus = { if (editable && set.weightKg > 0) onUpdateSet(null, (set.weightKg - Weights.toKg(2.5)).coerceAtLeast(0.0), null) },
-                onPlus = { if (editable) onUpdateSet(null, set.weightKg + Weights.toKg(2.5), null) },
+                onMinus = { if (editable && set.weightKg > 0) onUpdateSet(null, (set.weightKg - Weights.toKg(com.bodyforge.presentation.state.SettingsState.weightStep)).coerceAtLeast(0.0), null) },
+                onPlus = { if (editable) onUpdateSet(null, set.weightKg + Weights.toKg(com.bodyforge.presentation.state.SettingsState.weightStep), null) },
                 onTapValue = { showWeightDialog = true },
                 modifier = Modifier.weight(1.15f)
             )

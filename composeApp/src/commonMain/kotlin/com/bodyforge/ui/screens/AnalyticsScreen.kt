@@ -566,7 +566,6 @@ private fun CurrentPhaseCard() {
 
 @Composable
 private fun QuickStatsRow(workouts: List<com.bodyforge.domain.models.Workout>) {
-    val totalVolume = workouts.sumOf { it.totalVolumePerformed }
     val avgDuration = workouts.mapNotNull { it.durationMinutes }.average().takeIf { !it.isNaN() } ?: 0.0
     val thisWeekWorkouts = workouts.filter {
         val workoutDate = it.startDate
@@ -575,9 +574,24 @@ private fun QuickStatsRow(workouts: List<com.bodyforge.domain.models.Workout>) {
         daysDiff <= 7
     }.size
 
+    // Consecutive calendar weeks (Mon–Sun) with at least one workout, counting back from this
+    // week — or last week, so the streak isn't "broken" before this week's first session.
+    val weekStreak = run {
+        fun weekIndex(date: LocalDate) = (date.toEpochDays() - (date.dayOfWeek.isoDayNumber - 1)) / 7
+        val trainedWeeks = workouts.map { weekIndex(it.startDate) }.toHashSet()
+        val currentWeek = weekIndex(Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date)
+        var streak = 0
+        var week = if (currentWeek in trainedWeeks) currentWeek else currentWeek - 1
+        while (week in trainedWeeks) {
+            streak++
+            week--
+        }
+        streak
+    }
+
     val stats = listOf(
         Triple("${workouts.size}", "Workouts", AccentBlue),
-        Triple("${formatThousands(Weights.toDisplay(totalVolume))} ${Weights.unit}", "Total Volume", AccentGreen),
+        Triple(if (weekStreak == 1) "1 wk" else "$weekStreak wks", "Week Streak", AccentGreen),
         Triple("${avgDuration.roundToInt()}m", "Avg Duration", AccentOrange),
         Triple("$thisWeekWorkouts", "This Week", AccentPurple)
     )
@@ -971,7 +985,11 @@ private fun computePlateaus(workouts: List<com.bodyforge.domain.models.Workout>)
                 .filter { !it.isSkipped && it.reps > 0 && it.weightKg > 0.0 }
                 .maxOfOrNull { it.weightKg * (1.0 + it.reps / 30.0) }
             if (best1rm != null && best1rm > 0.0) {
-                byExercise.getOrPut(eiw.exercise.id) { mutableListOf() }.add(eiw.exercise.name to best1rm)
+                // Variations are separate lines: a new machine or unilateral switch starts its own
+                // history instead of hiding a plateau (or faking a PR) on the shared one.
+                val key = eiw.exercise.id + "|" + eiw.variation
+                val label = if (eiw.variation.isBlank()) eiw.exercise.name else "${eiw.exercise.name} (${eiw.variation})"
+                byExercise.getOrPut(key) { mutableListOf() }.add(label to best1rm)
             }
         }
     }

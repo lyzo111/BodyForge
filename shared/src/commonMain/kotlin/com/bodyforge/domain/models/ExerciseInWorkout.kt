@@ -4,7 +4,10 @@ data class ExerciseInWorkout(
     val exercise: Exercise,
     val sets: List<WorkoutSet>,
     val orderInWorkout: Int,
-    val notes: String = ""
+    val notes: String = "",
+    // Free-form variation label for this session (e.g. "Unilateral", "Tower B"): the same exercise
+    // logged under different variations is tracked separately in progress and plateau analytics.
+    val variation: String = ""
 ) {
 
     val isCompleted: Boolean get() = sets.isNotEmpty() && sets.all { it.completed }

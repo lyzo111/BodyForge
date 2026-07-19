@@ -208,6 +208,14 @@ VALUES (?, ?, ?, ?, ?, 0, ?, ?, 0);
 renameStockExercise:
 UPDATE Exercise SET name = ? WHERE id = ? AND is_custom = 0;
 
+-- Merging duplicate exercises: move every logged set from one exercise id to another, then
+-- soft-delete the emptied duplicate (works for stock and custom rows alike).
+reassignSetsExercise:
+UPDATE WorkoutSet SET exercise_id = ? WHERE exercise_id = ?;
+
+softDeleteExercise:
+UPDATE Exercise SET deleted = 1 WHERE id = ?;
+
 -- WORKOUT QUERIES
 
 insertWorkout:
