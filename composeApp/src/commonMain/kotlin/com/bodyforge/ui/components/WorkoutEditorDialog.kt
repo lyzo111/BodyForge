@@ -51,7 +51,11 @@ fun WorkoutEditorDialog(
     var editingDuration by remember { mutableStateOf(false) }
     var showAddExercise by remember { mutableStateOf(false) }
     var removeExerciseId by remember { mutableStateOf<String?>(null) }
+    var editingExerciseNoteId by remember { mutableStateOf<String?>(null) }
+    var editingVariationId by remember { mutableStateOf<String?>(null) }
+    var editingSetNoteId by remember { mutableStateOf<String?>(null) }
     val availableExercises by SharedWorkoutState.exercises.collectAsState()
+    val completedWorkouts by SharedWorkoutState.completedWorkouts.collectAsState()
 
     val meta = remember(workout.id, editedWorkout.finishedAt) {
         val formatter = SimpleDateFormat("dd.MM.yyyy 'at' HH:mm", Locale.getDefault())
@@ -170,7 +174,10 @@ fun WorkoutEditorDialog(
                             onAddSet = {
                                 editedWorkout = addSetTo(editedWorkout, exerciseInWorkout.exercise.id)
                             },
-                            onRemoveExercise = { removeExerciseId = exerciseInWorkout.exercise.id }
+                            onRemoveExercise = { removeExerciseId = exerciseInWorkout.exercise.id },
+                            onEditNote = { editingExerciseNoteId = exerciseInWorkout.exercise.id },
+                            onEditVariation = { editingVariationId = exerciseInWorkout.exercise.id },
+                            onEditSetNote = { setId -> editingSetNoteId = setId }
                         )
                     }
 
@@ -265,6 +272,116 @@ fun WorkoutEditorDialog(
             }
         )
     }
+
+    editingExerciseNoteId?.let { exerciseId ->
+        val eiw = editedWorkout.exercises.firstOrNull { it.exercise.id == exerciseId }
+        EditorTextDialog(
+            title = "${eiw?.exercise?.name ?: "Exercise"} — note",
+            initial = eiw?.notes ?: "",
+            placeholder = "e.g. seat height, grip width, cues…",
+            onDismiss = { editingExerciseNoteId = null },
+            onConfirm = { newNote ->
+                editedWorkout = updateExerciseIn(editedWorkout, exerciseId) { it.copy(notes = newNote.trim()) }
+                editingExerciseNoteId = null
+            }
+        )
+    }
+
+    editingVariationId?.let { exerciseId ->
+        val eiw = editedWorkout.exercises.firstOrNull { it.exercise.id == exerciseId }
+        val knownVariations = remember(exerciseId, completedWorkouts) {
+            completedWorkouts.flatMap { w -> w.exercises.filter { it.exercise.id == exerciseId } }
+                .map { it.variation }
+                .filter { it.isNotBlank() }
+                .distinct()
+        }
+        EditorTextDialog(
+            title = "${eiw?.exercise?.name ?: "Exercise"} — variation",
+            initial = eiw?.variation ?: "",
+            placeholder = "No variation",
+            suggestions = knownVariations,
+            onDismiss = { editingVariationId = null },
+            onConfirm = { newVariation ->
+                editedWorkout = updateExerciseIn(editedWorkout, exerciseId) { it.copy(variation = newVariation.trim()) }
+                editingVariationId = null
+            }
+        )
+    }
+
+    editingSetNoteId?.let { setId ->
+        val current = editedWorkout.exercises.flatMap { it.sets }.firstOrNull { it.id == setId }?.notes ?: ""
+        EditorTextDialog(
+            title = "Set note",
+            initial = current,
+            placeholder = "e.g. paused reps, felt heavy…",
+            onDismiss = { editingSetNoteId = null },
+            onConfirm = { newNote ->
+                editedWorkout = updateSetIn(editedWorkout, setId) { it.copy(notes = newNote.trim()) }
+                editingSetNoteId = null
+            }
+        )
+    }
+}
+
+// Free-text entry for notes and variation labels, with optional one-tap suggestion chips.
+@Composable
+private fun EditorTextDialog(
+    title: String,
+    initial: String,
+    placeholder: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+    suggestions: List<String> = emptyList()
+) {
+    var text by remember { mutableStateOf(initial) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title, fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 17.sp) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                BasicTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    modifier = Modifier.fillMaxWidth().background(SurfaceColor, RoundedCornerShape(8.dp)).padding(12.dp),
+                    textStyle = TextStyle(fontSize = 15.sp, color = TextPrimary),
+                    decorationBox = { inner ->
+                        if (text.isEmpty()) Text(placeholder, color = TextSecondary.copy(alpha = 0.7f), fontSize = 15.sp)
+                        inner()
+                    }
+                )
+                if (suggestions.isNotEmpty()) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        suggestions.take(4).forEach { label ->
+                            Text(
+                                label,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (text == label) Color.White else AccentPurple,
+                                maxLines = 1,
+                                softWrap = false,
+                                modifier = Modifier
+                                    .background(
+                                        if (text == label) AccentPurple else AccentPurple.copy(alpha = 0.15f),
+                                        RoundedCornerShape(14.dp)
+                                    )
+                                    .clickable { text = label }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(text) },
+                colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange),
+                elevation = ButtonDefaults.elevation(0.dp)
+            ) { Text("Save", color = Color.White, fontWeight = FontWeight.Bold) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) } },
+        backgroundColor = CardBackground
+    )
 }
 
 @Composable
@@ -276,7 +393,10 @@ private fun EditorExerciseCard(
     onStepWeight: (String, Double) -> Unit,
     onRemoveSet: (String) -> Unit,
     onAddSet: () -> Unit,
-    onRemoveExercise: () -> Unit
+    onRemoveExercise: () -> Unit,
+    onEditNote: () -> Unit,
+    onEditVariation: () -> Unit,
+    onEditSetNote: (String) -> Unit
 ) {
     val exercise = exerciseInWorkout.exercise
     Card(backgroundColor = CardBackground, shape = RoundedCornerShape(14.dp), elevation = 0.dp, modifier = Modifier.fillMaxWidth()) {
@@ -313,8 +433,35 @@ private fun EditorExerciseCard(
                         .padding(horizontal = 10.dp, vertical = 8.dp)
                 )
             }
-            if (exerciseInWorkout.notes.isNotBlank()) {
-                Text("✎ ${exerciseInWorkout.notes}", fontSize = 12.sp, color = TextSecondary, modifier = Modifier.padding(top = 2.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    if (exerciseInWorkout.variation.isBlank()) "＋ variation" else exerciseInWorkout.variation,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (exerciseInWorkout.variation.isBlank()) TextSecondary.copy(alpha = 0.7f) else AccentPurple,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier
+                        .background(
+                            if (exerciseInWorkout.variation.isBlank()) Color.Transparent else AccentPurple.copy(alpha = 0.15f),
+                            RoundedCornerShape(6.dp)
+                        )
+                        .clickable(onClick = onEditVariation)
+                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                )
+                Text(
+                    if (exerciseInWorkout.notes.isBlank()) "＋ note" else "✎ ${exerciseInWorkout.notes}",
+                    fontSize = 12.sp,
+                    color = if (exerciseInWorkout.notes.isBlank()) TextSecondary.copy(alpha = 0.7f) else TextSecondary,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable(onClick = onEditNote)
+                        .padding(vertical = 3.dp)
+                )
             }
 
             Spacer(Modifier.height(10.dp))
@@ -344,14 +491,15 @@ private fun EditorExerciseCard(
                     onStepWeight = { delta -> onStepWeight(set.id, delta) },
                     onRemove = { onRemoveSet(set.id) }
                 )
-                if (set.notes.isNotBlank()) {
-                    Text(
-                        "✎ ${set.notes}",
-                        fontSize = 12.sp,
-                        color = TextSecondary,
-                        modifier = Modifier.padding(start = 25.dp, top = 3.dp)
-                    )
-                }
+                Text(
+                    if (set.notes.isBlank()) "＋ note" else "✎ ${set.notes}",
+                    fontSize = 12.sp,
+                    color = if (set.notes.isBlank()) TextSecondary.copy(alpha = 0.6f) else TextSecondary,
+                    modifier = Modifier
+                        .padding(start = 25.dp, top = 3.dp)
+                        .clickable { onEditSetNote(set.id) }
+                        .padding(vertical = 2.dp)
+                )
             }
 
             Spacer(Modifier.height(8.dp))
@@ -483,6 +631,12 @@ private fun EditorCapsule(
             contentAlignment = Alignment.Center
         ) { Text("+", color = TextSecondary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold) }
     }
+}
+
+// Applies a transform to the exercise entry with the given id, returning the updated workout.
+private fun updateExerciseIn(workout: Workout, exerciseId: String, transform: (ExerciseInWorkout) -> ExerciseInWorkout): Workout {
+    val exercise = workout.exercises.firstOrNull { it.exercise.id == exerciseId } ?: return workout
+    return workout.updateExercise(exerciseId, transform(exercise))
 }
 
 // Applies a transform to the single set with the given id, returning the updated workout.
