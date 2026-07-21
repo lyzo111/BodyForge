@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
@@ -21,6 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bodyforge.data.AppSettings
 import com.bodyforge.presentation.state.SettingsState
+import com.bodyforge.ui.components.HScrollIndicator
+import com.bodyforge.ui.components.pagerSafeHorizontalScroll
 import com.bodyforge.ui.theme.*
 
 // Full settings page (a pager tab, not a modal). Each control writes through to AppSettings
@@ -114,7 +117,13 @@ fun SettingsScreen(listState: LazyListState) {
                 Column {
                     Text("Weight step (+/− buttons)", color = TextPrimary, fontSize = 14.sp)
                     Spacer(Modifier.height(8.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // Scrollable so the last chip is never cut off on narrow screens; the pager-
+                    // safe scroll keeps the swipe from flipping to the next tab.
+                    val stepScroll = rememberScrollState()
+                    Row(
+                        modifier = Modifier.fillMaxWidth().pagerSafeHorizontalScroll(stepScroll),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
                         listOf(0.5, 1.0, 1.25, 2.5, 5.0).forEach { step ->
                             val label = if (step % 1.0 == 0.0) "${step.toInt()}" else "$step"
                             UnitChip(label, weightStep == step) {
@@ -124,6 +133,7 @@ fun SettingsScreen(listState: LazyListState) {
                             }
                         }
                     }
+                    HScrollIndicator(stepScroll)
                     Text(
                         "In ${com.bodyforge.data.Weights.unit}, applied per tap in the active workout.",
                         color = TextSecondary,
