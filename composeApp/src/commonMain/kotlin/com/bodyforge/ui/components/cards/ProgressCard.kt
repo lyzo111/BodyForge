@@ -198,7 +198,9 @@ private fun ProgressContent(
     var selectedPhaseId by remember(phases) { mutableStateOf(phases.firstOrNull()?.id) }
     var selectedGroupKey by remember(groups) { mutableStateOf(groups.firstOrNull()?.key) }
     var selectedSplitKey by remember(splits) { mutableStateOf(splits.firstOrNull()?.key) }
-    var selectedVariationId by remember(selectedGroupKey) { mutableStateOf<String?>(null) } // null = across variations
+    // Variation filter by LABEL, not template id: two templates sharing a routine and label
+    // (e.g. an old "Lower A" and its copied "Legs A") filter together. null = across variations.
+    var selectedVariationLabel by remember(selectedGroupKey) { mutableStateOf<String?>(null) }
     var showTrackDialog by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<Pair<Int, Int>?>(null) } // (seriesIndex, pointIndex)
     var detailWorkoutId by remember { mutableStateOf<String?>(null) }
@@ -216,7 +218,7 @@ private fun ProgressContent(
 
     val anyExercise = selectedSubjects.any { it != null }
 
-    val scopedWorkouts = remember(workouts, scope, selectedPhaseId, selectedGroupKey, selectedSplitKey, selectedVariationId, phases, groups, splits) {
+    val scopedWorkouts = remember(workouts, scope, selectedPhaseId, selectedGroupKey, selectedSplitKey, selectedVariationLabel, routineVariations, phases, groups, splits) {
         val base = when (scope) {
             Scope.ALL -> workouts
             Scope.PHASE -> {
@@ -226,7 +228,12 @@ private fun ProgressContent(
             }
             Scope.ROUTINE -> {
                 val g = groups.firstOrNull { it.key == selectedGroupKey }
-                val ids = if (selectedVariationId != null) setOf(selectedVariationId) else g?.templateIds ?: emptySet()
+                val ids = if (selectedVariationLabel != null) {
+                    routineVariations
+                        .filter { (it.variationLabel.ifBlank { it.name }) == selectedVariationLabel }
+                        .map { it.id }
+                        .toSet()
+                } else g?.templateIds ?: emptySet()
                 workouts.filter { it.templateId != null && it.templateId in ids }
             }
             Scope.SPLIT -> {
@@ -317,7 +324,7 @@ private fun ProgressContent(
         }
     }
 
-    LaunchedEffect(selectedSubjects, metric, scope, selectedPhaseId, selectedGroupKey, selectedSplitKey, selectedVariationId) { selected = null }
+    LaunchedEffect(selectedSubjects, metric, scope, selectedPhaseId, selectedGroupKey, selectedSplitKey, selectedVariationLabel) { selected = null }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -360,13 +367,14 @@ private fun ProgressContent(
                 Text("No templates yet — create one on the Templates tab.", fontSize = 12.sp, color = TextSecondary)
             } else {
                 ChipRow("Routine") {
-                    groups.forEach { g -> SelectChip(g.label, g.key == selectedGroupKey) { selectedGroupKey = g.key; selectedVariationId = null } }
+                    groups.forEach { g -> SelectChip(g.label, g.key == selectedGroupKey) { selectedGroupKey = g.key; selectedVariationLabel = null } }
                 }
-                if (routineVariations.size > 1) {
+                val variationLabels = routineVariations.map { it.variationLabel.ifBlank { it.name } }.distinct()
+                if (variationLabels.size > 1) {
                     ChipRow("Variation") {
-                        SelectChip("Across variations", selectedVariationId == null) { selectedVariationId = null }
-                        routineVariations.forEach { t ->
-                            SelectChip(t.variationLabel.ifBlank { t.name }, selectedVariationId == t.id) { selectedVariationId = t.id }
+                        SelectChip("Across variations", selectedVariationLabel == null) { selectedVariationLabel = null }
+                        variationLabels.forEach { label ->
+                            SelectChip(label, selectedVariationLabel == label) { selectedVariationLabel = label }
                         }
                     }
                 }

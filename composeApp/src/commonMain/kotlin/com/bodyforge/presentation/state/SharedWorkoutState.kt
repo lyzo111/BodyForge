@@ -239,6 +239,49 @@ object SharedWorkoutState {
     }
 
     // Assigns a template to a split (blank removes it). Persists to settings and updates state.
+    // Split rotation: the app cycles through the chosen split's templates and suggests what to
+    // train next. Starting the suggested template advances the pointer; anything else leaves it.
+    private val _rotationSplit = MutableStateFlow("")
+    val rotationSplit: StateFlow<String> = _rotationSplit.asStateFlow()
+
+    private val _rotationOrder = MutableStateFlow<List<String>>(emptyList())
+    val rotationOrder: StateFlow<List<String>> = _rotationOrder.asStateFlow()
+
+    private val _rotationIndex = MutableStateFlow(0)
+    val rotationIndex: StateFlow<Int> = _rotationIndex.asStateFlow()
+
+    fun loadRotation() {
+        _rotationSplit.value = com.bodyforge.data.AppSettings.rotationSplit
+        _rotationOrder.value = com.bodyforge.data.AppSettings.rotationOrder
+        _rotationIndex.value = com.bodyforge.data.AppSettings.rotationIndex
+    }
+
+    // Default cycle: one round per variation — every "A" template in creation order, then every
+    // "B", and so on; the order stays user-editable afterwards.
+    fun setRotationSplit(split: String) {
+        com.bodyforge.data.AppSettings.rotationSplit = split
+        _rotationSplit.value = split
+        val ids = if (split.isBlank()) emptyList() else _templates.value
+            .filter { _splitAssignments.value[it.id] == split }
+            .sortedWith(compareBy({ it.variationLabel }, { it.createdAt }))
+            .map { it.id }
+        com.bodyforge.data.AppSettings.rotationOrder = ids
+        _rotationOrder.value = ids
+        com.bodyforge.data.AppSettings.rotationIndex = 0
+        _rotationIndex.value = 0
+    }
+
+    fun setRotationOrder(order: List<String>) {
+        com.bodyforge.data.AppSettings.rotationOrder = order
+        _rotationOrder.value = order
+    }
+
+    fun advanceRotation() {
+        val next = _rotationIndex.value + 1
+        com.bodyforge.data.AppSettings.rotationIndex = next
+        _rotationIndex.value = next
+    }
+
     fun assignSplit(templateId: String, splitName: String) {
         val updated = com.bodyforge.data.AppSettings.splitAssignments.toMutableMap()
         val trimmed = splitName.trim()
@@ -469,6 +512,14 @@ object SharedWorkoutState {
                 )
                 val saved = workoutRepo.saveWorkout(workout)
                 updateActiveWorkout(saved)
+                // Starting the currently suggested template advances the split rotation; starting
+                // anything else leaves the pointer alone so the planned day stays up next.
+                val order = _rotationOrder.value.filter { id -> _templates.value.any { it.id == id } }
+                if (_rotationSplit.value.isNotBlank() && order.isNotEmpty() &&
+                    order[_rotationIndex.value.mod(order.size)] == template.id
+                ) {
+                    advanceRotation()
+                }
                 if (exercises.size != template.exerciseIds.size) {
                     setError("Some exercises from this template are no longer available")
                 } else {
@@ -699,6 +750,7 @@ object SharedWorkoutState {
         loadTemplates()
         loadPhases()
         loadSplitAssignments()
+        loadRotation()
         loadBodyMetrics()
         checkForDuplicateExercises()
     }

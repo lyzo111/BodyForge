@@ -139,6 +139,10 @@ private fun QuickStartView(
             }
 
             item {
+                RotationCard(isLoading = isLoading)
+            }
+
+            item {
                 QuickStartCard(
                     title = "Quick Workout",
                     subtitle = "Select exercises & go",
@@ -184,6 +188,227 @@ private fun QuickStartView(
             }
         }
     }
+}
+
+// Split rotation on the start screen: shows which template of the chosen split is up next.
+// Start begins it (and advances the rotation), Skip moves on without training it, and starting
+// any other workout instead leaves the pointer alone, so the planned day stays up next.
+@Composable
+private fun RotationCard(isLoading: Boolean) {
+    val templates by SharedWorkoutState.templates.collectAsState()
+    val splitAssignments by SharedWorkoutState.splitAssignments.collectAsState()
+    val rotationSplit by SharedWorkoutState.rotationSplit.collectAsState()
+    val rotationOrder by SharedWorkoutState.rotationOrder.collectAsState()
+    val rotationIndex by SharedWorkoutState.rotationIndex.collectAsState()
+    val scope = rememberCoroutineScope()
+    var showSetup by remember { mutableStateOf(false) }
+
+    val splits = remember(splitAssignments) {
+        splitAssignments.values.filter { it.isNotBlank() }.distinct().sorted()
+    }
+    // Only templates that still exist and still belong to the rotated split count for the cycle.
+    val orderTemplates = remember(rotationOrder, templates, splitAssignments, rotationSplit) {
+        rotationOrder.mapNotNull { id ->
+            templates.firstOrNull { it.id == id && splitAssignments[it.id] == rotationSplit }
+        }
+    }
+    val suggestion = if (rotationSplit.isNotBlank() && orderTemplates.isNotEmpty()) {
+        orderTemplates[rotationIndex.mod(orderTemplates.size)]
+    } else null
+
+    if (rotationSplit.isBlank() && splits.isEmpty()) return
+
+    Card(
+        backgroundColor = CardBackground,
+        elevation = 0.dp,
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            if (rotationSplit.isBlank()) {
+                Text("Split rotation", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Text(
+                    "Pick your current split and the app tells you what to train next.",
+                    fontSize = 12.sp,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+                Spacer(Modifier.height(8.dp))
+                val chipScroll = rememberScrollState()
+                Row(
+                    modifier = Modifier.fillMaxWidth().pagerSafeHorizontalScroll(chipScroll),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    splits.forEach { split ->
+                        ExerciseActionChip(text = split, color = AccentBlue) {
+                            SharedWorkoutState.setRotationSplit(split)
+                        }
+                    }
+                }
+                com.bodyforge.ui.components.HScrollIndicator(chipScroll)
+            } else if (suggestion == null) {
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "No templates assigned to \"$rotationSplit\" yet.",
+                        fontSize = 12.sp,
+                        color = TextSecondary,
+                        modifier = Modifier.weight(1f)
+                    )
+                    ExerciseActionChip(text = "Change", color = AccentBlue) { showSetup = true }
+                }
+            } else {
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Next up · $rotationSplit", fontSize = 12.sp, color = TextSecondary, modifier = Modifier.weight(1f))
+                    Text(
+                        "Edit",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextSecondary,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { showSetup = true }
+                            .padding(horizontal = 6.dp, vertical = 3.dp)
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                suggestion.name,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary,
+                                maxLines = 1,
+                                softWrap = false,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            if (suggestion.variationLabel.isNotBlank()) {
+                                Text(
+                                    suggestion.variationLabel,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AccentPurple,
+                                    modifier = Modifier
+                                        .background(AccentPurple.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            "${suggestion.exerciseIds.size} exercises",
+                            fontSize = 12.sp,
+                            color = TextSecondary
+                        )
+                    }
+                    ExerciseActionChip(text = "Skip", color = AccentRed) { SharedWorkoutState.advanceRotation() }
+                    Button(
+                        onClick = { scope.launch { SharedWorkoutState.startWorkoutFromTemplate(suggestion) } },
+                        enabled = !isLoading,
+                        colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange),
+                        shape = RoundedCornerShape(12.dp),
+                        elevation = ButtonDefaults.elevation(0.dp),
+                        modifier = Modifier.height(44.dp)
+                    ) { Text("Start", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Doing something else today? Start any other workout — this stays up next.",
+                    fontSize = 11.sp,
+                    color = TextSecondary.copy(alpha = 0.7f)
+                )
+            }
+        }
+    }
+
+    if (showSetup) {
+        RotationSetupDialog(
+            splits = splits,
+            currentSplit = rotationSplit,
+            orderTemplates = orderTemplates,
+            onDismiss = { showSetup = false }
+        )
+    }
+}
+
+// Change the rotated split, reorder the cycle with up/down, or turn the rotation off.
+@Composable
+private fun RotationSetupDialog(
+    splits: List<String>,
+    currentSplit: String,
+    orderTemplates: List<WorkoutTemplate>,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Split rotation", fontWeight = FontWeight.Bold, color = TextPrimary) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Split", fontSize = 12.sp, color = TextSecondary)
+                val chipScroll = rememberScrollState()
+                Row(
+                    modifier = Modifier.fillMaxWidth().pagerSafeHorizontalScroll(chipScroll),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    splits.forEach { split ->
+                        ExerciseActionChip(
+                            text = split,
+                            color = if (split == currentSplit) AccentOrange else AccentBlue
+                        ) { SharedWorkoutState.setRotationSplit(split) }
+                    }
+                }
+                com.bodyforge.ui.components.HScrollIndicator(chipScroll)
+                if (orderTemplates.isNotEmpty()) {
+                    Text("Cycle order", fontSize = 12.sp, color = TextSecondary)
+                    orderTemplates.forEachIndexed { index, template ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(SurfaceColor, RoundedCornerShape(8.dp))
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                template.name + if (template.variationLabel.isNotBlank()) " ${template.variationLabel}" else "",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = TextPrimary,
+                                maxLines = 1,
+                                softWrap = false,
+                                modifier = Modifier.weight(1f)
+                            )
+                            SmallControlButton("↑", ButtonGreen, {
+                                if (index > 0) {
+                                    val ids = orderTemplates.map { it.id }.toMutableList()
+                                    ids[index] = ids[index - 1].also { ids[index - 1] = ids[index] }
+                                    SharedWorkoutState.setRotationOrder(ids)
+                                }
+                            }, enabled = index > 0)
+                            SmallControlButton("↓", ButtonRed, {
+                                if (index < orderTemplates.size - 1) {
+                                    val ids = orderTemplates.map { it.id }.toMutableList()
+                                    ids[index] = ids[index + 1].also { ids[index + 1] = ids[index] }
+                                    SharedWorkoutState.setRotationOrder(ids)
+                                }
+                            }, enabled = index < orderTemplates.size - 1)
+                        }
+                    }
+                }
+                TextButton(onClick = { SharedWorkoutState.setRotationSplit(""); onDismiss() }) {
+                    Text("Turn off rotation", color = AccentRed, fontSize = 13.sp)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(backgroundColor = AccentOrange),
+                elevation = ButtonDefaults.elevation(0.dp)
+            ) { Text("Done", color = Color.White, fontWeight = FontWeight.Bold) }
+        },
+        backgroundColor = CardBackground
+    )
 }
 
 // Small glanceable activity strip under the start options, so the otherwise-empty start screen

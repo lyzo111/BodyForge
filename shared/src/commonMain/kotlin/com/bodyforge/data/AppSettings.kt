@@ -110,6 +110,23 @@ object AppSettings {
         }
         set(value) { prefs.edit().putString("collapsed_exercise_ids", value.joinToString(RECORD_SEP)).apply() }
 
+    // Split rotation: which split is being rotated through, the template order of one full cycle,
+    // and a forever-incrementing pointer to the next suggestion (consumers take it modulo).
+    var rotationSplit: String
+        get() = prefs.getString("rotation_split", "") ?: ""
+        set(value) { prefs.edit().putString("rotation_split", value).apply() }
+
+    var rotationOrder: List<String>
+        get() {
+            val raw = prefs.getString("rotation_order", "") ?: ""
+            return if (raw.isEmpty()) emptyList() else raw.split(RECORD_SEP)
+        }
+        set(value) { prefs.edit().putString("rotation_order", value.joinToString(RECORD_SEP)).apply() }
+
+    var rotationIndex: Int
+        get() = prefs.getInt("rotation_index", 0)
+        set(value) { prefs.edit().putInt("rotation_index", value).apply() }
+
     // Duplicate-exercise pairs (as "idA|idB", ids sorted) the user has already been asked about
     // merging, so the startup prompt never repeats a decision.
     var duplicateMergeAsked: Set<String>
