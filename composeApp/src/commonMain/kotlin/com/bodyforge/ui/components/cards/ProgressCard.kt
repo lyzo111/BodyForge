@@ -78,6 +78,9 @@ private data class Point(
     val exerciseNote: String,
     val workoutNote: String,
     val sets: Int,
+    // "8 × 78 · 7 × 78 · 6 × 78 kg" for a single tracked exercise; blank for Total Volume, so the
+    // point card can show the sets without opening the whole workout.
+    val setsDetail: String = "",
     val routineLabel: String = "",
     val variationLabel: String = "",
     val workoutId: String = ""
@@ -274,8 +277,19 @@ private fun ProgressContent(
                     val setNotes = eiw?.sets?.mapNotNull { it.notes.trim().ifBlank { null } }?.distinct().orEmpty()
                     (listOf(eiw?.notes?.trim().orEmpty()) + setNotes).filter { it.isNotBlank() }.joinToString("; ")
                 }
+                // Reps × weight per performed set, so the point card shows them without a drill-in.
+                val setsDetail = if (subj == null || eiw == null) "" else {
+                    val performed = eiw.sets.filter { !it.isSkipped && it.reps > 0 }
+                    if (performed.isEmpty()) "" else {
+                        val bw = eiw.exercise.isBodyweight
+                        performed.joinToString("  ·  ") { s ->
+                            val w2 = if (bw) { if (s.weightKg > 0) "BW+${Weights.format(s.weightKg)}" else "BW" } else Weights.format(s.weightKg)
+                            "${s.reps} × $w2"
+                        } + if (bw) "" else " ${Weights.unit}"
+                    }
+                }
                 val (routineLabel, variationLabel) = w.templateId?.let { templateRoutineInfo[it] } ?: ("" to "")
-                Point(v, w.startDate, combinedNote, w.notes, setCount, routineLabel, variationLabel, w.id)
+                Point(v, w.startDate, combinedNote, w.notes, setCount, setsDetail, routineLabel, variationLabel, w.id)
             }
             val label = subj?.let { s ->
                 val name = exercises.firstOrNull { it.id == subjectExerciseId(s) }?.name ?: "Exercise"
@@ -559,7 +573,11 @@ private fun SelectedPointCard(label: String, color: Color, point: Point) {
     Card(backgroundColor = SurfaceColor, shape = RoundedCornerShape(8.dp), elevation = 0.dp, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("$label · ${formatDate(point.date)} · ${Weights.formatRounded(point.value)} ${Weights.unit}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = color)
-            Text("${point.sets} ${if (point.sets == 1) "set" else "sets"} this day", fontSize = 12.sp, color = TextSecondary)
+            if (point.setsDetail.isNotBlank()) {
+                Text(point.setsDetail, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
+            } else {
+                Text("${point.sets} ${if (point.sets == 1) "set" else "sets"} this day", fontSize = 12.sp, color = TextSecondary)
+            }
             if (hasNotes) {
                 Text(
                     if (showNotes) "Hide notes" else "Show notes",
