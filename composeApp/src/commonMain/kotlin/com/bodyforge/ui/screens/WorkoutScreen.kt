@@ -114,11 +114,11 @@ private fun QuickStartView(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             item {
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
                     text = "Ready to workout?",
@@ -128,11 +128,11 @@ private fun QuickStartView(
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = "Choose how you want to start your training session",
-                    fontSize = 16.sp,
+                    text = "Choose how you want to start",
+                    fontSize = 14.sp,
                     color = TextSecondary,
                     textAlign = TextAlign.Center
                 )
@@ -143,23 +143,31 @@ private fun QuickStartView(
             }
 
             item {
-                QuickStartCard(
-                    title = "Quick Workout",
-                    subtitle = "Select exercises & go",
-                    accent = AccentOrange,
-                    onClick = { showQuickWorkoutFlow = true },
-                    enabled = !isLoading
-                )
-            }
-
-            item {
-                QuickStartCard(
-                    title = "From Template",
-                    subtitle = "Use existing routine",
-                    accent = AccentBlue,
-                    onClick = onGoToTemplates,
-                    enabled = !isLoading
-                )
+                // Secondary starts sit side by side as compact tiles, so the rotation card above
+                // stays the visual hero and the activity stats reach above the fold.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    CompactStartTile(
+                        title = "Quick Workout",
+                        subtitle = "Pick & go",
+                        accent = AccentOrange,
+                        icon = Icons.Filled.PlayArrow,
+                        onClick = { showQuickWorkoutFlow = true },
+                        enabled = !isLoading,
+                        modifier = Modifier.weight(1f)
+                    )
+                    CompactStartTile(
+                        title = "From Template",
+                        subtitle = "Use a routine",
+                        accent = AccentBlue,
+                        icon = Icons.Filled.Assignment,
+                        onClick = onGoToTemplates,
+                        enabled = !isLoading,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
 
             if (completedWorkouts.isNotEmpty()) {
@@ -411,8 +419,8 @@ private fun RotationSetupDialog(
     )
 }
 
-// Small glanceable activity strip under the start options, so the otherwise-empty start screen
-// shows this week's count and the most recent session at a glance.
+// Compact glanceable stat strip: three mini-stats in one always-visible row plus the last
+// session, so the numbers no longer sit below the fold behind tall square tiles.
 @Composable
 private fun ReadyActivitySummary(completedWorkouts: List<Workout>) {
     val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
@@ -422,95 +430,98 @@ private fun ReadyActivitySummary(completedWorkouts: List<Workout>) {
     val last7 = completedWorkouts.count { it.startDate >= sevenAgo }
     val last = completedWorkouts.maxByOrNull { it.startedAt }
 
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ActivityBox(thisWeek, "This week", "since Monday", Modifier.weight(1f))
-            ActivityBox(last7, "Last 7 days", "rolling", Modifier.weight(1f))
-        }
-        last?.let { w ->
-            Spacer(modifier = Modifier.height(10.dp))
-            val name = if (w.exercises.isNotEmpty() && w.exercises.all { it.exercise.isCardio }) "Cardio" else w.name
-            val agoDays = (today.toEpochDays() - w.startDate.toEpochDays()).toInt()
-            val ago = when (agoDays) {
-                0 -> "today"
-                1 -> "yesterday"
-                else -> "$agoDays days ago"
+    // Consecutive Mon–Sun weeks with at least one workout, counting back from this week (or last
+    // week, so the streak isn't broken before this week's first session).
+    val weekStreak = run {
+        fun weekIndex(d: kotlinx.datetime.LocalDate) = (d.toEpochDays() - (d.dayOfWeek.isoDayNumber - 1)) / 7
+        val trained = completedWorkouts.map { weekIndex(it.startDate) }.toHashSet()
+        val current = weekIndex(today)
+        var streak = 0
+        var wk = if (current in trained) current else current - 1
+        while (wk in trained) { streak++; wk-- }
+        streak
+    }
+
+    Card(backgroundColor = CardBackground, elevation = 0.dp, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(vertical = 14.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                MiniStat("$thisWeek", "This week", Modifier.weight(1f))
+                StatDivider()
+                MiniStat("$last7", "Last 7 days", Modifier.weight(1f))
+                StatDivider()
+                MiniStat(if (weekStreak > 0) "$weekStreak" else "—", if (weekStreak == 1) "week streak" else "weeks streak", Modifier.weight(1f))
             }
-            Text("Last: $name · $ago", fontSize = 13.sp, color = TextSecondary)
+            last?.let { w ->
+                val name = if (w.exercises.isNotEmpty() && w.exercises.all { it.exercise.isCardio }) "Cardio" else w.name
+                val agoDays = (today.toEpochDays() - w.startDate.toEpochDays()).toInt()
+                val ago = when (agoDays) {
+                    0 -> "today"
+                    1 -> "yesterday"
+                    else -> "$agoDays days ago"
+                }
+                Spacer(Modifier.height(12.dp))
+                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(SurfaceColor))
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "Last: $name · $ago",
+                    fontSize = 12.sp,
+                    color = TextSecondary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp)
+                )
+            }
         }
     }
 }
 
-// A square, rounded activity tile: a big count over a title and a short qualifier.
+// One number-over-label cell in the stat strip.
 @Composable
-private fun ActivityBox(count: Int, title: String, subtitle: String, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .aspectRatio(1f)
-            .background(CardBackground, RoundedCornerShape(16.dp))
-            .padding(12.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("$count", fontSize = 40.sp, fontWeight = FontWeight.Bold, color = AccentOrange)
-            Text(if (count == 1) "workout" else "workouts", fontSize = 12.sp, color = TextSecondary)
-            Spacer(Modifier.height(8.dp))
-            Text(title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary, textAlign = TextAlign.Center)
-            Text(subtitle, fontSize = 11.sp, color = TextSecondary, textAlign = TextAlign.Center)
-        }
+private fun MiniStat(value: String, label: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = AccentOrange)
+        Text(label, fontSize = 11.sp, color = TextSecondary, textAlign = TextAlign.Center, maxLines = 1, softWrap = false)
     }
 }
 
+// Thin vertical rule separating stat cells.
 @Composable
-private fun QuickStartCard(
+private fun StatDivider() {
+    Box(modifier = Modifier.width(1.dp).height(34.dp).background(SurfaceColor))
+}
+
+// A compact half-width start tile: accent icon over a title and one-line subtitle.
+@Composable
+private fun CompactStartTile(
     title: String,
     subtitle: String,
     accent: Color,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit,
-    enabled: Boolean = true
+    enabled: Boolean,
+    modifier: Modifier = Modifier
 ) {
     Card(
         backgroundColor = CardBackground,
         elevation = 0.dp,
         shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(enabled = enabled, onClick = onClick)
-                .padding(20.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(16.dp),
+            horizontalAlignment = Alignment.Start
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = subtitle,
-                    fontSize = 13.sp,
-                    color = TextSecondary
-                )
-            }
-
             Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(accent.copy(alpha = 0.15f), CircleShape),
+                modifier = Modifier.size(44.dp).background(accent.copy(alpha = 0.15f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.Filled.PlayArrow,
-                    contentDescription = null,
-                    tint = accent,
-                    modifier = Modifier.size(24.dp)
-                )
+                Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(24.dp))
             }
+            Spacer(Modifier.height(10.dp))
+            Text(title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary, maxLines = 1, softWrap = false)
+            Text(subtitle, fontSize = 11.sp, color = TextSecondary, maxLines = 1, softWrap = false)
         }
     }
 }
