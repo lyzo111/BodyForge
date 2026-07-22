@@ -438,28 +438,52 @@ object SharedWorkoutState {
         return "custom_${slug}_${Clock.System.now().toEpochMilliseconds()}"
     }
 
-    // Pre-fills each exercise's sets with the reps/weight logged the last time that exercise was
-    // performed, so a template-started workout opens with last session's numbers instead of blanks.
+    // Pre-fills each exercise's sets from history, so a template-started workout opens with last
+    // session's numbers instead of blanks. Two settings choose the source independently for the set
+    // count and for the reps/weight: the last session of the SAME template variation (matched by
+    // templateId) or the most recent session in ANY variation. Same-variation falls back to any
+    // when there's no same-variation history yet (e.g. first time running this template).
     private suspend fun prefillFromHistory(workout: Workout): Workout {
         val history = workoutRepo.getCompletedWorkouts()
         if (history.isEmpty()) return workout
+        val templateId = workout.templateId
+        val setsSame = com.bodyforge.data.AppSettings.prefillSetsSameVariation
+        val weightsSame = com.bodyforge.data.AppSettings.prefillWeightsSameVariation
+
         val updatedExercises = workout.exercises.map { exerciseInWorkout ->
-            val lastPerformed = history.firstNotNullOfOrNull { completed ->
-                completed.exercises.firstOrNull { it.exercise.id == exerciseInWorkout.exercise.id }
-                    ?.takeIf { previous -> previous.sets.any { it.reps > 0 } }
-            } ?: return@map exerciseInWorkout
-            val previousSets = lastPerformed.sets.filter { it.reps > 0 }
-            val prefilledSets = previousSets.mapIndexed { index, source ->
+            val exId = exerciseInWorkout.exercise.id
+            fun lastPerformed(sameVariationOnly: Boolean): ExerciseInWorkout? =
+                history.firstNotNullOfOrNull { completed ->
+                    if (sameVariationOnly && (templateId == null || completed.templateId != templateId)) return@firstNotNullOfOrNull null
+                    completed.exercises.firstOrNull { it.exercise.id == exId }
+                        ?.takeIf { previous -> previous.sets.any { it.reps > 0 } }
+                }
+            val countSource = (if (setsSame) lastPerformed(true) else null) ?: lastPerformed(false)
+            val valueSource = (if (weightsSame) lastPerformed(true) else null) ?: lastPerformed(false)
+            if (countSource == null && valueSource == null) return@map exerciseInWorkout
+
+            val valueSets = valueSource?.sets?.filter { it.reps > 0 }.orEmpty()
+            val count = countSource?.sets?.count { it.reps > 0 }
+                ?: valueSets.size.takeIf { it > 0 }
+                ?: return@map exerciseInWorkout
+            val prefilledSets = (0 until count).map { index ->
+                // Fewer reps/weight sources than sets: repeat the last one for the extra sets.
+                val source = valueSets.getOrNull(index) ?: valueSets.lastOrNull()
                 WorkoutSet.createEmpty(
-                    exerciseId = exerciseInWorkout.exercise.id,
+                    exerciseId = exId,
                     setNumber = index + 1,
                     defaultRestTime = exerciseInWorkout.exercise.defaultRestTimeSeconds,
                     workoutId = workout.id
-                ).copy(reps = source.reps, weightKg = source.weightKg)
+                ).copy(reps = source?.reps ?: 0, weightKg = source?.weightKg ?: 0.0)
             }
-            // Carry over the exercise-level note (e.g. form cues) and the variation label from
-            // last time, but never set notes — those are tied to that day's performance.
-            exerciseInWorkout.copy(sets = prefilledSets, notes = lastPerformed.notes, variation = lastPerformed.variation)
+            // Carry over the exercise-level note and per-exercise variation label from whichever
+            // source we used, but never set notes — those are tied to that day's performance.
+            val metaSource = valueSource ?: countSource
+            exerciseInWorkout.copy(
+                sets = prefilledSets,
+                notes = metaSource?.notes ?: "",
+                variation = metaSource?.variation ?: ""
+            )
         }
         return workout.copy(exercises = updatedExercises)
     }

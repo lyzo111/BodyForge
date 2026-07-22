@@ -57,6 +57,17 @@ object AppSettings {
         get() = prefs.getFloat("weight_step", 2.5f).toDouble()
         set(value) { prefs.edit().putFloat("weight_step", value.toFloat()).putString(LAST_CHANGED, "weight_step").apply() }
 
+    // How a template-started workout prefills from history. When true (default), the set count /
+    // the reps & weight come from the last session of the SAME template variation (e.g. last
+    // "Pull A"); when false, from the most recent session of that exercise in any variation.
+    var prefillSetsSameVariation: Boolean
+        get() = prefs.getBoolean("prefill_sets_same_variation", true)
+        set(value) { prefs.edit().putBoolean("prefill_sets_same_variation", value).putString(LAST_CHANGED, "prefill_sets_same_variation").apply() }
+
+    var prefillWeightsSameVariation: Boolean
+        get() = prefs.getBoolean("prefill_weights_same_variation", true)
+        set(value) { prefs.edit().putBoolean("prefill_weights_same_variation", value).putString(LAST_CHANGED, "prefill_weights_same_variation").apply() }
+
     // templateId -> split name (e.g. "PPL"). Persisted here, so splits need no database migration.
     // Entries are joined with control characters (record/unit separators) that users won't type.
     private const val RECORD_SEP = "\u001E"

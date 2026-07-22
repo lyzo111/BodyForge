@@ -38,6 +38,8 @@ fun SettingsScreen(listState: LazyListState) {
     var emojiMode by remember { mutableStateOf(AppSettings.emojiMode) }
     var bigButtons by remember { mutableStateOf(AppSettings.bigButtonMode) }
     var weightStep by remember { mutableStateOf(AppSettings.weightStep) }
+    var prefillSetsSame by remember { mutableStateOf(AppSettings.prefillSetsSameVariation) }
+    var prefillWeightsSame by remember { mutableStateOf(AppSettings.prefillWeightsSameVariation) }
     var infoDialog by remember { mutableStateOf<Pair<String, String>?>(null) } // (title, text)
 
     LazyColumn(
@@ -158,6 +160,39 @@ fun SettingsScreen(listState: LazyListState) {
         }
 
         item {
+            SettingsCard("Prefill from history") {
+                Text(
+                    "When a template workout opens, where its starting numbers come from.",
+                    color = TextSecondary,
+                    fontSize = 12.sp
+                )
+                Spacer(Modifier.height(10.dp))
+                PrefillRow(
+                    label = "Set count",
+                    sameVariation = prefillSetsSame,
+                    onInfo = {
+                        infoDialog = "Set count source" to
+                            "Same variation: the number of sets matches your last session of this exact template (e.g. last Pull A). Any variation: matches the most recent time you did the exercise in any workout."
+                    }
+                ) {
+                    prefillSetsSame = it
+                    AppSettings.prefillSetsSameVariation = it
+                }
+                PrefillRow(
+                    label = "Reps & weight",
+                    sameVariation = prefillWeightsSame,
+                    onInfo = {
+                        infoDialog = "Reps & weight source" to
+                            "Same variation: reps and weight are prefilled from your last session of this exact template. Any variation: from the most recent time you did the exercise anywhere."
+                    }
+                ) {
+                    prefillWeightsSame = it
+                    AppSettings.prefillWeightsSameVariation = it
+                }
+            }
+        }
+
+        item {
             SettingsCard("Theme") {
                 appThemes.chunked(3).forEachIndexed { rowIndex, rowThemes ->
                     if (rowIndex > 0) Spacer(Modifier.height(8.dp))
@@ -193,6 +228,32 @@ fun SettingsScreen(listState: LazyListState) {
             },
             backgroundColor = CardBackground
         )
+    }
+}
+
+// A labelled row with an info button and a "Same variation" / "Any" two-chip selector.
+@Composable
+private fun PrefillRow(
+    label: String,
+    sameVariation: Boolean,
+    onInfo: () -> Unit,
+    onChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(label, color = TextPrimary, fontSize = 14.sp)
+            IconButton(onClick = onInfo, modifier = Modifier.size(20.dp)) {
+                Icon(Icons.Filled.Info, contentDescription = "About $label", tint = TextSecondary, modifier = Modifier.size(16.dp))
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            UnitChip("Same var.", sameVariation) { onChange(true) }
+            UnitChip("Any", !sameVariation) { onChange(false) }
+        }
     }
 }
 
