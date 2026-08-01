@@ -488,25 +488,26 @@ object SharedWorkoutState {
         return workout.copy(exercises = updatedExercises)
     }
 
-    // Overrides sets for exercises that carry an explicit template target (sets/reps/weight),
-    // taking precedence over the history-based prefill.
+    // A template target defines only the SET COUNT here — the reps and weight per set stay the
+    // history-prefilled values so you always see (and aim to beat) what you actually lifted last
+    // time. The target rep range is shown separately under the exercise as a goal; its low end is
+    // only used to seed reps when there is no history for that set yet.
     private fun applyTemplateTargets(workout: Workout, template: WorkoutTemplate): Workout {
         if (template.targets.isEmpty()) return workout
         val updated = workout.exercises.map { eiw ->
             val target = template.targets[eiw.exercise.id] ?: return@map eiw
             val count = target.sets.coerceIn(1, 20)
-            val reps = target.minReps.coerceAtLeast(0)
-            // Weight is not a template target, so keep the history-prefilled weights (matched per
-            // set, repeating the last one for any extra sets).
             val historySets = eiw.sets
             val sets = (1..count).map { n ->
-                val histWeight = historySets.getOrNull(n - 1)?.weightKg ?: historySets.lastOrNull()?.weightKg ?: 0.0
+                val hist = historySets.getOrNull(n - 1) ?: historySets.lastOrNull()
+                val reps = hist?.reps?.takeIf { it > 0 } ?: target.minReps.coerceAtLeast(0)
+                val weight = hist?.weightKg ?: 0.0
                 WorkoutSet.createEmpty(
                     exerciseId = eiw.exercise.id,
                     setNumber = n,
                     defaultRestTime = eiw.exercise.defaultRestTimeSeconds,
                     workoutId = workout.id
-                ).copy(reps = reps, weightKg = histWeight)
+                ).copy(reps = reps, weightKg = weight)
             }
             eiw.copy(sets = sets)
         }

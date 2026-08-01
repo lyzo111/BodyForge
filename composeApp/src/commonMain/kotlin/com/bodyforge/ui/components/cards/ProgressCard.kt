@@ -221,6 +221,52 @@ private fun ProgressContent(
 
     val anyExercise = selectedSubjects.any { it != null }
 
+    // Which exercises were actually performed in each template's logged workouts, so the routine /
+    // variation / split chips can hide any where the tracked exercise never appeared.
+    val exercisesByTemplate = remember(workouts) {
+        val map = HashMap<String, MutableSet<String>>()
+        workouts.forEach { w ->
+            val tid = w.templateId ?: return@forEach
+            val set = map.getOrPut(tid) { mutableSetOf() }
+            w.exercises.forEach { eiw ->
+                if (eiw.sets.any { it.reps > 0 && !it.isSkipped }) set.add(eiw.exercise.id)
+            }
+        }
+        map
+    }
+    val trackedExerciseIds = remember(selectedSubjects) {
+        selectedSubjects.filterNotNull().map { subjectExerciseId(it) }.toSet()
+    }
+    // Only filter when tracking exercises alone; Total Volume spans everything, so it shows all.
+    val filterByExercise = !selectedSubjects.contains(null) && trackedExerciseIds.isNotEmpty()
+    val visibleGroups = remember(groups, filterByExercise, trackedExerciseIds, exercisesByTemplate) {
+        if (!filterByExercise) groups
+        else groups.filter { g -> g.templateIds.any { tid -> exercisesByTemplate[tid]?.any { it in trackedExerciseIds } == true } }
+    }
+    val visibleSplits = remember(splits, filterByExercise, trackedExerciseIds, exercisesByTemplate) {
+        if (!filterByExercise) splits
+        else splits.filter { g -> g.templateIds.any { tid -> exercisesByTemplate[tid]?.any { it in trackedExerciseIds } == true } }
+    }
+    val visibleVariationLabels = remember(routineVariations, filterByExercise, trackedExerciseIds, exercisesByTemplate) {
+        val relevant = if (!filterByExercise) routineVariations
+            else routineVariations.filter { t -> exercisesByTemplate[t.id]?.any { it in trackedExerciseIds } == true }
+        relevant.map { it.variationLabel.ifBlank { it.name } }.distinct()
+    }
+
+    // Keep the current selection valid when filtering hides it: jump to the first visible one.
+    LaunchedEffect(visibleGroups) {
+        if (visibleGroups.none { it.key == selectedGroupKey }) {
+            selectedGroupKey = visibleGroups.firstOrNull()?.key
+            selectedVariationLabel = null
+        }
+    }
+    LaunchedEffect(visibleSplits) {
+        if (visibleSplits.none { it.key == selectedSplitKey }) selectedSplitKey = visibleSplits.firstOrNull()?.key
+    }
+    LaunchedEffect(visibleVariationLabels) {
+        if (selectedVariationLabel != null && selectedVariationLabel !in visibleVariationLabels) selectedVariationLabel = null
+    }
+
     val scopedWorkouts = remember(workouts, scope, selectedPhaseId, selectedGroupKey, selectedSplitKey, selectedVariationLabel, routineVariations, phases, groups, splits) {
         val base = when (scope) {
             Scope.ALL -> workouts
@@ -377,17 +423,20 @@ private fun ProgressContent(
             }
         }
         if (scope == Scope.ROUTINE) {
-            if (groups.isEmpty()) {
-                Text("No templates yet — create one on the Templates tab.", fontSize = 12.sp, color = TextSecondary)
+            if (visibleGroups.isEmpty()) {
+                Text(
+                    if (filterByExercise) "This exercise hasn't been logged in any routine yet."
+                    else "No templates yet — create one on the Templates tab.",
+                    fontSize = 12.sp, color = TextSecondary
+                )
             } else {
                 ChipRow("Routine") {
-                    groups.forEach { g -> SelectChip(g.label, g.key == selectedGroupKey) { selectedGroupKey = g.key; selectedVariationLabel = null } }
+                    visibleGroups.forEach { g -> SelectChip(g.label, g.key == selectedGroupKey) { selectedGroupKey = g.key; selectedVariationLabel = null } }
                 }
-                val variationLabels = routineVariations.map { it.variationLabel.ifBlank { it.name } }.distinct()
-                if (variationLabels.size > 1) {
+                if (visibleVariationLabels.size > 1) {
                     ChipRow("Variation") {
                         SelectChip("Across variations", selectedVariationLabel == null) { selectedVariationLabel = null }
-                        variationLabels.forEach { label ->
+                        visibleVariationLabels.forEach { label ->
                             SelectChip(label, selectedVariationLabel == label) { selectedVariationLabel = label }
                         }
                     }
@@ -395,11 +444,15 @@ private fun ProgressContent(
             }
         }
         if (scope == Scope.SPLIT) {
-            if (splits.isEmpty()) {
-                Text("No splits yet — assign templates to a split on the Templates tab.", fontSize = 12.sp, color = TextSecondary)
+            if (visibleSplits.isEmpty()) {
+                Text(
+                    if (filterByExercise) "This exercise hasn't been logged in any split yet."
+                    else "No splits yet — assign templates to a split on the Templates tab.",
+                    fontSize = 12.sp, color = TextSecondary
+                )
             } else {
                 ChipRow("Split") {
-                    splits.forEach { g -> SelectChip(g.label, g.key == selectedSplitKey) { selectedSplitKey = g.key } }
+                    visibleSplits.forEach { g -> SelectChip(g.label, g.key == selectedSplitKey) { selectedSplitKey = g.key } }
                 }
             }
         }
